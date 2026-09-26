@@ -1,11 +1,10 @@
 <!--
-Règle de rangement : une PR mergée dans `main` depuis une branche `sprint-N`
-se fond dans la mineure de ce sprint (étiquette sur le dernier merge de la
-branche) ; une PR mergée directement dans `main` hors branche de sprint est un
-correctif de la mineure précédente, un par merge sur `main`, dans l'ordre où
-ils ont atterri (une PR fusionnée dans une autre branche suit celle-ci) ;
-des merges arrivés ensemble à quelques secondes d'écart font un seul correctif,
-étiqueté sur le dernier.
+Règle de rangement (voir CONTRIBUTING.md) : chaque PR ajoute sa ligne sous
+« Non publié », dans la rubrique Keep a Changelog qui convient (Ajouté,
+Modifié, Corrigé, Retiré, Sécurité), du point de vue du cycliste. Au
+déploiement, « Non publié » devient la nouvelle version ; le numéro suit
+SemVer en `0.x` et n'est jamais changé dans une PR — c'est le geste du
+mainteneur.
 -->
 
 # Journal des changements
@@ -21,6 +20,15 @@ partir des PR.
 
 ## [Non publié]
 
+### Retiré
+
+- La page du jour autonome hébergée (un conteneur qui générait une carte une
+  fois par jour, servie derrière une authentification basique, sans compte
+  ni interface) n'est plus fournie : l'API et son interface web la
+  remplacent.
+
+## [0.10.0] — 2026-09-26
+
 ### Ajouté
 
 - Analyser un parcours qu'on a déjà (un brevet, la boucle du club) : on
@@ -30,6 +38,10 @@ partir des PR.
 
 ### Modifié
 
+- Le code a été entièrement restructuré, sans changement de comportement :
+  un noyau sans dépendance, des services, un rendu séparé, une physique pure,
+  des règles d'architecture et de taille vérifiées à chaque modification
+  (voir `ARCHITECTURE.md`). Pour qui contribue, c'est le vrai point de départ.
 - Le service peut calculer sans passer par la ligne de commande
   (`OUROULER_API_CHEMIN` : `ancien` par défaut, `nouveau`, ou `double` pour
   comparer les deux avant de basculer) ; les réponses sont identiques, et le

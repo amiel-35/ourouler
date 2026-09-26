@@ -1,15 +1,15 @@
 /** E6 · activation d'une invitation, atteint par `/entrer?jeton=…` — et son pendant,
- * `/reinitialiser?jeton=…`, la réinitialisation d'un mot de passe (lot L9.6).
+ * `/reinitialiser?jeton=…`, la réinitialisation d'un mot de passe.
  *
  * Le lien du mail d'invitation (ou de réinitialisation), et lui seul — jamais une
  * navigation interne : le front n'a pas de routeur, `App.tsx` lit
  * `window.location.pathname` une fois au démarrage et choisit cet écran plutôt que
- * l'application (lot L7.2-D). Le jeton est retiré de la barre d'adresse dès qu'il est lu
+ * l'application. Le jeton est retiré de la barre d'adresse dès qu'il est lu
  * (`history.replaceState`, fait par l'appelant) : il n'a rien à faire dans
  * l'historique du navigateur ni dans un en-tête `Referer`.
  *
- * **Un seul composant pour les deux liens** (`mode`, défaut `"entrer"`) : le contrat du
- * lot L9.6 demande de réutiliser l'écran d'activation plutôt que d'en refaire un —
+ * **Un seul composant pour les deux liens** (`mode`, défaut `"entrer"`) : l'écran
+ * d'activation se réutilise plutôt que de se refaire —
  * `GET /invitation` rend la même forme dans les deux cas (même table `invitations`,
  * `api/comptes.py`), et le formulaire de mot de passe est identique. Seuls changent le
  * texte d'accueil, le libellé du bouton et la route appelée à la soumission
@@ -18,7 +18,7 @@
  * `GET /invitation` dit si le jeton tient encore — inconnu, expiré ou déjà
  * consommé rendent la **même** réponse (404 `invitation_invalide`), et cet
  * écran ne cherche pas à deviner lequel : c'est voulu côté serveur
- * (`api/routes.py`, « on ne dit pas à un inconnu lequel des trois il a
+ * (`api/routes/sessions.py`, « on ne dit pas à un inconnu lequel des trois il a
  * rencontré »).
  */
 
@@ -115,8 +115,7 @@ export function Entrer({ jeton, surEntre, mode = "entrer" }: Props) {
           Deux suites, et la première est de loin la plus frequente : un lien
           d'invitation ne vaut qu'une fois, donc celui qui reclique sur le sien
           est quelqu'un qui a **deja** un compte. Lui dire de redemander une
-          invitation etait la seule reponse offerte, et c'etait la mauvaise
-          (constate le 19/09/2026, sur le premier lien reclique).
+          invitation comme seule reponse serait la mauvaise.
 
           Proposer la connexion ne dit rien de l'etat du jeton : la meme page
           s'affiche pour un lien inconnu, expire ou consomme, et ce bouton y

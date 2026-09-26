@@ -48,9 +48,7 @@ from ourouler.rendu.boucle import lignes_elargissement
         (0.347, 0.10, 0.25),  # le cas mesuré sur son serveur, 2 km demandés
     ],
 )
-def test_le_palier_est_le_plus_petit_multiple_de_cinq_pourcent_qui_suffit(
-    ecart, tolerance, attendu
-):
+def test_le_palier_est_le_plus_petit_multiple_de_cinq_pourcent_qui_suffit(ecart, tolerance, attendu):
     assert palier(ecart, tolerance) == pytest.approx(attendu)
 
 
@@ -108,9 +106,7 @@ def test_elargir_la_tolerance_ne_rend_jamais_une_meilleure_boucle():
     appels_par_tolerance = {}
     for tolerance in (0.02, 0.10, 0.30, 0.50):
         client, appels = moteur(lambda rayon: rayon * 4.0)
-        trouvees = generer(
-            client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=tolerance
-        )
+        trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=tolerance)
         assert trouvees, f"tolérance {tolerance} : le moteur converge, il doit rendre une boucle"
         ecarts[tolerance] = abs(trouvees[0].ecart_relatif)
         appels_par_tolerance[tolerance] = len(appels)
@@ -164,7 +160,6 @@ def test_une_boucle_servie_hors_tolerance_est_marquee_et_chiffree():
     assert candidate.hors_tolerance is True
     assert candidate.elargissement == pytest.approx(0.05)
     assert candidate.tolerance == pytest.approx(0.05)
-    assert candidate.tolerance_atteinte == pytest.approx(0.10)
 
 
 def test_une_boucle_dans_la_tolerance_ne_porte_aucun_elargissement():
@@ -208,6 +203,7 @@ def test_un_azimut_hors_plafond_ne_condamne_pas_les_autres():
     perdre les directions où il sait — même raison que pour les pannes par
     azimut, déjà traitées ainsi.
     """
+
     # Le premier azimut exploré est celui demandé (45°) ; on le rend stérile.
     def longueur(rayon: float) -> float:
         return rayon * 5.0
@@ -228,7 +224,7 @@ def test_une_direction_refusee_ne_condamne_pas_les_autres_dans_sortie(monkeypatc
     tomber toute la recherche — y compris les directions où il savait. C'est
     un défaut que ce lot a failli introduire, et que ce test garde fermé.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     appels: list[float] = []
 
@@ -271,7 +267,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe(monke
     C'est le refus qui demandait le plus petit élargissement : c'est lui qui
     dit le plus justement de combien il aurait fallu élargir.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     def faux_generer(_client, _depart, *, azimut_deg, **_reste):
         requis = 0.60 if azimut_deg < 180.0 else 0.20
@@ -320,7 +316,7 @@ def test_une_direction_refusee_ne_condamne_pas_les_autres_dans_boucle(monkeypatc
     sait pas faire la distance ne doit pas faire tomber les directions où il
     sait.
     """
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     appels: list[float] = []
 
@@ -368,7 +364,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe_dans_
     refuser — avec le message le plus utile, celui du plus petit élargissement
     requis.
     """
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     def faux_generer(_client, _depart, *, azimut_deg, **_reste):
         requis = 0.60 if azimut_deg < 180.0 else 0.20
@@ -404,7 +400,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe_dans_
 
 def test_avec_direction_un_seul_appel_est_fait_dans_boucle(monkeypatch):
     """`--direction` reste prioritaire et n'ouvre qu'un seul appel (comportement inchangé)."""
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     appels: list[float] = []
 

@@ -33,9 +33,7 @@ DEGRE_M = math.radians(1.0) * 6_371_000.0
 PAS_M = 50.0
 
 
-def ligne_droite(
-    longueur_m: float, altitudes=None, pas_m: float = PAS_M
-) -> list[PointTrace]:
+def ligne_droite(longueur_m: float, altitudes=None, pas_m: float = PAS_M) -> list[PointTrace]:
     """Une ligne droite plein est depuis (0, 0), un point tous les `pas_m`.
 
     `altitudes` est une fonction distance → altitude ; sans elle, l'altitude
@@ -62,17 +60,13 @@ def anneau(rayon_deg: float = 0.01, nombre: int = 120) -> list[PointTrace]:
     bruts = []
     for i in range(nombre):
         angle = 2 * math.pi * i / nombre
-        bruts.append(
-            (LAT_FICTIVE + rayon_deg * math.cos(angle), LON_FICTIVE + rayon_deg * math.sin(angle))
-        )
+        bruts.append((LAT_FICTIVE + rayon_deg * math.cos(angle), LON_FICTIVE + rayon_deg * math.sin(angle)))
     bruts.append(bruts[0])
     points, cumul = [], 0.0
     for i, (lat, lon) in enumerate(bruts):
         if i:
             precedent = points[-1]
-            cumul += math.hypot(
-                (lat - precedent.lat) * DEGRE_M, (lon - precedent.lon) * DEGRE_M
-            )
+            cumul += math.hypot((lat - precedent.lat) * DEGRE_M, (lon - precedent.lon) * DEGRE_M)
         points.append(PointTrace(lat=lat, lon=lon, alt_m=100.0, dist_m=cumul))
     return points
 
@@ -387,9 +381,9 @@ POIDS_NON_MESURABLES = {"POIDS_CARREFOUR"}
 
 
 def _validation():
-    """Le script `tests/validation/terrain_retrospectif.py`, chargé par chemin.
+    """Le script `scripts/validation/terrain_retrospectif.py`, chargé par chemin.
 
-    Il n'est pas collecté par pytest (son nom ne commence pas par `test_`) et
+    Il n'est pas collecté par pytest (il vit hors de `tests/`) et
     c'est voulu : il lit le cache réel du mainteneur. On l'importe quand même
     ici, parce que son **contenu** — la liste des postes qu'il diagnostique —
     est ce qui rend les poids auditables, et qu'un poids qui sort de cette
@@ -400,7 +394,7 @@ def _validation():
 
     if "terrain_retrospectif" in sys.modules:
         return sys.modules["terrain_retrospectif"]
-    chemin = RACINE / "tests" / "validation" / "terrain_retrospectif.py"
+    chemin = RACINE / "scripts" / "validation" / "terrain_retrospectif.py"
     spec = importlib.util.spec_from_file_location("terrain_retrospectif", chemin)
     module = importlib.util.module_from_spec(spec)
     sys.modules["terrain_retrospectif"] = module
@@ -484,9 +478,7 @@ def test_le_script_echoue_quand_les_deux_modes_divergent(capsys):
 
 def _bilan_qui_echoue(validation):
     """Un bilan de blocs courts dont la note vaut 80 % du hasard : verdict NON."""
-    bloc = validation.Bloc(
-        libelle="bloc 1", debut_m=0.0, longueur_m=1500.0, duree_s=300.0, puissance_w=210.0
-    )
+    bloc = validation.Bloc(libelle="bloc 1", debut_m=0.0, longueur_m=1500.0, duree_s=300.0, puissance_w=210.0)
     comparaison = validation.Comparaison(
         sortie="sortie fabriquée",
         bloc=bloc,
@@ -530,7 +522,7 @@ def test_la_conclusion_de_la_validation_est_ecrite_dans_la_demarche():
     deux limites ; le README, devenu court, y renvoie.
     """
     demarche = (RACINE / "docs" / "demarche.md").read_text(encoding="utf-8")
-    assert "tests/validation/terrain_retrospectif.py" in demarche
+    assert "scripts/validation/terrain_retrospectif.py" in demarche
     for morceau in ("70 %", "mode nominal", "carrefour", "6 km"):
         assert morceau in demarche, f"docs/demarche.md ne dit pas « {morceau} »"
 
@@ -647,10 +639,7 @@ def test_sans_segments_les_routes_sont_dites_inconnues():
 
 
 def test_sans_altitude_le_motif_le_dit():
-    points = [
-        PointTrace(lat=p.lat, lon=p.lon, alt_m=None, dist_m=p.dist_m)
-        for p in ligne_droite(2000.0)
-    ]
+    points = [PointTrace(lat=p.lat, lon=p.lon, alt_m=None, dist_m=p.dist_m) for p in ligne_droite(2000.0)]
     note = evaluer_couloir(trace_de(points, un_segment(points, highway="tertiary")), 0.0, 1000.0)
     assert note.pente_moyenne == pytest.approx(0.0)
     assert "altitude inconnue" in note.motifs
@@ -682,9 +671,7 @@ def test_trace_de_deux_points_ne_leve_pas():
 
 
 def test_trace_vide_rend_une_note_sans_lever():
-    trace = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    trace = Trace(nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
     note = evaluer_couloir(trace, 0.0, 1000.0)
     assert note.note == pytest.approx(PENALITE_BLOC_TRONQUE)
     assert note.motifs == ["aucun tracé sous le bloc"]
@@ -728,16 +715,14 @@ def test_route_au_dela_sur_boucle_fermee():
     assert trace.bornee()
     # Où qu'on soit sur la boucle, on peut continuer : la route ne s'arrête pas.
     assert route_au_dela(trace, total - 10.0, 800.0) is True
-    # Y compris pour un besoin plus long que le tour lui-même (contrat §2 :
-    # « ou si le tracé est une boucle fermée ») : on repasse au même endroit,
+    # Y compris pour un besoin plus long que le tour lui-même (« ou si le
+    # tracé est une boucle fermée ») : on repasse au même endroit,
     # mais on roule. En pratique le besoin vaut une demi-récup, jamais un tour.
     assert route_au_dela(trace, 0.0, total * 2) is True
 
 
 def test_route_au_dela_sur_trace_sans_longueur():
-    trace = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    trace = Trace(nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
     assert route_au_dela(trace, 0.0, 300.0) is False
 
 

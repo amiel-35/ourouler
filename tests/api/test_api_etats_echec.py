@@ -38,15 +38,6 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-
 #: Les quatre états, chacun avec les mots qui doivent apparaître quelque part
 #: dans le contrat publié. Un état d'échec qui n'est nommé nulle part dans le
 #: schéma n'a pas été modélisé : il sera découvert en production.
@@ -78,9 +69,7 @@ def _demander_un_parcours(client, **champs):
     """
     schema = schema_openapi(client)
     chemin, methode, operation = route_pour(schema, "sortie", "boucle", "parcours")
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 @pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=[e for e, _ in ETATS_DESSINES])
@@ -173,7 +162,7 @@ def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
 def test_meteo_indisponible_sert_quand_meme_le_parcours():
     """Protège E14 · dégradé (« Pas de météo ce matin »).
 
-    `boucle/commande.py` le dit déjà dans son docstring : « la météo est le
+    `services/boucle.py` le dit déjà dans son docstring : « la météo est le
     seul maillon qu'on accepte de perdre ». L'écran le montre : le parcours
     reste là, ce sont les affirmations qui disparaissent. Une API qui répond
     503 parce qu'Open-Meteo est tombé supprime un écran qui marche.
@@ -395,9 +384,7 @@ def test_intervals_en_panne_ne_casse_pas_le_reste_du_produit():
     # d'Intervals — la voir échouer ne prouvait rien. « Le reste », dans E15,
     # c'est la boucle libre : demander un parcours sans séance.
     chemin, methode, operation = route_pour(schema, "boucle")
-    reponse = appeler_route(
-        client, schema, chemin, methode, operation, dict(DEMANDE_PARCOURS_MINIMALE)
-    )
+    reponse = appeler_route(client, schema, chemin, methode, operation, dict(DEMANDE_PARCOURS_MINIMALE))
     assert reponse.status_code == 200, (
         f"statut {reponse.status_code} : la boucle libre ne demande rien à Intervals et tombe "
         "quand même. E15 promet l'inverse : « Tout le reste fonctionne. »"

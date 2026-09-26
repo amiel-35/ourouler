@@ -1,16 +1,15 @@
 """Rendu des commandes du modèle physique : `calibrer`, `simuler`, `analyser`, `comparer`.
 
-Couche 4 de `docs/ouverture_plan.md` §2, sortie de `physique/commande.py` et
-de `physique/comparer.py` au lot 8. Chaque fonction reçoit des objets déjà
+La couche de rendu de `services/physique.py` et de `services/comparer.py`
+(`ARCHITECTURE.md`). Chaque fonction reçoit des objets déjà
 calculés — le rapport de calibration, la simulation, la météo le long du
 tracé, la comparaison — et rend une chaîne ou un dictionnaire : aucun accès
 disque ni réseau, aucune lecture de configuration. Ce que la commande
 connaissait par la `Config` ou le client d'archive (date de début de
 l'historique, appels à l'archive, fichier écrit) lui est passé en valeurs.
 
-Le texte et le JSON sont ceux d'avant le lot 8, à l'octet près : les
-références `tests/caracterisation/cli_calibrer.json` et `cli_comparer.json`
-les figent.
+Le texte et le JSON sont figés à l'octet près : les références
+`tests/caracterisation/cli_calibrer.json` et `cli_comparer.json` les figent.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.horaire import Pause
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.noyau.profil import Velo
+from ourouler.noyau.texte import duree_h_min, nombre_fr
 from ourouler.physique import litterature
 from ourouler.physique.calibration import (
     SORTIES_MIN_FOURCHETTE,
@@ -30,15 +30,12 @@ from ourouler.physique.calibration import (
     RapportCalibration,
 )
 from ourouler.physique.modele import FourchettePorteAPorte, Parametres, PorteAPorte, Simulation
-
-# Réexport : `comparer` a son rendu dans `rendu.comparaison`.
-from ourouler.rendu.comparaison import rendre_json_comparaison, rendre_texte_comparaison  # noqa: F401
 from ourouler.stockage.calibrations import porte_a_porte_json
 
 #: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut
 #: pour un modèle qui tourne sur des valeurs de `physique.litterature` : le
 #: temps est calculé, mais sur des CdA et Crr jamais mesurés sur ce vélo
-#: (règle absolue 5). Mêmes mots que `boucle.commande`.
+#: (on ne présente jamais une estimation comme une mesure). Mêmes mots que `services.boucle`.
 MENTION_MODELE = "(modèle)"
 MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
@@ -59,15 +56,12 @@ def rendre_texte_calibration(
     crr_source: str = "ajuste",
 ) -> str:
     lignes = [
-        f"Calibration {velo.nom} — {n_calibrables} sortie(s) calibrable(s) "
-        f"depuis le {depuis.isoformat()}"
+        f"Calibration {velo.nom} — {n_calibrables} sortie(s) calibrable(s) depuis le {depuis.isoformat()}"
     ]
     if motifs:
         detail = ", ".join(f"{nombre} {motif}" for motif, nombre in sorted(motifs.items()))
         lignes.append(f"Sorties du vélo écartées : {detail}")
-    lignes.append(
-        f"Archives météo : {archives_appels} appel(s), {archives_cache} déjà en cache"
-    )
+    lignes.append(f"Archives météo : {archives_appels} appel(s), {archives_cache} déjà en cache")
     lignes.append("")
     lignes.extend(_lignes_apprentissage(rapport, velo, crr_source))
     lignes.append("")
@@ -101,33 +95,31 @@ def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: s
         )
     # Ce que les données mesurent vraiment vient en premier ; CdA et Crr, qui
     # peuvent se compenser l'un l'autre, sont relégués à une ligne de détail
-    # (décision du 13/09 — on ne cherche plus à les séparer).
+    # (décision Q9, `docs/journal/questions/questions_mainteneur.md` : on ne cherche pas à les séparer).
     lignes.append("  résistance totale sur le plat sans vent, vélo + cycliste :")
     for vitesse, force, puissance in a.resistances:
         lignes.append(
-            f"    à {vitesse:g} km/h : {_fr(force, 1)} N  —  {_fr(puissance, 0)} W au pédalier"
+            f"    à {vitesse:g} km/h : {nombre_fr(force, 1)} N  —  {nombre_fr(puissance, 0)} W au pédalier"
         )
-    lignes.append(
-        f"  résidu de puissance : RMSE {_fr(a.rmse_w, 1)} W, MAE {_fr(a.mae_w, 1)} W"
-    )
+    lignes.append(f"  résidu de puissance : RMSE {nombre_fr(a.rmse_w, 1)} W, MAE {nombre_fr(a.mae_w, 1)} W")
     if a.crr_fixe:
-        # L9.1 : le Crr est reçu (pneu ou configuration), seul le CdA est
+        # Le Crr est reçu (pneu ou configuration), seul le CdA est
         # cherché — il se cite donc, lui, sans la réserve « mal séparé ».
         lignes.append(
-            f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
-            f"Crr {_fr(a.crr, 4)} fixé ({_crr_texte(crr_source, velo)}), "
-            f"masse {_fr(a.masse_totale_kg, 1)} kg, ρ moyen {_fr(a.rho_moyen, 3)}"
+            f"  CdA {nombre_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
+            f"Crr {nombre_fr(a.crr, 4)} fixé ({_crr_texte(crr_source, velo)}), "
+            f"masse {nombre_fr(a.masse_totale_kg, 1)} kg, ρ moyen {nombre_fr(a.rho_moyen, 3)}"
         )
     else:
         lignes.append(
-            f"  détail (mal séparé, à ne pas citer seul) : CdA {_fr(a.cda_m2, 3)} m²"
-            f"{_incertitude(a.incertitudes.cda, 3)}, Crr {_fr(a.crr, 5)}"
-            f"{_incertitude(a.incertitudes.crr, 5)}, masse {_fr(a.masse_totale_kg, 1)} kg, "
-            f"ρ moyen {_fr(a.rho_moyen, 3)}"
+            f"  détail (mal séparé, à ne pas citer seul) : CdA {nombre_fr(a.cda_m2, 3)} m²"
+            f"{_incertitude(a.incertitudes.cda, 3)}, Crr {nombre_fr(a.crr, 5)}"
+            f"{_incertitude(a.incertitudes.crr, 5)}, masse {nombre_fr(a.masse_totale_kg, 1)} kg, "
+            f"ρ moyen {nombre_fr(a.rho_moyen, 3)}"
         )
     lignes.append(
-        f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
-        f"Crr {_fr(rapport.passe1.crr, 5)}"
+        f"  première passe (avec les sorties en groupe) : CdA {nombre_fr(rapport.passe1.cda_m2, 3)}, "
+        f"Crr {nombre_fr(rapport.passe1.crr, 5)}"
     )
     if a.crr_fixe:
         lignes.append(
@@ -162,7 +154,7 @@ def _lignes_validation(rapport: RapportCalibration) -> list[str]:
         for sortie in sorted(v.sorties, key=lambda s: abs(s.erreur_relative), reverse=True):
             lignes.append(
                 f"  {sortie.jour or '?':<12}{sortie.distance_m / 1000:>7.1f}"
-                f"{_duree(sortie.temps_reel_s):>9}{_duree(sortie.temps_simule_s):>9}"
+                f"{duree_h_min(sortie.temps_reel_s):>9}{duree_h_min(sortie.temps_simule_s):>9}"
                 f"{sortie.erreur_relative * 100:>+8.1f}%  {sortie.nom[:40]}"
             )
     if rapport.groupes_en_validation:
@@ -197,16 +189,16 @@ def _lignes_porte_a_porte(mesure: MesurePorteAPorte) -> list[str]:
         ]
     bas, mediane, haut = centiles
     lignes = [
-        f"Porte à porte : temps simulé × {_fr(bas, 3)} à × {_fr(haut, 3)} "
-        f"(médiane × {_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
+        f"Porte à porte : temps simulé × {nombre_fr(bas, 3)} à × {nombre_fr(haut, 3)} "
+        f"(médiane × {nombre_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
         f"temps simulé, {mesure.n} sortie(s) de validation sur {len(mesure.sorties)} à "
         f"moins de {seuil} de signal de groupe"
     ]
     mouvement = mesure.centiles_mouvement
     if mouvement is not None:
         lignes.append(
-            f"  sur le seul temps en mouvement : × {_fr(mouvement[0], 3)} à × "
-            f"{_fr(mouvement[2], 3)} (médiane × {_fr(mouvement[1], 3)}) — l'erreur du modèle, "
+            f"  sur le seul temps en mouvement : × {nombre_fr(mouvement[0], 3)} à × "
+            f"{nombre_fr(mouvement[2], 3)} (médiane × {nombre_fr(mouvement[1], 3)}) — l'erreur du modèle, "
             "arrêts exclus"
         )
     return lignes
@@ -273,9 +265,7 @@ def rendre_json_calibration(
             "mae": v.mae,
             "mediane": v.mediane,
             "biais": v.biais,
-            "groupes": [
-                {"nom": nom, "part": round(part, 3)} for nom, part in rapport.groupes_en_validation
-            ],
+            "groupes": [{"nom": nom, "part": round(part, 3)} for nom, part in rapport.groupes_en_validation],
             "sorties": [
                 {
                     "jour": s.jour or None,
@@ -313,23 +303,21 @@ def rendre_texte_analyse(
     panne: str | None,
 ) -> str:
     lignes = [
-        f"Analyse de « {trace.nom} » — {_fr(trace.distance_m / 1000, 1)} km"
+        f"Analyse de « {trace.nom} » — {nombre_fr(trace.distance_m / 1000, 1)} km"
         + (f", D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else ""),
-        f"Vélo {velo.nom} — CdA {_fr(parametres.cda_m2, 3)} m², Crr {_fr(parametres.crr, 5)}, "
-        f"{_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {_fr(parametres.rho, 3)}",
+        f"Vélo {velo.nom} — CdA {nombre_fr(parametres.cda_m2, 3)} m², Crr {nombre_fr(parametres.crr, 5)}, "
+        f"{nombre_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {nombre_fr(parametres.rho, 3)}",
         f"Puissance tenue : {puissance_w:.0f} W",
         "",
     ]
     mention = MENTION_MODELE_LITTERATURE if provenance == "littérature" else MENTION_MODELE
     lignes.append(
-        f"Temps en mouvement : {_duree(simulation.temps_s)} "
-        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
+        f"Temps en mouvement : {duree_h_min(simulation.temps_s)} "
+        f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
-    source = (
-        "mesurée sur vos sorties" if ecoule.provenance == "mesure" else "convention par défaut"
-    )
+    source = "mesurée sur vos sorties" if ecoule.provenance == "mesure" else "convention par défaut"
     lignes.append(
-        f"Porte à porte : {_duree(ecoule.bas_s)} à {_duree(ecoule.haut_s)} "
+        f"Porte à porte : {duree_h_min(ecoule.bas_s)} à {duree_h_min(ecoule.haut_s)} "
         f"({source}) — arrivée vers {arrivee_mediane.strftime('%d/%m %H:%M')}"
     )
     if panne is not None:
@@ -340,7 +328,7 @@ def rendre_texte_analyse(
         lignes.append(
             f"Vent : face sur {meteo.part_vent_face:.0%} des échantillons "
             f"({meteo.n_vent_connu}/{len(meteo.echantillons)} connus), "
-            f"pluie cumulée {_fr(meteo.pluie_cumulee_mm, 1)} mm"
+            f"pluie cumulée {nombre_fr(meteo.pluie_cumulee_mm, 1)} mm"
             + (" (sur la partie prévue)" if _debut_au_dela(meteo) is not None else "")
         )
         if meteo.repli and meteo.bascule_dist_m is not None:
@@ -351,12 +339,9 @@ def rendre_texte_analyse(
         debut_au_dela = _debut_au_dela(meteo)
         if debut_au_dela is not None:
             lignes.append(
-                f"  à partir du km {debut_au_dela / 1000:.0f} : au-delà de la prévision, "
-                "pas de météo"
+                f"  à partir du km {debut_au_dela / 1000:.0f} : au-delà de la prévision, pas de météo"
             )
-        lignes.append(
-            "  (heures de passage estimées porte à porte, arrêts compris)"
-        )
+        lignes.append("  (heures de passage estimées porte à porte, arrêts compris)")
     if alerte:
         lignes.append(alerte)
     return "\n".join(lignes)
@@ -404,9 +389,9 @@ def rendre_json_analyse(
         "vitesse_moy_kmh": round(simulation.vitesse_moy_kmh, 2),
         "pas_plafonnes": simulation.pas_plafonnes,
         "pas_bloques": simulation.pas_bloques,
-        # Le porte à porte en fourchette (L9.1) — jamais un seul chiffre, la
+        # Le porte à porte en fourchette — jamais un seul chiffre, la
         # provenance dit si elle vient des sorties de ce vélo ou d'une
-        # convention (règle absolue 5). Même trio de champs que les
+        # convention (on ne présente jamais une estimation comme une mesure). Même trio de champs que les
         # candidates de `boucle` (`temps_ecoule_s`/`_bas_s`/`_haut_s`).
         "temps_ecoule_s": round(ecoule.mediane_s),
         "temps_ecoule_bas_s": round(ecoule.bas_s),
@@ -434,7 +419,7 @@ def rendre_json_analyse(
         "meteo_panne": panne,
         "avertissements_trace": avertissements_trace,
         "meteo": _meteo_json_analyse(meteo),
-        # Même forme que `boucle._candidate_json["trace"]` (F0.1) : `points`
+        # Même forme que `boucle._candidate_json["trace"]` : `points`
         # pour la carte, `profil` pour la courbe d'altitude — le front
         # réutilise `Carte`/`ProfilAltitude` sans rien réécrire.
         "trace": geometrie_json(trace),
@@ -442,11 +427,11 @@ def rendre_json_analyse(
 
 
 def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
-    """Même forme que `boucle.commande._meteo_json` (candidate d'une boucle) : un front qui
+    """Même forme que `services.boucle._meteo_json` (candidate d'une boucle) : un front qui
     sait déjà lire `candidate.meteo` (flèches de vent, échantillons) lit celui-ci sans
-    code neuf. Dupliquée plutôt qu'importée depuis `boucle.commande` : c'est de la mise en
+    code neuf. Dupliquée plutôt qu'importée depuis `services.boucle` : c'est de la mise en
     forme de données déjà calculées par `MeteoTrace`/`fleches_vent`, pas une deuxième
-    implémentation du calcul météo — la même règle que `boucle.commande._meteo_json`
+    implémentation du calcul météo — la même règle que `services.boucle._meteo_json`
     documente pour elle-même.
     """
     if meteo is None:
@@ -462,9 +447,7 @@ def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
         "confiance": meteo.confiance,
         "modele_utilise": meteo.modele_utilise,
         "repli": meteo.repli,
-        "bascule_dist_m": (
-            None if meteo.bascule_dist_m is None else round(meteo.bascule_dist_m, 1)
-        ),
+        "bascule_dist_m": (None if meteo.bascule_dist_m is None else round(meteo.bascule_dist_m, 1)),
         # Le premier kilomètre (en mètres) passé **au-delà de la prévision** —
         # `None` si tout le parcours est couvert.
         "au_dela_prevision_dist_m": _debut_au_dela(meteo),
@@ -508,10 +491,10 @@ def rendre_texte_simulation(
     alerte: str | None = None,
 ) -> str:
     lignes = [
-        f"Simulation de « {trace.nom} » — {_fr(simulation.distance_m / 1000, 1)} km"
+        f"Simulation de « {trace.nom} » — {nombre_fr(simulation.distance_m / 1000, 1)} km"
         + (f", D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else ""),
-        f"Vélo {velo.nom} — CdA {_fr(parametres.cda_m2, 3)} m², Crr {_fr(parametres.crr, 5)}, "
-        f"{_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {_fr(parametres.rho, 3)}",
+        f"Vélo {velo.nom} — CdA {nombre_fr(parametres.cda_m2, 3)} m², Crr {nombre_fr(parametres.crr, 5)}, "
+        f"{nombre_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {nombre_fr(parametres.rho, 3)}",
         f"Puissance tenue : {puissance_w:.0f} W",
     ]
     if meteo is not None:
@@ -522,25 +505,21 @@ def rendre_texte_simulation(
     lignes.append("")
     mention = MENTION_MODELE_LITTERATURE if provenance == "littérature" else MENTION_MODELE
     lignes.append(
-        f"Temps en mouvement : {_duree(simulation.temps_s)} "
-        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
+        f"Temps en mouvement : {duree_h_min(simulation.temps_s)} "
+        f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
     if simulation.pas_plafonnes:
-        lignes.append(
-            f"  {simulation.pas_plafonnes} pas de 100 m plafonnés à 60 km/h en descente"
-        )
+        lignes.append(f"  {simulation.pas_plafonnes} pas de 100 m plafonnés à 60 km/h en descente")
     if simulation.pas_bloques:
         lignes.append(
             f"  {simulation.pas_bloques} pas où la vitesse calculée est sous 0,5 m/s "
             "(temps plancher, pas une mesure)"
         )
-    lignes.append(
-        "Les arrêts ne sont pas modélisés : feux, stops et ravitaillements s'ajoutent à ce temps."
-    )
+    lignes.append("Les arrêts ne sont pas modélisés : feux, stops et ravitaillements s'ajoutent à ce temps.")
     if pauses:
         total = sum(p.duree_s for p in pauses)
         lignes.append(
-            f"Pauses déclarées : {len(pauses)}, {_duree(total)} au total — s'ajoutent "
+            f"Pauses déclarées : {len(pauses)}, {duree_h_min(total)} au total — s'ajoutent "
             "par-dessus le temps en mouvement, pas confondues avec les arrêts ci-dessus."
         )
         if arrivee is not None:
@@ -561,11 +540,10 @@ def rendre_texte_simulation(
 def lignes_litterature(provenance: str, usage: str) -> list[str]:
     """Ce que vaut le jeu générique servi, en clair. Vide si rien de générique.
 
-    Règle absolue 5 : un temps calculé sur des valeurs jamais mesurées le dit,
-    et dit **de combien il dérive** là où la dérive a pu être mesurée. Le
-    chiffre vient de `physique.litterature`, qui le tient de la campagne du
-    17/09/2026 sur les 34 sorties de validation du mainteneur — un cycliste,
-    deux vélos.
+    Un temps calculé sur des valeurs jamais mesurées le dit, et dit **de
+    combien il dérive** là où la dérive a pu être mesurée. Le chiffre vient de
+    `physique.litterature`, qui le tient d'une campagne sur 34 sorties de
+    validation — un cycliste, deux vélos.
     """
     if provenance != "littérature":
         return []
@@ -642,9 +620,7 @@ def rendre_json_simulation(
         "arrets_modelises": False,
         # Les pauses telles que déclarées (`--pause`), et l'heure d'arrivée
         # qui en tient compte — `null` sans `--heure-depart` (rien à dater).
-        "pauses": [
-            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in pauses
-        ],
+        "pauses": [{"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in pauses],
         "heure_arrivee": arrivee.isoformat() if arrivee is not None else None,
     }
 
@@ -652,13 +628,8 @@ def rendre_json_simulation(
 # --- petits rendus ------------------------------------------------------------
 
 
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")
-
-
 def _incertitude(valeur: float | None, decimales: int) -> str:
-    return "" if valeur is None else f" ± {_fr(valeur, decimales)}"
+    return "" if valeur is None else f" ± {nombre_fr(valeur, decimales)}"
 
 
 def _pourcent(valeur: float | None, *, signe: bool = False) -> str:
@@ -666,9 +637,3 @@ def _pourcent(valeur: float | None, *, signe: bool = False) -> str:
         return "—"
     texte = f"{valeur * 100:{'+' if signe else ''}.1f}"
     return texte.replace(".", ",") + " %"
-
-
-def _duree(secondes: float) -> str:
-    """« 2:14 » — heures et minutes."""
-    minutes = round(secondes / 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"

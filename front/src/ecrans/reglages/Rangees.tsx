@@ -109,10 +109,9 @@ export function RangeesCompte({
           Reprendre
         </button>
       </div>
-      {/* Mon compte (lot L9.6) : remplace le "Pas encore ici" de F2 — les
-          clés d'accès (passkey) n'existent toujours pas (`api/comptes.py`),
-          mais l'adresse, le mot de passe, l'export et la suppression sont
-          désormais tous les quatre branchés. */}
+      {/* Mon compte : les clés d'accès (passkey) n'existent pas
+          (`api/comptes.py`), mais l'adresse, le mot de passe, l'export et la
+          suppression sont tous les quatre branchés. */}
       <div className="rangee">
         <span className="cle">Mon compte</span>
         <button
@@ -124,7 +123,7 @@ export function RangeesCompte({
           Gérer
         </button>
       </div>
-      {/* Se déconnecter (lot L7.2-D). `POST /sortir` révoque la session et
+      {/* Se déconnecter. `POST /sortir` révoque la session et
           efface le cookie, toujours 200 (idempotent) : rien à vérifier
           avant d'appeler `surDeconnexion`, qui ramène à l'écran de
           connexion. */}

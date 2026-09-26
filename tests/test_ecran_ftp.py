@@ -12,9 +12,9 @@ import pytest
 
 from ourouler.config import depuis_dict
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.seance.ecran_ftp import ftp_pour_vitesse_compteur, info_compteur, rendu, valeurs_liees
+from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
 CONFIG_SANS_VELO = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
@@ -144,9 +144,7 @@ def test_info_compteur_dit_le_facteur_suppose_sans_reglage():
     config = depuis_dict(
         {
             **CONFIG_SANS_VELO,
-            "velos": [
-                {"nom": "RCR", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.30, "crr": 0.005}
-            ],
+            "velos": [{"nom": "RCR", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.30, "crr": 0.005}],
         }
     )
     info = info_compteur(config)
@@ -191,9 +189,7 @@ def test_ftp_pour_vitesse_compteur_sans_velo_leve_une_erreur_nommee():
     « aucun vélo » ne s'obtient qu'en le retirant après coup."""
     config = dataclasses.replace(depuis_dict(CONFIG_SANS_VELO), velos=())
     with pytest.raises(ErreurUtilisateur, match="vélo"):
-        ftp_pour_vitesse_compteur(
-            config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=10.0
-        )
+        ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=10.0)
 
 
 def test_ftp_pour_vitesse_compteur_est_l_inverse_de_moyenne_compteur_kmh():
@@ -214,13 +210,11 @@ def test_ftp_pour_vitesse_compteur_est_l_inverse_de_moyenne_compteur_kmh():
 
 
 def test_ftp_pour_vitesse_compteur_terrain_plus_raide_donne_une_ftp_plus_haute():
-    """Le levier du §6 de `docs/ux/parcours_accueil.md` : à vitesse compteur
+    """Le levier du §6 de `docs/journal/ux/parcours_accueil.md` : à vitesse compteur
     égale, un terrain plus dur implique une puissance plus haute."""
     config = depuis_dict(CONFIG_VELO_SANS_FTP)
     plat = ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=3.0)
-    montagne = ftp_pour_vitesse_compteur(
-        config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=30.0
-    )
+    montagne = ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=30.0)
     assert montagne > plat
 
 
@@ -229,9 +223,7 @@ def test_ftp_pour_vitesse_compteur_incoherente_leve_une_erreur_nommee():
     en montagne — ce n'est pas au modèle de deviner une saisie fautive."""
     config = depuis_dict(CONFIG_VELO_SANS_FTP)
     with pytest.raises(ErreurUtilisateur, match="plausible"):
-        ftp_pour_vitesse_compteur(
-            config, None, vitesse_compteur_kmh=95.0, denivele_m_par_km=30.0
-        )
+        ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=95.0, denivele_m_par_km=30.0)
 
 
 def test_ftp_pour_vitesse_compteur_rejette_une_vitesse_negative_ou_nulle():

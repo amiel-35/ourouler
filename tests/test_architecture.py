@@ -1,4 +1,4 @@
-"""Contrat d'imports : les couches de `docs/ouverture_plan.md` §2, vérifiées sur le code.
+"""Règle d'imports : les couches d'`ARCHITECTURE.md`, vérifiées sur le code.
 
 Les dépendances ne vont que de haut en bas :
 
@@ -16,9 +16,8 @@ Un import sous `if TYPE_CHECKING:` ne s'exécute jamais : il est permis, mais
 listé à part (`IMPORTS_TYPE_CHECKING`), pour qu'il ne serve pas de porte
 dérobée sans que ça se voie.
 
-**Mode « constat » (lot 1).** Chaque violation d'aujourd'hui est une
-exception datée (`EXCEPTIONS`), rattachée au lot du §6
-qui doit la retirer. Le test échoue :
+**Les exceptions.** Une arête qui monte ne s'accepte que datée, dans
+`EXCEPTIONS`, avec le changement qui doit la retirer. Le test échoue :
 (a) si une violation nouvelle apparaît ;
 (b) si une exception ne sert plus : on la retire, la dette ne peut que baisser ;
 (c) si une exception a dépassé sa date.
@@ -27,118 +26,36 @@ Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
     total : 0 exceptions
 
-Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
-cette table rangeait déjà au noyau. Le lot 10 retire les treize dernières ;
-les lots 11 à 14 travaillent à l'intérieur d'une couche (fonctions longues,
-routes de l'API, front).
+**Ce que les couches imposent, en clair.**
 
-**Lot 3 fait.** `noyau/` existe : `trace`, `activite`, `erreurs`,
-`proprietaire`. Les anciens chemins sont des réexports (`REEXPORTS`), rangés
-au noyau eux aussi : chacun n'importe que sa cible, et aucun module de
-`src/` ne les importe plus (`scripts/reecrire_imports.py`).
+* `noyau/` ne porte que des types et des protocoles (`noyau/ports` :
+  `Routeur`, `SourcePrevisions`, `SourceSeances`, `DepotActivites`) : le
+  domaine reçoit ces protocoles à la place des clients concrets.
+* Le rendu (tableau texte, JSON, phrases, page du jour, carte HTML) vit dans
+  `rendu/` et ne lit ni fichier, ni configuration, ni horloge.
+* Chaque commande a sa `Demande` et un service `executer(demande, contexte,
+  clients…)` qui rend un résultat sans rien imprimer ; le
+  `services.contexte.Contexte` porte le profil, le dossier de cache et le
+  fichier de calibration **déjà résolus**. Le paquet d'entrée `commandes/`
+  lit le `Namespace`, construit la demande, appelle le service puis le rendu,
+  et imprime.
+* La physique est pure : `physique/` n'importe ni
+  `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
+  (`test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`).
+* `cli/` importe des modules de `api/` (serveur, dépôt des comptes, client
+  SMTP, environnement de l'hébergé) pour construire les dépendances qu'il passe
+  aux services : ce sont des arêtes d'une entrée à une autre, sans cycle, donc
+  permises.
 
-**Lot 4 fait.** `noyau/seance` et `noyau/zones` (réexportés à leurs anciens
-chemins), `noyau/meteo` (les types de prévision, que `meteo/openmeteo.py`
-réexporte) et `noyau/profil` (le profil du cycliste, que `config.py` compose
-et réexporte). Sur ses 21 exceptions, 11 sont tombées ; les 10 qui tiennent à
-la `Config` entière sont re-datées aux lots 7, 8 et 10, chacune avec sa
-raison.
-
-**Lot 5 fait.** `rendu/` et `services/` existent. `profil_json` et le
-masquage des secrets sont dans `rendu/profil.py` (que `config.py` réexporte
-pour `en_dict_public` et `MASQUE`) ; `api/vues.py` n'importe plus `cli`, et
-les dix exceptions du cycle `api` ↔ `cli` sont tombées. Inviter, lister les
-invitations, réinitialiser et retirer sont dans `services/comptes.py`, leur
-affichage dans `rendu/comptes.py` ; `api/invitation_commande.py` et
-`api/retrait_commande.py` ont disparu. `cli.py` importe encore des modules
-de `api/` — le serveur, le dépôt des comptes, le client SMTP, la lecture de
-l'environnement de l'hébergé, les dépôts à effacer — pour construire les
-dépendances qu'il passe au service : ce sont des arêtes d'une entrée à une
-autre, sans cycle, donc permises.
-
-**Lot 6 fait** (pour `sortie` et `boucle` ; `physique/commande.py` attend le
-lot 8). Le tableau texte, le JSON, les phrases et la page du jour sont dans
-`rendu/sortie.py` et `rendu/boucle.py`, la carte HTML dans `rendu/carte.py`
-(`sortie/carte.py` n'en est plus que le réexport, dans `REEXPORTS`). Les
-commandes cherchent, mesurent, écrivent les fichiers et appellent le rendu,
-qui ne lit ni fichier, ni configuration, ni horloge. L'exception du lot 6
-(`sortie.commande` → la carte) est tombée ; mais c'est encore `executer`
-qui imprime, donc chaque commande importe son rendu (import différé) : ces
-deux arêtes qui montent sont datées au lot 10, quand `cli` appellera le
-rendu lui-même.
-
-**Lot 9 fait.** `noyau/ports` porte les protocoles que le domaine reçoit à
-la place des clients concrets : `Routeur` (BRouter), `SourcePrevisions`
-(Open-Meteo) et `SourceSeances` (Intervals). Le découpage d'un tracé en
-mailles passe d'`apprentissage/routes` (un cas d'usage) au domaine
-(`boucle/mailles`), que `sortie/contraste` importe désormais. Ses 5
-exceptions sont tombées.
-
-**Lot 7 fait.** `stockage/` existe : `stockage/calibrations` lit et écrit
-`calibration.json` (réexporté par `physique.commande`). Le choix des
-paramètres d'un vélo (`physique/parametres_velo`) et le calcul de l'écran de
-FTP (`seance/ftp`) sont du domaine pur : ils reçoivent la calibration lue et
-le modèle du vélo. `seance/ecran_ftp` devient la commande qui les prépare
-(rangée aux cas d'usage, son import de `config` re-daté au lot 10). Le
-connecteur Intervals range les sorties dans un `noyau.ports.DepotActivites`
-au lieu d'importer le cache. Ses 3 exceptions sont tombées ; une est re-datée.
-
-**Lot 8 fait.** La physique est pure : `physique/calibration.py` ne fait
-plus que calculer (échantillons, ajustement, validation, porte à porte, filtre
-des fichiers multisport) sur des activités déjà lues, l'archive déjà obtenue
-(`HeureArchive`, passée au noyau dans `noyau/meteo`) et une masse. Choisir et
-lire les sorties — index du cache, rattachement aux vélos, archive météo,
-`Config` — est le cas d'usage `services/calibrer` (qui n'annote la `Config`
-que sous `TYPE_CHECKING`) ; le texte et le JSON des commandes physiques sont
-dans `rendu/physique`. Ses 4 exceptions sont tombées ; deux s'ouvrent,
-datées au lot 10 : les commandes impriment encore le rendu
-(`physique.commande` et `physique.comparer` → `rendu.physique`).
-`test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`
-tient le §2 : hors `commande.py` et `comparer.py`, `physique/` n'importe ni
-`pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`.
-`physique/comparer.py`, déjà rangé aux cas d'usage (`MODULES`), rejoint
-`services/` au lot 10 (2026-12-31), avec les autres commandes : c'est alors
-que `PHYSIQUE_CAS_D_USAGE` se réduit à `commande.py`.
-
-**Lot 10 fait.** argparse est sorti des cas d'usage. Chaque commande a sa
-`Demande` (dataclass, dans le module du service) et un service
-`executer(demande, contexte, clients…)` qui rend un résultat sans rien
-imprimer ; le `services.contexte.Contexte` porte le profil
-(`noyau.profil.Profil`, que `Config` satisfait), le dossier de cache et le
-fichier de calibration **déjà résolus**, et le canal des avertissements. Le
-nouveau paquet d'entrée `commandes/` (couche 5, importé par `cli` et `api`,
-n'important ni l'un ni l'autre) lit le `Namespace`, construit la demande et
-le contexte depuis la `Config`, appelle le service puis le rendu, et imprime.
-L'API passe encore par un `Namespace` et la capture de la sortie standard
-(`commandes.executer_depuis_namespace`, appelé par `api/adaptateur.py`) :
-c'est le lot 11. `physique/comparer.py` a rejoint `services/comparer.py`
-(réexporté) ; le texte et le JSON de `ourouler routes` sont passés dans
-`rendu/routes.py`, et `services/calibrer` annote le profil au lieu de la
-`Config`. Les 13 exceptions sont tombées.
-
-Les deux cycles principaux qui restent, sur les paquets tels qu'ils sont
-rangés aujourd'hui (imports différés compris) — le premier, `api` ↔ `cli`,
-est rompu depuis le lot 5 :
-
-1. `config` ↔ `seance` : `config.py` importait le modèle de séance et les
-   zones, que `seance/commande.py`, `seance/ecran_ftp.py` et
-   `seance/tenue.py` lui rendaient en important `Config`. Depuis le lot 4,
-   `config.py` les prend au noyau et `seance/tenue.py` y prend
-   `ParametresTenue` ; depuis le lot 7, l'écran de FTP est une commande ;
-   depuis le lot 10, plus aucune commande n'importe `config`.
-2. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
-   importaient `boucle/trace.py`, et `boucle/commande.py` importe
-   `physique/modele.py`. Depuis le lot 3, ils importent `noyau/trace.py` ;
-   entre dossiers, le cycle ne tient plus que par `physique/commande.py`
-   (un cas d'usage) qui importe `boucle/`, et n'est pas une violation.
-
-Ces deux-là appartiennent à une seule composante de huit paquets :
-`activites`, `apprentissage`, `boucle`, `config`, `connecteurs`, `meteo`,
-`physique` et `seance`. Rangés dans leurs couches cibles, ces cycles
-deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
+Deux cycles ont longtemps lié plusieurs paquets en une seule composante —
+`config` ↔ `seance` (le modèle de séance et les zones) et `boucle` ↔ `physique`
+(le tracé) ; rangés dans leurs couches, ils sont devenus des arêtes qui
+descendent. Une arête qui monterait encore serait listée dans `EXCEPTIONS`.
 
 Le rangement de chaque module est dans `MODULES` : la couche qu'il occupe
-**de fait** aujourd'hui, par son rôle, pas par son dossier.
+**de fait**, par son rôle, pas par son dossier. Aucun module de réexport ne
+subsiste (`REEXPORTS` est vide) : tout import passe par sa cible.
+`config.Velo`/`Depart`/… restent un alias public délibéré.
 """
 
 from __future__ import annotations
@@ -183,28 +100,26 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #: Chaque module de `src/ourouler/`, rangé dans son paquet cible.
 #:
 #: Choix de rangement, là où le code mêle deux rôles :
-#: - les `*/commande.py` sont des **cas d'usage** (couche 3) : ils
-#:   orchestrent connecteurs et domaine ; le rendu (lot 6) et argparse
-#:   (lot 10) en sont sortis, vers `rendu/` et `commandes/` ;
-#: - `physique/calibration.py` est au **domaine** : depuis le lot 8, il ne
-#:   fait plus que calculer ; le choix et la lecture des sorties sont dans
+#: - les `services/<domaine>.py` (`sortie`, `boucle`, `physique`…) sont des
+#:   **cas d'usage** (couche 3) : ils orchestrent connecteurs et domaine ; le
+#:   rendu et argparse en sont sortis, vers `rendu/` et `commandes/` ;
+#: - `physique/calibration.py` est au **domaine** : il ne fait que
+#:   calculer ; le choix et la lecture des sorties sont dans
 #:   `services/calibrer.py` ;
 #: - `activites/inventaire.py` et `apprentissage/routes.py` sont des **cas
 #:   d'usage** : ils lisent le cache (et BRouter pour les routes) pour rendre
-#:   un résultat ; `physique/comparer.py` aussi, devenu `services/comparer.py`
-#:   au lot 10 (l'ancien chemin est un réexport) ;
+#:   un résultat ; la comparaison physique aussi, dans `services/comparer.py` ;
 #: - `meteo/openmeteo.py` est un **connecteur** (client HTTP) ; ses types de
-#:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
+#:   prévision sont au noyau (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
-#: - la carte HTML est du **rendu** : `rendu/carte.py` depuis le lot 6,
-#:   `sortie/carte.py` n'en est plus que le réexport ;
-#: - dans `api/`, trois modules ne sont pas des entrées (lot 5) :
+#: - la carte HTML est du **rendu** : `rendu/carte.py` ;
+#: - dans `api/`, trois modules ne sont pas des entrées :
 #:   `api/comptes.py` est du **stockage** (le dépôt PostgreSQL des comptes),
 #:   `api/courriel.py` un **connecteur** (le client SMTP), et
 #:   `api/proprietaire.py` un type du **noyau** (bibliothèque standard
 #:   seulement) ; c'est ce qui laisse `services/comptes.py` s'en servir ;
 #: - `config.py` est une **entrée** (lecture TOML et environnement) : les
-#:   dataclasses du profil sont au noyau depuis le lot 4 (`noyau/profil.py`) ;
+#:   dataclasses du profil sont au noyau (`noyau/profil.py`) ;
 #:   `Config` et `ParametresCache` y restent.
 MODULES: dict[str, str] = {
     # 0. noyau
@@ -212,21 +127,17 @@ MODULES: dict[str, str] = {
     "ourouler.noyau": "noyau",
     "ourouler.noyau.activite": "noyau",
     "ourouler.noyau.erreurs": "noyau",
+    "ourouler.noyau.lecture": "noyau",
     "ourouler.noyau.meteo": "noyau",
     "ourouler.noyau.ports": "noyau",
     "ourouler.noyau.profil": "noyau",
     "ourouler.noyau.proprietaire": "noyau",
     "ourouler.noyau.seance": "noyau",
+    "ourouler.noyau.sqlite": "noyau",
+    "ourouler.noyau.texte": "noyau",
     "ourouler.noyau.trace": "noyau",
     "ourouler.noyau.zones": "noyau",
     "ourouler.activites": "noyau",
-    # les réexports temporaires des lots 3 et 4 (`REEXPORTS`), retirés au lot final
-    "ourouler.activites.modele": "noyau",
-    "ourouler.boucle.trace": "noyau",
-    "ourouler.erreurs": "noyau",
-    "ourouler.proprietaire": "noyau",
-    "ourouler.seance.modele": "noyau",
-    "ourouler.seance.zones": "noyau",
     "ourouler.api.proprietaire": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
@@ -255,6 +166,7 @@ MODULES: dict[str, str] = {
     "ourouler.seance.fichier": "seance",
     "ourouler.seance.ftp": "seance",
     "ourouler.seance.intervals": "seance",
+    "ourouler.seance.lecture_commune": "seance",
     "ourouler.seance.mrc": "seance",
     "ourouler.seance.placement": "seance",
     "ourouler.seance.pas_trace": "seance",
@@ -290,21 +202,18 @@ MODULES: dict[str, str] = {
     "ourouler.services.comparer": "services",
     "ourouler.services.comptes": "services",
     "ourouler.services.contexte": "services",
-    "ourouler.activites.commande": "services",
+    "ourouler.services.activites": "services",
+    "ourouler.services.apprentissage": "services",
+    "ourouler.services.boucle": "services",
+    "ourouler.services.geocodage": "services",
+    "ourouler.services.meteo": "services",
+    "ourouler.services.physique": "services",
+    "ourouler.services.seance": "services",
+    "ourouler.services.sortie": "services",
     "ourouler.activites.inventaire": "services",
     "ourouler.apprentissage": "services",
-    "ourouler.apprentissage.commande": "services",
     "ourouler.apprentissage.routes": "services",
-    "ourouler.boucle.commande": "services",
-    "ourouler.geocodage": "services",
-    "ourouler.geocodage.commande": "services",
-    "ourouler.meteo.commande": "services",
-    "ourouler.physique.commande": "services",
-    # le réexport temporaire du lot 10 (`REEXPORTS`), retiré au lot final
-    "ourouler.physique.comparer": "services",
-    "ourouler.seance.commande": "services",
     "ourouler.seance.ecran_ftp": "services",
-    "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
     "ourouler.rendu.boucle": "rendu",
@@ -319,12 +228,15 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.routes": "rendu",
     "ourouler.rendu.sortie": "rendu",
     "ourouler.rendu.sortie_json": "rendu",
-    # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
-    "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
     "ourouler.cli": "cli",
-    # lot 10 : du `Namespace` à la `Demande`, puis au rendu imprimé
+    "ourouler.cli.__main__": "cli",
+    "ourouler.cli.comptes": "cli",
+    "ourouler.cli.depart": "cli",
+    "ourouler.cli.options": "cli",
+    "ourouler.cli.parseur": "cli",
+    # du `Namespace` à la `Demande`, puis au rendu imprimé
     "ourouler.commandes": "commandes",
     "ourouler.commandes.boucle": "commandes",
     "ourouler.commandes.commun": "commandes",
@@ -386,41 +298,26 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Vide depuis le lot 10. Une violation nouvelle ne s'ajoute pas ici sans
-    # un lot du §6 qui la retire, et une date.
+    # Vide. Une violation nouvelle ne s'ajoute pas ici sans le changement qui
+    # la retire, et une date.
 ]
 
-#: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
-#: carte, au rendu). Un réexport
-#: n'importe que sa cible, et plus aucun module de `src/` ne l'importe : un
-#: `monkeypatch.setattr` qui le viserait ne remplacerait rien dans le vrai
-#: module. `scripts/reecrire_imports.py` a fait suivre imports et cibles de
-#: `src/` et `tests/` ; le lot final retire ces modules et cette table.
-REEXPORTS: dict[str, str] = {
-    "ourouler.activites.modele": "ourouler.noyau.activite",
-    "ourouler.boucle.trace": "ourouler.noyau.trace",
-    "ourouler.erreurs": "ourouler.noyau.erreurs",
-    "ourouler.proprietaire": "ourouler.noyau.proprietaire",
-    "ourouler.seance.modele": "ourouler.noyau.seance",
-    "ourouler.seance.zones": "ourouler.noyau.zones",
-    # lot 6 : la carte HTML, rangée au rendu avec sa cible
-    "ourouler.sortie.carte": "ourouler.rendu.carte",
-    # lot 10 : la comparaison de deux vélos, un cas d'usage comme sa cible
-    "ourouler.physique.comparer": "ourouler.services.comparer",
-}
+#: Ancien chemin → module qu'il réexporte. Vide : tout import passe par la
+#: cible directement.
+REEXPORTS: dict[str, str] = {}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
-    # Les annotations des adaptateurs de comptes : `cli.py` reste importable sans
-    # le pilote PostgreSQL, que `services/comptes.py` tire (lot 5).
-    ("ourouler.cli", "ourouler.api.comptes"),
-    ("ourouler.cli", "ourouler.api.courriel"),
-    ("ourouler.cli", "ourouler.services.comptes"),
+    # Les annotations des adaptateurs de comptes : `cli/comptes.py` reste importable
+    # sans le pilote PostgreSQL, que `services/comptes.py` tire.
+    ("ourouler.cli.comptes", "ourouler.api.comptes"),
+    ("ourouler.cli.comptes", "ourouler.api.courriel"),
+    ("ourouler.cli.comptes", "ourouler.services.comptes"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
-    # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
+    # l'entrée qui la charge ; celui des parcours de même.
     ("ourouler.rendu.profil", "ourouler.config"),
     ("ourouler.rendu.boucle", "ourouler.config"),
-    ("ourouler.rendu.boucle_json", "ourouler.config"),  # lot 12, le JSON de boucle
+    ("ourouler.rendu.boucle_json", "ourouler.config"),  # le JSON de boucle
     ("ourouler.rendu.sortie", "ourouler.config"),
 }
 
@@ -632,7 +529,7 @@ def test_chaque_module_a_sa_place():
 def test_les_paquets_a_venir_sont_bien_a_venir():
     """Quand un lot crée `noyau/` ou `services/`, la table doit le dire."""
     for nom, (_, existe) in PAQUETS.items():
-        if nom in ("config", "cli"):
+        if nom == "config":
             assert (SOURCES / f"{nom}.py").exists()
             continue
         assert (SOURCES / nom).is_dir() == existe, f"{nom}/ : « existe={existe} » ne dit plus vrai"
@@ -665,21 +562,9 @@ def test_aucune_exception_echue():
     )
 
 
-def test_un_reexport_n_importe_que_sa_cible():
-    for ancien, cible in REEXPORTS.items():
-        assert MODULES[ancien] == MODULES[cible]
-        importes = {i.importe for i in tous_les_imports() if i.importeur == ancien}
-        assert importes == {cible}, ancien
-
-
-def test_personne_n_importe_un_reexport():
-    """Le code importe le noyau directement : les réexports ne servent qu'aux appelants du dehors."""
-    fautifs = [
-        f"{i.importeur}:{i.ligne} → {i.importe}"
-        for i in tous_les_imports()
-        if i.importe in REEXPORTS and i.importeur not in REEXPORTS
-    ]
-    assert not fautifs, "importer depuis ourouler.noyau :\n  " + "\n  ".join(fautifs)
+def test_aucun_reexport_ne_reste():
+    """Le lot final a retiré tous les modules de réexport : la table est vide."""
+    assert REEXPORTS == {}
 
 
 #: `docs/ouverture_plan.md` §2 : « Le modèle physique pur […] n'importe ni
@@ -693,10 +578,9 @@ INTERDITS_PHYSIQUE_PURE = (
     "ourouler.boucle",
 )
 
-#: Le module de `physique/` qui n'est pas du domaine : un cas d'usage
-#: (`MODULES`) qui lit le cache et les fichiers. `physique/comparer.py` n'est
-#: plus qu'un réexport de `services/comparer.py` (lot 10), vérifié comme pur.
-PHYSIQUE_CAS_D_USAGE = ("ourouler.physique.commande",)
+#: Tout `physique/` est du domaine : ses cas d'usage (`calibrer`, `simuler`,
+#: `analyser`) vivent dans `services/physique.py`, la comparaison dans
+#: `services/comparer.py`.
 
 
 def _modules_importes(source: str) -> list[tuple[str, int]]:
@@ -714,10 +598,7 @@ def _modules_importes(source: str) -> list[tuple[str, int]]:
 def test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration():
     fautifs = []
     pures = [
-        nom
-        for nom in modules_sources()
-        if (nom == "ourouler.physique" or nom.startswith("ourouler.physique."))
-        and nom not in PHYSIQUE_CAS_D_USAGE
+        nom for nom in modules_sources() if nom == "ourouler.physique" or nom.startswith("ourouler.physique.")
     ]
     assert "ourouler.physique.calibration" in pures and "ourouler.physique.modele" in pures
     for nom in pures:

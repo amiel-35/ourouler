@@ -15,12 +15,11 @@ Volontairement **pas** un `starlette.middleware.base.BaseHTTPMiddleware` :
 il attend le corps entier avant de rendre la main à l'appelant, ce qui
 charge en mémoire exactement ce qu'on veut éviter d'écrire sur disque.
 
-**Et rien n'est accumulé ici non plus** (contre-lecture Fable du 25/09/2026).
-La première version égrenait tout le corps, le gardait en mémoire pour le
-rejouer, et n'appelait l'application qu'après le dernier morceau : 300
-morceaux de 1 Mo, un pic de 300 Mo avant que Starlette n'ait vu un octet —
-la borne protégeait le disque en sacrifiant la mémoire. Maintenant
-l'application est appelée **tout de suite**, avec un `receive()` enveloppé
+**Et rien n'est accumulé ici non plus.** Égrener tout le corps, le garder en
+mémoire pour le rejouer et n'appeler l'application qu'après le dernier
+morceau ferait, pour 300 morceaux de 1 Mo, un pic de 300 Mo avant que
+Starlette n'ait vu un octet : la borne protégerait le disque en sacrifiant
+la mémoire. L'application est donc appelée **tout de suite**, avec un `receive()` enveloppé
 qui compte au fil de l'eau et lève `_CorpsTropGros` dès que le total passe
 la borne. Le parseur multipart s'arrête là ; ce qu'il a déjà écrit est à lui
 de le nettoyer (Starlette referme ses fichiers temporaires).
@@ -43,7 +42,7 @@ Receive = Callable[[], Awaitable[dict]]
 Send = Callable[[dict], Awaitable[None]]
 
 
-class _CorpsTropGros(Exception):  # noqa: N818 — un signal interne, jamais montré
+class _CorpsTropGros(Exception):  # un signal interne, jamais montré
     """Levée par le `receive()` enveloppé au premier octet de trop."""
 
     def __init__(self, mesure: int) -> None:

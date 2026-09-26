@@ -69,9 +69,7 @@ BASE_ADMIN = "postgres"
 
 
 def _docker(*arguments: str, verifier: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["docker", *arguments], capture_output=True, text=True, check=verifier
-    )
+    return subprocess.run(["docker", *arguments], capture_output=True, text=True, check=verifier)
 
 
 def _raison_de_sauter() -> str | None:
@@ -102,18 +100,29 @@ def postgres_jetable() -> Iterator[str]:
     motdepasse = secrets.token_hex(16)
     nom = f"ourouler-test-{secrets.token_hex(4)}"
     _docker(
-        "run", "--detach", "--rm", "--name", nom,
-        "--env", f"POSTGRES_USER={UTILISATEUR}",
-        "--env", f"POSTGRES_PASSWORD={motdepasse}",
-        "--env", f"POSTGRES_DB={BASE_ADMIN}",
+        "run",
+        "--detach",
+        "--rm",
+        "--name",
+        nom,
+        "--env",
+        f"POSTGRES_USER={UTILISATEUR}",
+        "--env",
+        f"POSTGRES_PASSWORD={motdepasse}",
+        "--env",
+        f"POSTGRES_DB={BASE_ADMIN}",
         # Port choisi par Docker, sur la boucle locale seulement : deux
         # sessions de tests en parallèle ne se marchent pas dessus, et rien
         # n'est exposé au-delà de la machine.
-        "--publish", "127.0.0.1::5432",
+        "--publish",
+        "127.0.0.1::5432",
         IMAGE,
         # `fsync=off` : cette base vit quelques secondes et n'a rien à
         # survivre. C'est ce qui rend une base par test supportable.
-        "-c", "fsync=off", "-c", "full_page_writes=off",
+        "-c",
+        "fsync=off",
+        "-c",
+        "full_page_writes=off",
     )
     try:
         port = _port_publie(nom)

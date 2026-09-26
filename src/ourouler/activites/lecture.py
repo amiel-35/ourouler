@@ -29,6 +29,7 @@ from ourouler.noyau.activite import (
     puissance_normalisee,
 )
 from ourouler.noyau.erreurs import ErreurLecture
+from ourouler.noyau.lecture import Entree, lire_octets, texte_ou_none
 
 #: Extensions reconnues, en minuscules et sans le point.
 EXTENSIONS = ("fit", "gpx", "tcx")
@@ -39,16 +40,13 @@ _DEGRES_PAR_SEMICERCLE = 180.0 / 2**31
 #: Marque d'ordre des octets (BOM) UTF-8, parfois écrite en tête d'un export
 #: GPX ou TCX, parfois accompagnée d'espaces ou d'un saut de ligne avant la
 #: déclaration XML. C'est une **cause plausible, reproduite sur fixture
-#: synthétique** (L6.3 — non vérifié sur des fichiers réels, introuvables sur
-#: la machine au moment du correctif) de l'erreur qu'ElementTree rend pour
+#: synthétique** (non vérifiée sur des fichiers réels) de l'erreur qu'ElementTree rend pour
 #: tout `<?xml ...?>` qui n'est pas au tout premier octet : « XML or text
 #: declaration not at start of entity ». Cette même erreur couvre aussi
 #: d'autres préambules — deux fichiers XML concaténés, du texte non blanc en
 #: tête — que cette fonction ne traite pas : seule la branche BOM + blancs.
 _BOM_UTF8 = b"\xef\xbb\xbf"
 _BLANCS = (b" ", b"\t", b"\r", b"\n")
-
-Entree = Path | str | bytes | bytearray
 
 
 def _sans_preambule_xml(contenu: bytes) -> bytes:
@@ -87,9 +85,7 @@ def lecteur_pour(extension: str) -> Callable[[Entree], Activite]:
     extension = extension.lower().lstrip(".")
     lecteur = LECTEURS.get(extension)
     if lecteur is None:
-        raise ErreurLecture(
-            f"extension « {extension} » inconnue (attendu {', '.join(EXTENSIONS)})"
-        )
+        raise ErreurLecture(f"extension « {extension} » inconnue (attendu {', '.join(EXTENSIONS)})")
     return lecteur
 
 
@@ -125,7 +121,7 @@ class _TramesFit:
         elif trame.name == "file_id":
             self.appareil = _appareil_fit(trame)
         elif trame.name == "device_info" and self.appareil is None:
-            self.appareil = _texte(_champ(trame, "product_name"))
+            self.appareil = texte_ou_none(_champ(trame, "product_name"))
 
     def _session(self, trame) -> None:
         self.sessions += 1
@@ -139,7 +135,7 @@ class _TramesFit:
 
 
 def lire_fit(source: Entree) -> Activite:
-    contenu, fichier = _octets(source)
+    contenu, fichier = lire_octets(source)
     avertissements: list[str] = []
     meta: dict = {}
     lu = _TramesFit()
@@ -214,8 +210,8 @@ def _sport_fit(trame) -> str | None:
     Le sous-sport est la seule chose qui, dans un FIT, distingue une sortie
     d'un home-trainer : on le garde, tel que la source le nomme.
     """
-    sport = _texte(_champ(trame, "sport"))
-    sous_sport = _texte(_champ(trame, "sub_sport"))
+    sport = texte_ou_none(_champ(trame, "sport"))
+    sous_sport = texte_ou_none(_champ(trame, "sub_sport"))
     if sous_sport and sous_sport not in ("generic", "all", "255"):
         return f"{sport or '?'}/{sous_sport}"
     return sport
@@ -223,8 +219,8 @@ def _sport_fit(trame) -> str | None:
 
 def _appareil_fit(trame) -> str | None:
     morceaux = [
-        _texte(_champ(trame, "manufacturer")),
-        _texte(_champ(trame, "garmin_product", "product_name", "product")),
+        texte_ou_none(_champ(trame, "manufacturer")),
+        texte_ou_none(_champ(trame, "garmin_product", "product_name", "product")),
     ]
     presents = [m for m in morceaux if m and m not in ("0", "None")]
     return " ".join(presents) or None
@@ -249,7 +245,7 @@ _EXTENSIONS_GPX = {
 
 
 def lire_gpx(source: Entree) -> Activite:
-    contenu, fichier = _octets(source)
+    contenu, fichier = lire_octets(source)
     contenu = _sans_preambule_xml(contenu)
     try:
         gpx = gpxpy.parse(contenu.decode("utf-8", errors="replace"))
@@ -322,7 +318,7 @@ _NS_TCX = "{http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2}"
 
 
 def lire_tcx(source: Entree) -> Activite:
-    contenu, fichier = _octets(source)
+    contenu, fichier = lire_octets(source)
     contenu = _sans_preambule_xml(contenu)
     if not contenu.strip():
         raise ErreurLecture(f"{fichier or '<octets>'} : fichier vide")
@@ -372,9 +368,7 @@ def _point_tcx(trackpoint: ET.Element) -> Point | None:
         alt_m=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}AltitudeMeters")),
         dist_m=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}DistanceMeters")),
         cadence_rpm=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}Cadence")),
-        fc_bpm=_flottant(
-            _texte_balise(trackpoint, f"{_NS_TCX}HeartRateBpm/{_NS_TCX}Value")
-        ),
+        fc_bpm=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}HeartRateBpm/{_NS_TCX}Value")),
     )
     # Les extensions Garmin (TPX) portent la puissance et la vitesse.
     for element in trackpoint.iter():
@@ -420,9 +414,7 @@ def _assembler(
 ) -> Activite:
     non_monotones = sum(1 for a, b in zip(points, points[1:], strict=False) if b.t < a.t)
     if non_monotones:
-        avertissements.append(
-            f"{non_monotones} horodatage(s) non monotone(s) : points réordonnés par date"
-        )
+        avertissements.append(f"{non_monotones} horodatage(s) non monotone(s) : points réordonnés par date")
         points = sorted(points, key=lambda p: p.t)
     meta = {k: v for k, v in meta.items() if v is not None}
     if avertissements:
@@ -442,22 +434,6 @@ def _assembler(
         points=points,
         meta=meta,
     )
-
-
-def _octets(source: Entree) -> tuple[bytes, str | None]:
-    """Renvoie (contenu, chemin informatif). Lève `ErreurLecture` si vide ou illisible."""
-    if isinstance(source, bytes | bytearray):
-        contenu, fichier = bytes(source), None
-    else:
-        chemin = Path(source)
-        try:
-            contenu = chemin.read_bytes()
-        except OSError as e:
-            raise ErreurLecture(f"{chemin} : lecture impossible ({e})") from e
-        fichier = str(chemin)
-    if not contenu:
-        raise ErreurLecture(f"{fichier or '<octets>'} : fichier vide")
-    return contenu, fichier
 
 
 def _derniere_distance(points: list[Point]) -> float | None:
@@ -494,13 +470,6 @@ def _flottant(valeur) -> float | None:
     except (TypeError, ValueError):
         return None
     return x if x == x else None  # écarte les NaN
-
-
-def _texte(valeur) -> str | None:
-    if valeur is None:
-        return None
-    texte = str(valeur).strip()
-    return texte or None
 
 
 def _sans_espace_de_noms(balise: str) -> str:

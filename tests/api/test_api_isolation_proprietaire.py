@@ -65,19 +65,9 @@ from outils_api import (
     transports_du_depot,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-#: Elle est **avant** les imports d'`ourouler.api` ci-dessous, qui n'ont de
-#: sens que si le paquet est installable.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: E402
+from ourouler.activites.cache import Cache
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 
 #: Importés **au niveau du module**, et pas dans les tests qui s'en servent :
 #: `get_type_hints` résout les annotations dans les globales du module où la
@@ -85,16 +75,16 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: 
 #: `test_une_route_sans_clause_de_proprietaire_est_bien_detectee` sont définies
 #: ici ; avec un import local, `Ctx` et `Qui` seraient irrésolubles et le
 #: détecteur déclarerait « sans clause » une route qui en a une.
-from ourouler.api.routes.commun import Ctx, Qui  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.routes.commun import Ctx, Qui
+from ourouler.api.session import (
     MODE_HEBERGE,
     MODE_PERSONNEL,
     SessionHebergee,
     SessionPersonnelle,
 )
-from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
-from ourouler.noyau.trace import PointTrace, Segment, Trace  # noqa: E402
+from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.noyau.trace import PointTrace, Segment, Trace
+from ourouler.services.apprentissage import NOM_BASE
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.
@@ -309,15 +299,11 @@ def test_une_requete_sans_proprietaire_ne_sert_pas_silencieusement_le_mainteneur
     """
     client = client_api(config=config_d_essai())
     schema = schema_openapi(client)
-    chemin, methode, operation = next(
-        (c, m, o) for c, m, o in routes(schema) if _est_une_route_de_donnees(c)
-    )
+    chemin, methode, operation = next((c, m, o) for c, m, o in routes(schema) if _est_une_route_de_donnees(c))
     reponse = client.requete(methode, chemin)
     if reponse.status_code in (401, 403, 422):
         return
-    assert any(
-        mot in reponse.text.lower() for mot in MOTS_PROPRIETAIRE
-    ), (
+    assert any(mot in reponse.text.lower() for mot in MOTS_PROPRIETAIRE), (
         f"{methode} {chemin} répond {reponse.status_code} sans propriétaire demandé ni nommé. "
         "Le rattachement implicite est exactement ce qui ne se rattrape pas en F3."
     )
@@ -410,9 +396,7 @@ TABLES_IDENTITE = ("comptes", "invitations", "sessions", "migrations")
 #: Une seule exclusion ici, payée par un faux positif rencontré : `(?!\()`
 #: écarte `@routeur.delete("/moi")`, un appel Python (lot L7.B). Une vraie
 #: instruction SQL a toujours une espace après son verbe.
-MOTIF_SQL = re.compile(
-    r"\b(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\Z)", re.IGNORECASE | re.DOTALL
-)
+MOTIF_SQL = re.compile(r"\b(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\Z)", re.IGNORECASE | re.DOTALL)
 
 #: Ce qu'une clé étrangère promet quand la ligne visée bouge. Ce n'est **pas**
 #: une instruction : `REFERENCES comptes (id) ON DELETE CASCADE` décrit ce que
@@ -836,8 +820,8 @@ def _toml_d_essai(tmp_path: Path) -> str:
     return (
         "[depart]\n"
         f'nom = "{DEPART_D_ESSAI["nom"]}"\n'
-        f'latitude = {DEPART_D_ESSAI["latitude"]}\n'
-        f'longitude = {DEPART_D_ESSAI["longitude"]}\n'
+        f"latitude = {DEPART_D_ESSAI['latitude']}\n"
+        f"longitude = {DEPART_D_ESSAI['longitude']}\n"
         "\n[cycliste]\nmasse_kg = 70.0\nftp_w = 200\n"
         '\n[[velos]]\nnom = "Essai"\nusage = "route"\nmasse_kg = 9.0\ncda_m2 = 0.3\n'
         # Le moteur de tracé et la vitesse de la boucle sont de
@@ -1173,9 +1157,7 @@ def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
         json={
             "depart": {"nom": f"depart-{marque}", "latitude": 0.0007, "longitude": 0.0003},
             "cycliste": {"masse_kg": 70.0},
-            "velos": [
-                {"nom": f"velo-{marque}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
-            ],
+            "velos": [{"nom": f"velo-{marque}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}],
             # La clé porte elle aussi la sentinelle : c'est le secret du
             # profil, et une fuite de clé d'un cycliste vers un autre serait la
             # pire de toutes. Inventée, comme le reste (règle absolue 1).
@@ -1213,9 +1195,7 @@ def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
         headers=entetes,
         files={"fichiers": (f"sortie-{marque}.gpx", _gpx(marque), "application/gpx+xml")},
     )
-    assert depot_import.status_code == 202, (
-        f"{qui} n'a pas pu lancer d'import : {depot_import.text[:300]}"
-    )
+    assert depot_import.status_code == 202, f"{qui} n'a pas pu lancer d'import : {depot_import.text[:300]}"
     id_import = depot_import.json()["donnees"]["id"]
     # Attendu ici, pas seulement dans `_balayer` : le verrou serveur doit
     # être relâché avant que l'identité suivante ne tente le sien, sans quoi
@@ -1325,9 +1305,7 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
             "chemin": f"{PREFIXE_API}/sorties/{ids['generation']}/propositions/1/gpx"
         },
         ("POST", f"{PREFIXE_API}/boucles"): {"json": {"distance_km": 30.0, "candidates": 2}},
-        ("POST", f"{PREFIXE_API}/simulations"): {
-            "json": {"gpx": ids["gpx"], "puissance_w": 180.0}
-        },
+        ("POST", f"{PREFIXE_API}/simulations"): {"json": {"gpx": ids["gpx"], "puissance_w": 180.0}},
         # L9.8 : un parcours déjà en main, déposé pour être analysé. Le
         # dépôt reçoit son propre GPX (un dépôt brut, pas une candidate du
         # moteur) ; l'analyse rejoue le GPX de boucle de A, comme
@@ -1430,9 +1408,7 @@ def test_deux_proprietaires_ne_voient_jamais_rien_l_un_de_l_autre(tmp_path):
     vues_de_a = _balayer(client, PROPRIETAIRE_A, ids)
     vues_de_b = _balayer(client, PROPRIETAIRE_B, ids)
 
-    fuites += [
-        f"{route} porte {MARQUE_A}" for route, texte in vues_de_b.items() if MARQUE_A in texte
-    ]
+    fuites += [f"{route} porte {MARQUE_A}" for route, texte in vues_de_b.items() if MARQUE_A in texte]
     fuites += [
         f"{route} se dit servie au nom de « {PROPRIETAIRE_A} »"
         for route, texte in vues_de_b.items()
@@ -1574,8 +1550,7 @@ def test_la_liste_des_routes_hors_donnees_ne_ment_pas():
     dans cette liste.
     """
     servies = {
-        str(getattr(r, "path", ""))
-        for r in _toutes_les_routes(charger_application(config=config_d_essai()))
+        str(getattr(r, "path", "")) for r in _toutes_les_routes(charger_application(config=config_d_essai()))
     }
     inventees = sorted(set(ROUTES_HORS_DONNEES) - servies)
     assert not inventees, (
@@ -1605,8 +1580,7 @@ def test_la_liste_des_routes_avant_session_ne_ment_pas():
     détecteur-là.
     """
     servies = {
-        str(getattr(r, "path", ""))
-        for r in _toutes_les_routes(charger_application(config=config_d_essai()))
+        str(getattr(r, "path", "")) for r in _toutes_les_routes(charger_application(config=config_d_essai()))
     }
     inventees = sorted(set(ROUTES_AVANT_SESSION) - servies)
     assert not inventees, (
@@ -1615,8 +1589,7 @@ def test_la_liste_des_routes_avant_session_ne_ment_pas():
     )
 
     par_chemin = {
-        chemin: fonction
-        for chemin, fonction in _routes_servies(charger_application(config=config_d_essai()))
+        chemin: fonction for chemin, fonction in _routes_servies(charger_application(config=config_d_essai()))
     }
     capables = sorted(
         chemin

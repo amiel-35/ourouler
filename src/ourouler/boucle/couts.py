@@ -8,15 +8,15 @@ dans le bon sens présente moins de tourne-à-gauche.
 
 Le score agrège tout ça en **kilomètres équivalents** : plus bas = mieux.
 Tous les poids sont des constantes nommées ci-dessous, jamais des nombres
-enfouis dans une formule. Depuis le sprint 3, le poids d'une classe de route
-peut aussi être **appris** sur les sorties réelles du cycliste et injecté par
-la ligne de commande (`evaluer(..., poids=...)`) : les constantes restent le
+enfouis dans une formule. Le poids d'une classe de route peut aussi être
+**appris** sur les sorties réelles du cycliste et injecté par la ligne de
+commande (`evaluer(..., poids=...)`) : les constantes restent le
 cas par défaut, celui d'un cycliste dont on ne sait rien.
 
 Sans `segments` (un GPX importé n'en a pas), les kilomètres par type de
 route ne sont pas calculables : ils valent 0 et `trace.meta["couts_partiels"]`
 passe à `True` pour que l'affichage ne fasse pas passer une ignorance pour
-une mesure (règle absolue 5). Un tronçon dont la longueur est absurde
+une mesure (on ne présente jamais une estimation comme une mesure). Un tronçon dont la longueur est absurde
 (négative, NaN, infinie) est écarté du calcul plutôt que soustrait des
 kilomètres réels, et compté dans `trace.meta["segments_ignores"]` — pour la
 même raison : une ignorance se dit, elle ne se déguise pas en mesure.
@@ -34,9 +34,7 @@ from ourouler.noyau.trace import PointTrace, Segment, Trace, cap_deg, distance_m
 # --- classes de routes et de revêtements ------------------------------------
 
 #: `highway` des routes que l'on compte « à trafic » : passantes et rapides.
-HIGHWAY_TRAFIC = frozenset(
-    {"primary", "primary_link", "secondary", "secondary_link", "trunk"}
-)
+HIGHWAY_TRAFIC = frozenset({"primary", "primary_link", "secondary", "secondary_link", "trunk"})
 
 #: `highway` des routes que l'on compte « calmes ».
 HIGHWAY_CALME = frozenset(
@@ -74,7 +72,7 @@ POIDS_HIGHWAY_DEFAUT: dict[str, float] = {h: POIDS_KM_TRAFIC for h in sorted(HIG
 
 #: Ce que coûte une classe absente du dictionnaire de poids. Zéro, jamais
 #: autre chose : une classe qu'on ne sait pas juger ne se pénalise pas
-#: (« inconnu » n'est jamais un malus, contrat du sprint 3 §2).
+#: (« inconnu » n'est jamais un malus).
 POIDS_HIGHWAY_INCONNU = 0.0
 #: Un kilomètre non revêtu en coûte 4.
 POIDS_KM_NON_REVETU = 4.0
@@ -101,8 +99,6 @@ LONGUEUR_VIRAGE_M = 60.0
 #: n'a pas de sens géométrique. Compter un aller-retour comme un
 #: tourne-à-gauche le pénalisait pour un virage qu'il ne fait pas.
 EPSILON_DEMI_TOUR_DEG = 1e-6
-
-SENS_INDETERMINE = "indetermine"
 
 
 @dataclass
@@ -140,9 +136,7 @@ class Couts:
     cout_km_moyen: float | None = None
 
 
-def evaluer(
-    trace: Trace, *, sens_prefere: str = "horaire", poids: dict[str, float] | None = None
-) -> Couts:
+def evaluer(trace: Trace, *, sens_prefere: str = "horaire", poids: dict[str, float] | None = None) -> Couts:
     """Les coûts du tracé, et le score qui les agrège en kilomètres équivalents.
 
     `sens_prefere` vaut « horaire » ou « antihoraire ». Un tracé dont le sens
@@ -150,8 +144,8 @@ def evaluer(
     mauvais sens : on ne sait pas, donc on ne promet rien.
 
     `poids` associe un coût en kilomètres équivalents à chaque classe
-    `highway`. Absent, c'est `POIDS_HIGHWAY_DEFAUT` — les constantes
-    historiques, donc exactement le score du sprint 2. Fourni, il vient de
+    `highway`. Absent, c'est `POIDS_HIGHWAY_DEFAUT`, les constantes
+    de ce module. Fourni, il vient de
     `apprentissage.routes.poids_appris` et c'est **la ligne de commande** qui
     l'injecte : ce module ne lit aucun fichier. Une classe absente du
     dictionnaire ne coûte rien (`POIDS_HIGHWAY_INCONNU`) : on ne pénalise pas
@@ -260,9 +254,7 @@ def _longueur_exploitable(longueur_m: object) -> bool:
     return math.isfinite(longueur_m) and longueur_m >= 0
 
 
-def _kilometrages(
-    trace: Trace, segments: Sequence[Segment]
-) -> tuple[float, float, float, float]:
+def _kilometrages(trace: Trace, segments: Sequence[Segment]) -> tuple[float, float, float, float]:
     """(trafic, calme, non classé, non revêtu) en km. Tout à 0 sans segments."""
     if not segments:
         # Un GPX importé ne dit rien des routes empruntées : on le marque
@@ -315,9 +307,7 @@ class Virage:
     sortant: tuple[int, int]
 
 
-def virages_detectes(
-    points: Sequence[PointTrace], *, angle_deg: float = ANGLE_VIRAGE_DEG
-) -> list[Virage]:
+def virages_detectes(points: Sequence[PointTrace], *, angle_deg: float = ANGLE_VIRAGE_DEG) -> list[Virage]:
     """Les virages d'au moins `angle_deg`, demi-tours exclus.
 
     Les caps sont calculés entre des points espacés d'au moins
@@ -427,17 +417,13 @@ def _indices_espaces(points: Sequence[PointTrace], espacement_m: float) -> list[
     return gardes
 
 
-def _points_a_trafic(
-    points: Sequence[PointTrace], segments: Sequence[Segment]
-) -> list[bool]:
+def _points_a_trafic(points: Sequence[PointTrace], segments: Sequence[Segment]) -> list[bool]:
     """Pour chaque point du tracé : le segment qui le porte est-il à trafic ?"""
     tags = tags_par_point(points, segments)
     return [t is not None and t.get("highway", "") in HIGHWAY_TRAFIC for t in tags]
 
 
-def tags_par_point(
-    points: Sequence[PointTrace], segments: Sequence[Segment]
-) -> list[dict[str, str] | None]:
+def tags_par_point(points: Sequence[PointTrace], segments: Sequence[Segment]) -> list[dict[str, str] | None]:
     """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre.
 
     Un point de jonction appartient aux **deux** segments qui s'y touchent ;
@@ -465,7 +451,7 @@ def tags_par_troncon(
     élément de moins que `points`, et l'élément `i` décrit ce qu'on a sous les
     roues entre le point `i` et le point `i + 1`.
 
-    Public depuis le sprint 4 : `seance.terrain` mesure des kilomètres bâtis
+    Public : `seance.terrain` mesure des kilomètres bâtis
     sous un bloc, donc des longueurs, et il n'y a pas deux façons de
     construire cette correspondance. La différence avec `tags_par_point` n'est
     pas cosmétique : attribuer à l'intervalle qui *commence* au point `i` les

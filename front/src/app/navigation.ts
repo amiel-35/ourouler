@@ -1,14 +1,13 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — les types et
- * utilitaires de navigation (page, onglet, vue), et le résultat d'une
- * recherche. `App.tsx` s'approchait des 900 lignes ; ce module n'en fait rien
- * qu'assembler ce qui n'a pas besoin de vivre à côté du rendu.
+/** Séparé d'`App.tsx` — les types et utilitaires de navigation (page,
+ * onglet, vue), et le résultat d'une recherche : ce qui n'a pas besoin de
+ * vivre à côté du rendu.
  */
 
 import type { Boucle, Enveloppe, Seance, Sortie } from "../api/types";
 
 /**
  * Sur quelle page ce chargement de l'application s'est ouvert — lu **une
- * fois**, au démarrage, jamais réévalué (lot L7.2-D).
+ * fois**, au démarrage, jamais réévalué.
  *
  * Pas de routeur : le reste de l'application navigue par état React
  * (`Onglet`, `Vue` ci-dessous), comme avant ce lot. Seuls ces deux chemins
@@ -41,16 +40,16 @@ export type Vue =
   | { genre: "onglet" }
   | { genre: "assistant" }
   /**
-   * **Le dépôt porte son jour** (trouvé en cliquant, le 17/09/2026).
+   * **Le dépôt porte son jour.**
    *
-   * `Importer` recevait `demande.jour`, qui dérive : `chercher` le réécrit à
-   * chaque génération. Après avoir généré le parcours de samedi depuis « Ma
-   * semaine », « Déposer une séance » depuis l'écran **d'aujourd'hui**
-   * déposait le fichier pour samedi. Le rattachement au jour étant devenu la
-   * garde de B1, un rattachement au mauvais jour est le même défaut déplacé.
+   * `demande.jour` dérive : `chercher` le réécrit à chaque génération. Après
+   * avoir généré le parcours de samedi depuis « Ma semaine », « Déposer une
+   * séance » depuis l'écran **d'aujourd'hui** déposerait le fichier pour
+   * samedi. Le rattachement au jour étant la garde de `SeanceDeposee`, un
+   * rattachement au mauvais jour serait le même défaut déplacé.
    */
   | { genre: "importer"; jour: string }
-  /** L9.8 : un parcours déjà en main, à analyser — le troisième usage de
+  /** Un parcours déjà en main, à analyser — le troisième usage de
    * « Déposer », sans jour rattaché (ce n'est pas une prescription). */
   | { genre: "analyser"; jour: string }
   | { genre: "propositions" }
@@ -67,19 +66,18 @@ export interface Resultat {
 /**
  * Un fichier de séance déposé — **et le jour pour lequel il l'a été**.
  *
- * Q38 : « le fichier déposé c'est une séance à faire ». C'est une
- * prescription, et une prescription vaut pour un jour. `POST /seances/fichier`
- * prend d'ailleurs ce jour ; le front ne l'honorait pas.
+ * Le fichier déposé est une séance à faire (décision Q38,
+ * `docs/journal/questions/questions_mainteneur.md`) : une prescription, et une prescription vaut pour
+ * un jour. `POST /seances/fichier` prend d'ailleurs ce jour.
  *
- * Avant le 17/09/2026, seul l'identifiant était retenu, et **rien ne le
- * remettait à `null`** : ni le changement de jour, ni le changement d'onglet,
- * ni une séance Intervals retrouvée, ni la fin de la génération. Un `.ZWO`
- * déposé mardi se replaçait silencieusement sur toutes les recherches
- * suivantes — le cycliste partait faire les blocs de mardi le mercredi, sur
- * des données qu'il ne pourrait pas refaire, et l'interface avait l'air
- * d'accord avec lui (relecture F2 · B1).
+ * Retenir le seul identifiant, sans rien pour le remettre à `null` (ni le
+ * changement de jour, ni le changement d'onglet, ni une séance Intervals
+ * retrouvée, ni la fin de la génération), replacerait silencieusement un
+ * `.ZWO` déposé mardi sur toutes les recherches suivantes — le cycliste
+ * partirait faire les blocs de mardi le mercredi, et l'interface aurait l'air
+ * d'accord avec lui.
  *
- * L'invariant tenu maintenant, et testé : **une séance déposée ne part qu'avec
+ * L'invariant tenu, et testé : **une séance déposée ne part qu'avec
  * une recherche pour son propre jour**, et elle est visible tant qu'elle est
  * en usage.
  */
@@ -113,9 +111,9 @@ export const ONGLETS: { cle: Onglet; nom: string }[] = [
 ];
 
 /** L'onglet demandé par l'URL (`?onglet=reglages`), lu **une fois**, au
- * démarrage — même patron que `paginaDepuisUrl`. Constaté le 25/09/2026 :
- * le lien « Le relier dans les réglages » posait ce paramètre, mais rien ne
- * le lisait, et une ouverture directe de ce lien retombait sur Aujourd'hui.
+ * démarrage — même patron que `paginaDepuisUrl`. Le lien « Le relier dans les
+ * réglages » pose ce paramètre : sans cette lecture, une ouverture directe de
+ * ce lien retomberait sur Aujourd'hui.
  * Une clé absente ou inconnue garde le défaut plutôt que d'échouer. */
 export function ongletDepuisUrl(): Onglet {
   const valeur = new URLSearchParams(window.location.search).get("onglet");

@@ -1,9 +1,9 @@
-"""Filet du lot 13 : quel point d'entrée résout chaque chemin littéral.
+"""Filet de résolution : quel point d'entrée résout chaque chemin littéral.
 
 Le routeur essaie les routes **dans l'ordre d'enregistrement** et s'arrête à
 la première qui correspond entièrement (méthode et chemin) ; une route qui ne
 correspond que par le chemin ne sert que si aucune autre ne correspond
-entièrement, et rend alors 405. Scinder `api/routes.py` en modules change
+entièrement, et rend alors 405. Répartir les routes entre les modules de `api/routes/` change
 l'ordre dans lequel les routes s'enregistrent si l'on n'y prend garde :
 `GET /seances/fichier`, par exemple, est servi par `seance_du_jour`
 (`/seances/{jour}`), et `POST /seances/fichier` par `deposer_seance`
@@ -23,7 +23,7 @@ figé est le choix de la route, pas ce qu'elle répond.
 
 **Le module d'une route de `ourouler.api.routes.*` s'écrit
 `ourouler.api.routes`** : le découpage de ce paquet en modules par domaine
-(lot 13) n'est pas un changement de résolution. Qu'une route vienne bien de
+n'est pas un changement de résolution. Qu'une route vienne bien de
 la fonction nommée est vérifié à part, sans référence
 (`test_chaque_point_d_entree_est_la_fonction_de_son_module`).
 
@@ -36,21 +36,14 @@ from __future__ import annotations
 import asyncio
 import importlib
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
-import pytest
+from outils_api import charger_application
+from outils_caracterisation import comparer_a_la_reference
+from starlette.exceptions import HTTPException
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
-
-from outils_api import charger_application  # noqa: E402
-from outils_caracterisation import comparer_a_la_reference  # noqa: E402
-from starlette.exceptions import HTTPException  # noqa: E402
-
-from ourouler.api.session import SessionHebergee  # noqa: E402
+from ourouler.api.session import SessionHebergee
 
 REFERENCE = Path(__file__).resolve().parents[1] / "caracterisation" / "resolution_routes.json"
 REGENERER = "`uv run pytest tests/api/test_resolution_routes.py --regenerer-golden`"
@@ -155,15 +148,11 @@ def _resoudre(app: Any, methode: str, chemin: str) -> str:
 
 def table_de_resolution(app: Any) -> dict[str, Any]:
     routes = [r for r in _routes(app) if r.methods]
-    ordre = [
-        {"methodes": sorted(r.methods - {"HEAD"}), "chemin": r.path, "nom": r.name} for r in routes
-    ]
+    ordre = [{"methodes": sorted(r.methods - {"HEAD"}), "chemin": r.path, "nom": r.name} for r in routes]
     methodes = sorted({m for r in routes for m in r.methods} - {"HEAD"})
     chemins = sorted({_litteral(r.path) for r in routes})
     resolution = {
-        f"{methode} {chemin}": _resoudre(app, methode, chemin)
-        for chemin in chemins
-        for methode in methodes
+        f"{methode} {chemin}": _resoudre(app, methode, chemin) for chemin in chemins for methode in methodes
     }
     return {"ordre": ordre, "resolution": resolution}
 

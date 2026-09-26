@@ -1,19 +1,19 @@
-"""L'API HTTP d'`ourouler` (lot F1).
+"""L'API HTTP d'`ourouler`.
 
-**Une couche d'exploitation, comme `cli.py`** : elle a le droit de lire la
-configuration et l'environnement, le cœur non (règle absolue 2 de
-`CLAUDE.md`). Dans ce paquet, un seul module y touche — `exploitation.py` —
+**Une couche d'exploitation, comme `cli/`** : elle a le droit de lire la
+configuration et l'environnement, le cœur non (règle « le cœur ne lit ni
+configuration ni environnement » d'`AGENTS.md`). Dans ce paquet, un seul module y touche — `exploitation.py` —
 et un invariant le vérifie (`tests/test_invariants.py`).
 
 Ce qu'elle expose est **ce que la ligne de commande sait déjà rendre en
 JSON** (`doctrine_architecture.md` §10.2 : « L'API expose ce que la CLI sait
 déjà rendre en JSON ; le front la consomme »). Elle ne recalcule rien
-elle-même : elle appelle les mêmes fonctions `executer(...)` que `cli.py`,
+elle-même : elle appelle les mêmes fonctions `executer(...)` que `cli/`,
 avec les mêmes clients injectables, et rend leur JSON tel quel — voir
 `adaptateur.py` pour le pourquoi de ce choix et son prix.
 
 Le contrat détaillé (routes, formes, codes d'erreur) est dans
-`docs/ux/api_contrat.md`.
+`docs/journal/ux/api_contrat.md`.
 
 Le paquet ne s'importe pas au chargement d'`ourouler` : FastAPI est un extra
 (`uv sync --extra api`), et la ligne de commande doit tourner sans.

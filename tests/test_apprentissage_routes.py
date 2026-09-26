@@ -70,9 +70,7 @@ def droite(
 ) -> Trace:
     """Un tracé rectiligne vers le nord, un seul tronçon portant `tags`."""
     points = [
-        PointTrace(
-            lat=depart_lat + i * pas_m / METRES_PAR_DEGRE, lon=0.0, alt_m=None, dist_m=i * pas_m
-        )
+        PointTrace(lat=depart_lat + i * pas_m / METRES_PAR_DEGRE, lon=0.0, alt_m=None, dist_m=i * pas_m)
         for i in range(n)
     ]
     longueur = pas_m * (n - 1)
@@ -242,7 +240,7 @@ def test_une_base_au_schema_plus_recent_est_refusee(tmp_path: Path):
         BaseRoutes(chemin)
 
 
-#: Le schéma v1, mot pour mot tel qu'il a été livré au sprint 3 : sans la
+#: Le schéma v1, mot pour mot tel qu'il a été livré : sans la
 #: colonne `proprietaire`. C'est la base que le mainteneur a sur son disque.
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS troncons (
@@ -279,10 +277,7 @@ def base_v1(chemin: Path) -> tuple[int, float, int]:
     cx.executemany(
         "INSERT INTO troncons (cle_lat, cle_lon, highway, surface, maxspeed, cout_km, "
         "passages, passages_semaine, metres, metres_semaine) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        [
-            (300, i, "tertiary", "asphalt", "", 1400.0, 3, 2, 120.0, 80.0)
-            for i in range(1, 6)
-        ],
+        [(300, i, "tertiary", "asphalt", "", 1400.0, 3, 2, 120.0, 80.0) for i in range(1, 6)],
     )
     cx.execute(
         "INSERT INTO sorties (id_sortie, jour, mailles, metres, ajoutee_le) VALUES (?,?,?,?,?)",
@@ -323,13 +318,9 @@ def test_une_base_v1_est_migree_sans_rien_perdre(tmp_path: Path):
             # Et elle est bien dans la clé primaire : sans cela, deux
             # utilisateurs ne pourraient pas avoir roulé la même maille.
             assert any(ligne[1] == "proprietaire" and ligne[5] for ligne in info), table
-        proprietaires = {
-            ligne[0] for ligne in cx.execute("SELECT DISTINCT proprietaire FROM troncons")
-        }
+        proprietaires = {ligne[0] for ligne in cx.execute("SELECT DISTINCT proprietaire FROM troncons")}
         assert proprietaires == {PROPRIETAIRE_LOCAL}
-        assert [ligne[0] for ligne in cx.execute("SELECT proprietaire FROM sorties")] == [
-            PROPRIETAIRE_LOCAL
-        ]
+        assert [ligne[0] for ligne in cx.execute("SELECT proprietaire FROM sorties")] == [PROPRIETAIRE_LOCAL]
     finally:
         cx.close()
 
@@ -349,10 +340,9 @@ def test_une_base_neuve_porte_la_colonne_proprietaire(tmp_path: Path):
     try:
         assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
         for table in ("troncons", "sorties"):
-            assert (
-                cx.execute(f"SELECT DISTINCT proprietaire FROM {table}").fetchall()
-                == [(PROPRIETAIRE_LOCAL,)]
-            ), table
+            assert cx.execute(f"SELECT DISTINCT proprietaire FROM {table}").fetchall() == [
+                (PROPRIETAIRE_LOCAL,)
+            ], table
     finally:
         cx.close()
 
@@ -508,9 +498,7 @@ def test_un_trace_moins_echantillonne_reste_reconnu(tmp_path: Path):
 def test_un_trace_vide_ne_divise_pas_par_zero(tmp_path: Path):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     base.ajouter_trace(droite(101), jour=LUNDI, id_sortie="s1")
-    vide = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    vide = Trace(nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
     assert base.part_connue(vide) == 0.0
     un_point = Trace(
         nom="un",
@@ -540,9 +528,7 @@ def test_deux_points_confondus_ne_font_pas_une_part_connue(tmp_path: Path):
 
 
 def stats_de(km_par_highway: dict[str, float]) -> Statistiques:
-    return Statistiques(
-        km_total=sum(km_par_highway.values()), km_par_highway=dict(km_par_highway)
-    )
+    return Statistiques(km_total=sum(km_par_highway.values()), km_par_highway=dict(km_par_highway))
 
 
 def test_sans_exposition_les_poids_sont_ceux_par_defaut():
@@ -568,17 +554,13 @@ def test_tertiary_est_toujours_a_zero():
 
 def test_une_classe_absente_des_sorties_atteint_le_plafond():
     """Proposée sans cesse, jamais prise : c'est le refus le plus net."""
-    poids = poids_appris(
-        stats_de({"tertiary": 100.0}), stats_de({"tertiary": 90.0, "trunk": 10.0})
-    )
+    poids = poids_appris(stats_de({"tertiary": 100.0}), stats_de({"tertiary": 90.0, "trunk": 10.0}))
     assert poids["trunk"] == POIDS_MAX
 
 
 def test_une_classe_absente_de_l_exposition_vaut_zero():
     """Rien à comparer : « inconnu » n'est jamais un malus."""
-    poids = poids_appris(
-        stats_de({"tertiary": 90.0, "cycleway": 10.0}), stats_de({"tertiary": 100.0})
-    )
+    poids = poids_appris(stats_de({"tertiary": 90.0, "cycleway": 10.0}), stats_de({"tertiary": 100.0}))
     assert poids["cycleway"] == 0.0
 
 
@@ -617,7 +599,7 @@ def test_le_poids_ne_depasse_jamais_le_plafond():
 
 
 def test_multiplier_les_kilometres_des_sorties_ne_change_pas_les_poids():
-    """Contrat §2 : on compare des **parts**, jamais des kilomètres.
+    """On compare des **parts**, jamais des kilomètres.
 
     Les deux jeux sont normalisés chacun sur son propre total. Un jeu de
     sorties dix fois plus fourni — ou une table filtrée en amont, dont les
@@ -810,8 +792,19 @@ def reponse_brouter() -> dict:
         lon, lat, _ = coordonnees[fin]
         messages.append(
             [
-                str(round(lon * 1e6)), str(round(lat * 1e6)), "10", "5000", "1200",
-                "0", "0", "0", "0", tags, "", "600", "9000",
+                str(round(lon * 1e6)),
+                str(round(lat * 1e6)),
+                "10",
+                "5000",
+                "1200",
+                "0",
+                "0",
+                "0",
+                "0",
+                tags,
+                "",
+                "600",
+                "9000",
             ]  # fmt: skip
         )
     return {
@@ -839,9 +832,7 @@ def client_bouchonne() -> tuple[ClientBrouter, list[httpx.Request]]:
         return httpx.Response(200, json=reponse_brouter())
 
     return (
-        ClientBrouter(
-            PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-        ),
+        ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))),
         vues,
     )
 
@@ -871,9 +862,7 @@ def test_les_sorties_a_apprendre_excluent_le_home_trainer(cache_garni: Cache):
 def test_apprendre_rejoue_chaque_sortie_une_fois(tmp_path: Path, cache_garni: Cache):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
-    rapport = apprendre(
-        cache_garni, client, base, depuis=date(2020, 1, 1)
-    )
+    rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert rapport.sorties_apprises == len(vues) > 0
     assert rapport.echecs == 0
     assert rapport.km == pytest.approx(10.0 * rapport.sorties_apprises, rel=0.01)
@@ -884,7 +873,7 @@ def reponse_brouter_avec_relief(montee_m: float = 30.0) -> dict:
     """Comme `reponse_brouter`, altitude en rampe régulière plutôt que plate.
 
     Sert à vérifier que `apprendre` recalcule un D+ sur cette altitude
-    (contrat sprint 7 §L7.C) plutôt que de la jeter comme avant.
+    plutôt que de la jeter.
     """
     charge = reponse_brouter()
     coordonnees = charge["features"][0]["geometry"]["coordinates"]
@@ -910,9 +899,7 @@ def test_apprendre_cumule_le_denivele_du_trace_reroute(tmp_path: Path, cache_gar
         vues.append(requete)
         return httpx.Response(200, json=reponse_brouter_avec_relief(30.0))
 
-    client = ClientBrouter(
-        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert rapport.sorties_apprises > 0
     assert rapport.denivele_m is not None
@@ -951,9 +938,7 @@ def test_relancer_apprendre_ne_refait_aucun_appel(tmp_path: Path, cache_garni: C
 def test_apprendre_respecte_max_sorties(tmp_path: Path, cache_garni: Cache):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
-    rapport = apprendre(
-        cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1
-    )
+    rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1)
     assert rapport.sorties_apprises == 1
     assert len(vues) == 1
 
@@ -972,13 +957,9 @@ def test_max_sorties_borne_les_appels_meme_quand_ils_echouent(tmp_path: Path, ca
         vues.append(requete)
         return httpx.Response(500, content=b"datafile not found")
 
-    client = ClientBrouter(
-        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     base = BaseRoutes(tmp_path / "routes.sqlite")
-    rapport = apprendre(
-        cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1
-    )
+    rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1)
     assert rapport.sorties_vues >= 2, "il y avait bien d'autres sorties à tenter"
     assert len(vues) == 1, "un seul appel, alors qu'il a échoué"
     assert rapport.sorties_apprises == 0
@@ -995,9 +976,7 @@ def test_un_echec_du_moteur_est_compte_pas_fatal(tmp_path: Path, cache_garni: Ca
             return httpx.Response(500, content=b"")
         return httpx.Response(200, json=reponse_brouter())
 
-    client = ClientBrouter(
-        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     base = BaseRoutes(tmp_path / "routes.sqlite")
     rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert rapport.echecs == 1
@@ -1008,9 +987,7 @@ def test_un_echec_du_moteur_est_compte_pas_fatal(tmp_path: Path, cache_garni: Ca
 def test_apprendre_sur_un_cache_vide_ne_dit_pas_n_importe_quoi(tmp_path: Path):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
-    rapport = apprendre(
-        Cache(tmp_path / "vide"), client, base, depuis=date(2020, 1, 1)
-    )
+    rapport = apprendre(Cache(tmp_path / "vide"), client, base, depuis=date(2020, 1, 1))
     assert (rapport.sorties_vues, rapport.sorties_apprises, rapport.echecs) == (0, 0, 0)
     assert vues == []
 
@@ -1039,7 +1016,7 @@ def test_un_fichier_de_poids_abime_rend_none_plutot_qu_une_erreur(tmp_path: Path
 
 @pytest.mark.parametrize(
     "charge",
-    ['[]', '{"poids": []}', '{"poids": {"a": "beaucoup"}}', '{"poids": {"a": null}}', '{}'],
+    ["[]", '{"poids": []}', '{"poids": {"a": "beaucoup"}}', '{"poids": {"a": null}}', "{}"],
 )
 def test_un_fichier_de_poids_inexploitable_rend_none(tmp_path: Path, charge: str):
     chemin = tmp_path / "poids_routes.json"

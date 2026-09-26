@@ -30,11 +30,10 @@ PAS_AZIMUT_DEG = 20.0
 
 #: Nombre d'ajustements de rayon par azimut, après le premier essai.
 #:
-#: Passé de 2 à 3 le 13/09/2026, décision du superviseur prise après la
-#: vérification réelle. L'élagage des antennes (lot L3.1) retire des centaines
-#: de mètres à la boucle rendue par le moteur : la distance mesurée oscille
-#: alors d'une itération à l'autre — 53,6 km puis 65,4 km pour 60 km demandés
-#: — et deux corrections s'arrêtaient au milieu de l'oscillation. Une
+#: Trois et non deux, sur vérification réelle : l'élagage des antennes retire
+#: des centaines de mètres à la boucle rendue par le moteur, la distance
+#: mesurée oscille alors d'une itération à l'autre — 53,6 km puis 65,4 km pour
+#: 60 km demandés — et deux corrections s'arrêtent au milieu de l'oscillation. Une
 #: itération de plus affine sans coûter cher, à condition que le plafond
 #: d'appels suive la demande — c'est ce que fait `appels_pour`.
 AJUSTEMENTS_MAX = 3
@@ -52,9 +51,8 @@ RAYON_MIN_M, RAYON_MAX_M = 500.0, 200_000.0
 
 #: Pas d'élargissement de la tolérance de distance, en écart relatif.
 #:
-#: Mots du mainteneur (Q41 d, 17/09/2026) : « le mieux c'est de dire au user :
-#: on n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. Et on
-#: incrémente de 5 % en 5 %. Comme ça on explique. »
+#: Quand aucune boucle ne tient dans les contraintes, on le dit : « on a élargi
+#: de X % », par paliers de 5 % (décision Q41 d, `docs/journal/questions/questions_mainteneur.md`).
 #:
 #: Ce pas n'est pas un seuil : aucune boucle n'est acceptée ou refusée parce
 #: qu'il vaut 5 %. Il ne fait qu'arrondir le chiffre qu'on montre, pour que
@@ -75,7 +73,7 @@ def palier(ecart_relatif: float, tolerance: float) -> float:
     *arrêter* d'affiner le rayon (`if abs(ecart) <= tolerance: break`) : elle
     ne filtre rien et n'oriente rien. Une tolérance plus large arrête donc
     l'affinage **plus tôt**, et ne peut rendre qu'une boucle égale ou pire.
-    Élargir puis réessayer dépenserait des appels au serveur du mainteneur
+    Élargir puis réessayer dépenserait des appels au serveur BRouter
     pour un résultat qu'on a déjà en main. Le palier se **lit** sur la
     candidate trouvée au réglage le plus serré ; il ne se cherche pas.
     `test_elargir_la_tolerance_ne_rend_jamais_une_meilleure_boucle` le vérifie
@@ -94,9 +92,9 @@ def elargissement_max(tolerance: float) -> float:
     """Le plus grand élargissement qu'on s'autorise à servir : `tolerance` elle-même.
 
     Il faut bien s'arrêter : servir 40 km à qui en demande 150 n'explique plus
-    rien, ça substitue une autre sortie à celle qui était demandée. Mais le
-    mainteneur a refusé qu'on invente un seuil pour le dire (Q41 d), et il a
-    raison — un seuil inventé est un chiffre qu'on passe sa vie à défendre.
+    rien, ça substitue une autre sortie à celle qui était demandée. Mais on
+    n'invente pas de seuil pour le dire (décision Q41 d) : un seuil inventé
+    est un chiffre qu'on passe sa vie à défendre.
 
     **Le plafond retenu n'est donc pas un chiffre, c'est une unité** : la
     bande acceptée peut au plus **doubler**. Tolérance de 10 % configurée,
@@ -116,7 +114,7 @@ def elargissement_max(tolerance: float) -> float:
     Un plancher d'un palier, et lui non plus n'est pas un chiffre choisi :
     `config` accepte des tolérances jusqu'à 1 %, et sous 5 % le double
     resterait plus étroit que le pas d'élargissement lui-même — le mécanisme
-    que le mainteneur a demandé n'aurait jamais lieu d'être. **On ne refuse
+    n'aurait jamais lieu d'être. **On ne refuse
     personne sans lui avoir offert au moins un palier**, sinon l'escalier
     n'a pas de première marche.
 
@@ -150,11 +148,6 @@ class Candidate:
         """
         return self.elargissement > 0.0
 
-    @property
-    def tolerance_atteinte(self) -> float:
-        """La bande qu'il a fallu accepter : `tolerance + elargissement`."""
-        return self.tolerance + self.elargissement
-
 
 def appels_pour(nb: int) -> int:
     """Plafond d'appels au moteur pour `nb` candidates demandées.
@@ -180,16 +173,14 @@ def azimuts(azimut_deg: float, nb: int) -> list[float]:
     return sortie
 
 
-def _plus_proche(
-    courte: Candidate, longue: Candidate | None, tolerance: float
-) -> Candidate:
+def _plus_proche(courte: Candidate, longue: Candidate | None, tolerance: float) -> Candidate:
     """Des deux essais d'un azimut, celle qui répond le mieux à la demande.
 
     `courte` tient déjà dans la bande, sous la cible ; `longue` est ce qu'a
     rendu l'essai supplémentaire, et peut être `None` (tracé non borné) ou
     hors bande. La règle : **le plus petit écart absolu l'emporte, et à écart
-    égal, la plus longue** — c'est l'arbitrage du mainteneur (18/09/2026),
-    et c'est la même règle que le tri final entre azimuts, pour qu'un étage
+    égal, la plus longue** — rallonger coûte moins que raccourcir, et c'est la
+    même règle que le tri final entre azimuts, pour qu'un étage
     ne défasse pas ce que l'autre a choisi.
     """
     if longue is None or abs(longue.ecart_relatif) > tolerance:
@@ -198,7 +189,7 @@ def _plus_proche(
         return longue
     if abs(longue.ecart_relatif) > abs(courte.ecart_relatif):
         return courte
-    # Écart égal : la préférence du mainteneur s'exprime ici, et ne coûte rien.
+    # Écart égal : la préférence pour la plus longue s'exprime ici, sans rien coûter.
     return longue if longue.ecart_relatif > courte.ecart_relatif else courte
 
 
@@ -236,9 +227,9 @@ def generer(
     meilleure boucle **bornée** — un tracé qui ne revient pas au départ n'est
     pas une boucle. Cette boucle est ensuite jugée contre la tolérance, une
     fois : elle emporte `tolerance`, `elargissement` (de combien il a fallu
-    élargir, par paliers de 5 %) et `hors_tolerance` (Q41 d, 17/09/2026 :
-    2 km demandés, 2,69 km servis, +34,7 % pour une tolérance de 10 %, et
-    rien à l'écran ne le disait). Servie si l'élargissement tient sous
+    élargir, par paliers de 5 %) et `hors_tolerance` (sans eux, 2 km
+    demandés et 2,69 km servis, +34,7 % pour une tolérance de 10 %, passeraient
+    sans rien dire à l'écran). Servie si l'élargissement tient sous
     `elargissement_max`, écartée sinon ; `_conclure` décide enfin entre
     servir, relancer la dernière panne ou refuser.
 
@@ -287,7 +278,7 @@ def _valider(distance_km: float, nb: int) -> None:
     `nb` inférieur à 1 sont des `ErreurUtilisateur` : sans cible,
     `ecart_relatif` ne veut rien dire (NaN), et sans candidate demandée il
     n'y a rien à chercher. Une entrée absurde ne doit pas coûter un
-    aller-retour sur le serveur BRouter du mainteneur.
+    aller-retour sur le serveur BRouter.
     """
     if not math.isfinite(distance_km) or distance_km <= 0:
         raise ErreurUtilisateur(
@@ -309,9 +300,9 @@ def _essayer(
     `budget.derniere_erreur`, et `_conclure` ne la relance que si **aucune**
     candidate n'a pu être produite.
 
-    Chaque réponse est **élaguée de ses antennes** avant d'être mesurée
-    (contrat §1) : les crochets que le mode boucle fabrique en allant chercher
-    un point de passage tombé à côté de la route sont retirés, et
+    Chaque réponse est **élaguée de ses antennes** avant d'être mesurée : les
+    crochets que le mode boucle fabrique en allant chercher un point de passage
+    tombé à côté de la route sont retirés, et
     `trace.meta["antennes"]` dit combien et combien de mètres. L'ajustement de
     rayon travaille donc sur la distance **réellement proposée au cycliste**,
     pas sur celle qui incluait l'aller-retour.
@@ -347,21 +338,20 @@ def _explorer_azimut(
 
     Un premier essai au rayon `distance / 5`, puis au plus `AJUSTEMENTS_MAX`
     corrections par proportion (`_rayon_suivant`) tant que l'écart dépasse
-    `tolerance` — trois depuis le 13/09/2026, l'élagage des antennes faisant
-    osciller la distance mesurée.
+    `tolerance` — trois, l'élagage des antennes faisant osciller la distance
+    mesurée.
 
-    **À tolérance égale, on préfère dépasser la cible** (mainteneur,
-    18/09/2026 : « c'est pas dur de faire 10 bornes de plus ») : sur 60, 100
-    et 125 km × 8 azimuts, 20 candidates sur 24 tombaient court, médiane
+    **À tolérance égale, on préfère dépasser la cible** : faire dix
+    kilomètres de plus n'est pas dur, en faire dix de moins ampute la sortie.
+    Sur 60, 100 et 125 km × 8 azimuts, 20 candidates sur 24 tombaient court, médiane
     autour de −5 %. Une candidate sous la cible mais dans la tolérance ne
     fait donc pas sortir tout de suite : une correction de plus vise plus
     loin (le facteur vaut déjà > 1 sous la cible), et `_plus_proche` tranche
     entre les deux — la plus proche, la plus longue à écart égal, la même
-    règle que le tri final entre azimuts (arbitrage du 18/09/2026, qui a
-    remplacé « toujours la plus longue » : 137 km servis pour 125 demandés
-    quand on en avait 120 en main). Un seul essai de plus, jamais une
+    règle que le tri final entre azimuts — et non « toujours la plus longue »,
+    qui servirait 137 km pour 125 demandés quand on en a 120 en main. Un seul essai de plus, jamais une
     relance ; le plafond ne change pas, mais le coût réel double à peu près
-    (1,67 à 2,38 appels par azimut contre un, mesuré le 18/09/2026). Une
+    (1,67 à 2,38 appels par azimut contre un, mesuré). Une
     candidate déjà au-dessus de la cible n'est jamais retouchée.
     """
     rayon = _borner(cible_m / RAPPORT_RAYON_DEFAUT)
@@ -398,8 +388,8 @@ def _rayon_suivant(rayon: float, distance_m: float, cible_m: float) -> float | N
     réponse qui force une borne est une réponse qu'on ne sait pas exploiter,
     pas une réponse à laquelle il faut insister : l'azimut est abandonné, avec
     sa meilleure tentative. Sans ces bornes, un moteur qui rend 100 m pour une
-    cible de 60 km faisait demander 7 200 km puis 4,3 millions de kilomètres
-    au serveur du mainteneur. Une boucle de longueur nulle n'a rien à
+    cible de 60 km ferait demander 7 200 km puis 4,3 millions de kilomètres
+    au serveur BRouter. Une boucle de longueur nulle n'a rien à
     corriger : insister coûterait des appels pour le même résultat.
     """
     if distance_m <= 0:

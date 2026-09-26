@@ -21,9 +21,10 @@ concurrency:
 jobs:
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # historique complet nécessaire pour que gitleaks scanne tous les commits
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -31,26 +32,39 @@ jobs:
       # interroge l'API des PR (permission refusée ici) et, sur une PR, ne lit
       # que les commits de la PR. Ici, tout l'historique est parcouru ; les
       # faux positifs connus sont écartés par .gitleaksignore.
+      # Somme de contrôle publiée par la release (gitleaks_8.24.3_checksums.txt).
       - name: Chercher des secrets dans tout l'historique
         run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
-            | tar xz -C /tmp gitleaks
+          curl -sSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          echo "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar xz -C /tmp -f /tmp/gitleaks.tar.gz gitleaks
           /tmp/gitleaks git . --redact --no-banner --verbose
 
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - run: uv python install 3.12
 
       # dev est un extra d'optional-dependencies, pas un groupe
       - run: uv sync --frozen --extra dev --python 3.12
 
       - run: uv run ruff check .
+
+      - run: uv run ruff format --check .
+
+      # Ligne de base : les erreurs déjà présentes lors de l'adoption sont
+      # tolérées, gelées dans pyright_ligne_de_base.json ; toute erreur
+      # nouvelle fait échouer ce pas (AGENTS.md, CONTRIBUTING.md).
+      - run: uv run python scripts/pyright_ligne_de_base.py
 
       # Base de comparaison : la branche cible sur une PR ; sur un push (main
       # comme prod), le commit d'avant le push, sauf branche toute neuve (before
@@ -81,28 +95,22 @@ jobs:
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
 
+      # CI=true (posé par GitHub Actions) : tests/conftest.py fait échouer la
+      # session sur tout saut absent de tests/sauts_autorises.py — un test
+      # Postgres sauté compris (« PostgreSQL local indisponible » n'y est pas).
       - name: Tests
-        run: |
-          set -o pipefail
-          uv run pytest -q -rs 2>&1 | tee pytest.log
-
-      # un test Postgres sauté = CI rouge
-      - name: Vérifier qu’aucun test Postgres n’a été sauté
-        run: |
-          if grep -q "PostgreSQL local indisponible" pytest.log; then
-            echo "Test(s) Postgres sauté(s) : CI rouge."
-            exit 1
-          fi
+        run: uv run pytest -q -rs
 
   front:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: front
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
@@ -113,18 +121,18 @@ jobs:
 
   image:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - run: docker build -f deploiement/api/Dockerfile -t ourouler-api:ci .
 
       - name: Démarrer l’image sans Postgres, en mode hébergé
         run: |
-          printf '[cache]\ndossier = "/data/cache"\n' > heberge.toml
           docker run -d --name api -p 8000:8000 \
             -e OUROULER_MODE=heberge \
             -e OUROULER_CONFIG=/config/config.toml \
-            -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 heberge.toml)" \
+            -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 deploiement/api/config.heberge.example.toml)" \
             ourouler-api:ci
 
       - name: Attendre que /sante réponde 200

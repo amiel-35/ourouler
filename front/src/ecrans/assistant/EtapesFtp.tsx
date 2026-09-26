@@ -19,11 +19,10 @@ export function EtapeT3({
   const { enregistrer, setEtage, aller } = a;
   return (
     /* « Connaissez-vous votre FTP ? » se répond par oui ou par non, et les
-       deux réponses tiennent dans le même regard. « Je ne sais pas » était
-       tout en bas, après les zones et l'allure d'endurance — c'est-à-dire
-       après deux écrans de conséquences d'une FTP, servies à celui qui
-       vient de dire qu'il n'en a pas. Constaté par le mainteneur le
-       20/09/2026. Il passe donc sous le champ, par `echappatoire`. */
+       deux réponses tiennent dans le même regard. « Je ne sais pas » tout en
+       bas, après les zones et l'allure d'endurance, viendrait après deux
+       écrans de conséquences d'une FTP, servies à celui qui vient de dire
+       qu'il n'en a pas. Il passe donc sous le champ, par `echappatoire`. */
     <EcranFtp
       zones={zones}
       surApercu={surZones}

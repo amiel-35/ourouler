@@ -5,14 +5,13 @@
  * progresse — et enfin ce qui ne se touche qu'une fois, en bas, jusqu'au
  * compte lui-même.
  *
- * **Identité (prénom, nom) reprend l'écran E8 de l'assistant** (Q36,
- * 17/09/2026 : « nom prénom obligatoire car c'est la base »). Un profil créé
- * avant ce lot peut arriver ici avec les deux champs vides — ce n'est pas une
+ * **Identité (prénom, nom) reprend l'écran E8 de l'assistant** (obligatoires,
+ * c'est la base : décision Q36). Un profil plus ancien peut arriver ici avec les deux champs vides — ce n'est pas une
  * panne, `Cycliste.prenom`/`nom` restent optionnels au chargement pour cette
  * raison précise — et ce panneau est l'endroit où le compléter.
  *
- * **« Mon compte » (lot L9.6, `reglages/MonCompteVolet.tsx`)** ferme ce que le
- * lot F2 avait renvoyé aux comptes : adresse, changement de mot de passe,
+ * **« Mon compte » (`reglages/MonCompteVolet.tsx`)** porte ce qui revient au
+ * compte : adresse, changement de mot de passe,
  * export RGPD et suppression — celle-ci à double confirmation, un texte
  * explicite avant le geste irréversible. Les clés d'accès (passkey) restent
  * hors sujet : `api/comptes.py` n'en porte toujours aucune.
@@ -39,7 +38,7 @@ interface Props {
   surProfil: (profil: Profil) => void;
   surZones: (zones: Zones) => void;
   surRefaireInstallation: () => void;
-  /** Appelée une fois `POST /sortir` fait — l'écran de connexion, rien de plus (lot L7.2-D). */
+  /** Appelée une fois `POST /sortir` fait — l'écran de connexion, rien de plus. */
   surDeconnexion: () => void;
 }
 
@@ -65,9 +64,9 @@ export function Reglages({
   const [panneIntervals, setPanneIntervals] = useState<string | null>(null);
   const [ditIntervals, setDitIntervals] = useState<string | null>(null);
   const [verificationIntervals, setVerificationIntervals] = useState(false);
-  // L9.4 : ce que le serveur sait de la calibration de chaque vélo. `null`
-  // tant qu'il n'a pas répondu — ou s'il ne sait pas répondre (un serveur
-  // d'avant L9.4) : la section ne s'affiche alors simplement pas.
+  // Ce que le serveur sait de la calibration de chaque vélo. `null` tant
+  // qu'il n'a pas répondu — ou s'il ne sait pas répondre (un serveur plus
+  // ancien) : la section ne s'affiche alors simplement pas.
   const [calibrations, setCalibrations] = useState<EtatCalibrations | null>(null);
 
   function relireCalibrations() {

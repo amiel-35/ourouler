@@ -1,7 +1,7 @@
 /**
  * La feuille de style de l'application — direction « suisse vivante »,
- * appliquée le 20/09/2026 (lot d'application, après le choix de direction du
- * 19/09 et le système de jetons du 20/09).
+ * appliquée par le système de jetons (`jetons-primitives.css`,
+ * `jetons-semantiques.css`).
  *
  * Ce fichier ne référence QUE des jetons sémantiques (`jetons-semantiques.css`)
  * — jamais une primitive `--sv-*`, jamais une valeur brute. Si un composant a
@@ -10,15 +10,13 @@
  * fichier qui invente une valeur en local (règle d'admission,
  * `docs/ux/doctrine_design_system.md` §3).
  *
- * Les noms de classe sont ceux qu'utilisaient déjà les onze écrans sous
- * `front/src/ecrans/` et les composants sous `front/src/composants/` — ce
- * lot est une substitution de feuille de style, pas une réécriture des
- * `.tsx` (voir `docs/ux/inventaire_systeme_visuel.md` pour le contrat des
- * 98 classes couvertes). Les seules retouches `.tsx` de ce lot renomment un
- * jeton lu en ligne (`style={{ ... "var(--sp-3)" }}` → `"var(--espace-champ)"`,
- * etc.) ou remplacent une couleur hexadécimale par une classe CSS
- * (`composants/Carte.tsx`, voir plus bas) — jamais un texte, un calcul ou un
- * comportement.
+ * Les noms de classe sont ceux des onze écrans sous `front/src/ecrans/` et
+ * des composants sous `front/src/composants/` (voir
+ * `docs/journal/ux/inventaire_systeme_visuel.md` pour le contrat des 98
+ * classes couvertes) : la direction visuelle vit dans cette feuille de style,
+ * pas dans les `.tsx`. Un `.tsx` ne lit un jeton en ligne que par son nom
+ * sémantique (`"var(--espace-champ)"`), et une couleur passe par une classe
+ * CSS (`composants/Carte.tsx`, voir plus bas).
  *
  * Décisions structurelles qui découlent de la direction, posées une fois ici
  * plutôt que répétées à chaque section :
@@ -488,10 +486,9 @@ h1,
   border-right: none;
 }
 /* Fond papier, pas `--fond-champ` : ce n'est pas un champ qu'on remplit,
-   juste l'unité collée à l'input (relecture du lot, 20/09/2026) — avec
-   `--texte-attenue`, `--fond-champ` ferait tomber le contraste à 5,99:1
-   (6,63:1 en sombre), sous le seuil de 7,5:1 que le mainteneur a fixé pour
-   ce texte précisément (voir `jetons-primitives.css`, note sur
+   juste l'unité collée à l'input — avec `--texte-attenue`, `--fond-champ`
+   ferait tomber le contraste à 5,99:1 (6,63:1 en sombre), sous le seuil de
+   7,5:1 fixé pour ce texte précisément (voir `jetons-primitives.css`, note sur
    `--sv-encre-att`). Le cadre suffit à dire « ceci fait partie du champ ». */
 .saisie-unite .unite {
   font-family: var(--police-chiffres);
@@ -1036,7 +1033,7 @@ h1,
 /* Vent inconnu (repli défensif, `relatif` manquant côté cœur) : même encre
    atténuée que le travers, mais un pointillé plus fin et plus lâche — il ne
    doit jamais se confondre avec un travers connu, l'un est une mesure,
-   l'autre son absence (règle absolue 5). */
+   l'autre son absence (on n'affirme rien sans mesure). */
 .vent-inconnu .fleche-forme {
   fill: none;
   stroke: var(--texte-faible);
@@ -1074,8 +1071,8 @@ h1,
 }
 
 /* ================================================================
-   ROSE DES DIRECTIONS — remplace les huit boutons de texte de `Demander`,
-   ajoutée le 20/09/2026. `composants/RoseDirections.tsx` pose ses couleurs
+   ROSE DES DIRECTIONS — à la place de huit boutons de texte dans
+   `Demander`. `composants/RoseDirections.tsx` pose ses couleurs
    en ligne (`fill="var(--couleur-pluie-…)"`), le même geste que la pente de
    `ProfilAltitude` juste au-dessus : le jeton dépend d'un palier calculé,
    pas d'une classe fixe. Cette section ne porte donc que la mise en page,
@@ -1094,8 +1091,8 @@ h1,
 /* Chaque secteur est un vrai contrôle (mode interactif de `Demander`), mais
    pas un élément HTML natif : un `<button>` sait tout seul limiter sa bague
    de focus au clavier (`:focus-visible`), un `<g role="button">` ne le sait
-   pas — trouvé à l'écran le 20/09/2026, où un clic souris laissait la bague
-   par défaut du navigateur (dorée, pas `--focus`) au lieu de rien du tout.
+   pas — un clic souris laisserait la bague par défaut du navigateur (dorée,
+   pas `--focus`) au lieu de rien du tout.
    On répète donc ici, explicitement, la seule règle que `[tabindex]:
    focus-visible` du socle ne suffit pas à couvrir. */
 .rose-secteur {

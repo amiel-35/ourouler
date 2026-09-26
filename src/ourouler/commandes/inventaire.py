@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 
-from ourouler.activites import commande as service
 from ourouler.activites.cache import Cache
-from ourouler.activites.commande import DemandeInventaire, ResultatInventaire, date_depuis
 from ourouler.activites.inventaire import rendre_json, rendre_texte
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.noyau.profil import Profil
+from ourouler.services import activites as service
+from ourouler.services.activites import DemandeInventaire, ResultatInventaire, date_depuis
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeInventaire:
@@ -47,9 +47,7 @@ def json_inventaire(resultat: ResultatInventaire) -> dict:
     return sortie
 
 
-def executer_depuis_namespace(
-    args: argparse.Namespace, config: Config, cache: Cache | None = None
-) -> int:
+def executer_depuis_namespace(args: argparse.Namespace, config: Config, cache: Cache | None = None) -> int:
     """Exécute `ourouler inventaire`. Renvoie le code de sortie (0 = succès)."""
     ctx = contexte(config)
     resultat = service.executer(lire_options(args, ctx.profil), ctx, cache=cache)

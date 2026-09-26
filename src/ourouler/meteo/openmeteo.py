@@ -18,13 +18,13 @@ import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
-# Types de prévision rangés au noyau (lot 4), réexportés ici pour les appelants du dehors.
+# Types de prévision rangés au noyau.
 from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"
 CHEMIN_PREVISION = "/v1/forecast"
 
-#: Variables horaires demandées, dans l'ordre du contrat de sprint.
+#: Variables horaires demandées, dans un ordre fixe.
 VARIABLES_HORAIRES = (
     "precipitation",
     "rain",
@@ -102,7 +102,7 @@ class ClientOpenMeteo:
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
                 f"Open-Meteo : HTTP {reponse.status_code} sur {self.url_prevision}"
-                f"{_motif_api(reponse)} (modèle demandé : {modele})"
+                f"{motif_api(reponse)} (modèle demandé : {modele})"
             )
 
         try:
@@ -118,9 +118,7 @@ class ClientOpenMeteo:
                 f"Open-Meteo : {len(blocs)} bloc(s) reçu(s) pour {len(points)} point(s) demandé(s) "
                 f"sur {self.url_prevision}"
             )
-        return [
-            self._point(bloc, demande, modele) for bloc, demande in zip(blocs, points, strict=True)
-        ]
+        return [self._point(bloc, demande, modele) for bloc, demande in zip(blocs, points, strict=True)]
 
     def _point(self, bloc: Any, demande: tuple[float, float], modele: str) -> PrevisionPoint:
         if not isinstance(bloc, dict):
@@ -208,12 +206,13 @@ class ClientOpenMeteo:
         # `NaN` majuscule (et `Infinity`) sont acceptés par le module `json` de
         # Python, qui les rend en flottants. Un NaN de pluie se propagerait
         # dans les cumuls et rendrait `meilleure_direction` arbitraire, sans
-        # un message. `lecture.py:429` les écarte déjà, l'asymétrie était
-        # accidentelle : ici aussi, une valeur non finie vaut « absente ».
+        # un message. `activites.lecture._flottant` les écarte déjà,
+        # l'asymétrie était accidentelle : ici aussi, une valeur non finie
+        # vaut « absente ».
         return x if math.isfinite(x) else None
 
     def _instant(self, brut: Any) -> datetime:
-        """Un horodatage Open-Meteo (`2026-09-13T08:00`, en UTC car `timezone=UTC`)."""
+        """Un horodatage Open-Meteo (`AAAA-MM-JJT08:00`, en UTC car `timezone=UTC`)."""
         try:
             t = datetime.fromisoformat(str(brut))
         except (TypeError, ValueError) as e:
@@ -226,13 +225,12 @@ class ClientOpenMeteo:
 def _heure_vide(h: PrevisionHeure) -> bool:
     """Aucune valeur du tout à cette heure-là (tout `null` côté API)."""
     return all(
-        v is None
-        for v in (h.pluie_mm, h.vent_kmh, h.rafales_kmh, h.vent_depuis_deg, h.ressenti_c, h.temp_c)
+        v is None for v in (h.pluie_mm, h.vent_kmh, h.rafales_kmh, h.vent_depuis_deg, h.ressenti_c, h.temp_c)
     )
 
 
 def _hors_domaine(modele: str) -> ErreurHorsDomaine:
-    """Le modèle ne rend rien pour ce point ou cette fenêtre (Q19).
+    """Le modèle ne rend rien pour ce point ou cette fenêtre.
 
     Deux signatures, toutes deux mesurées sur le vrai service : un corps
     HTTP 200 contenant des littéraux `nan` (donc invalide en JSON), ou un
@@ -240,7 +238,7 @@ def _hors_domaine(modele: str) -> ErreurHorsDomaine:
     la seconde l'est aussi, mais elle est **également** ce qu'Open-Meteo rend
     quand la fenêtre demandée dépasse la portée temporelle du modèle (AROME
     publie à 67 h) — le message ne tranche donc pas entre les deux plutôt que
-    d'affirmer une cause qu'il ne mesure pas (règle absolue 5).
+    d'affirmer une cause qu'il ne mesure pas (on n'affirme rien sans mesure).
 
     Le message ne cite pas les coordonnées : les messages Open-Meteo ne
     doivent jamais publier le point de départ. Il ne nomme pas non plus
@@ -269,7 +267,7 @@ def _blocs(charge: Any, url: str) -> list[Any]:
     raise ErreurConnecteur(f"Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}")
 
 
-def _motif_api(reponse: httpx.Response) -> str:
+def motif_api(reponse: httpx.Response) -> str:
     """Le motif renvoyé par l'API, s'il est lisible. Ne contient jamais les paramètres envoyés."""
     try:
         charge = reponse.json()
@@ -282,6 +280,6 @@ def _motif_api(reponse: httpx.Response) -> str:
 
 def _flottant(x: Any, defaut: float) -> float:
     try:
-        return float(x)  # type: ignore[arg-type]
+        return float(x)
     except (TypeError, ValueError):
         return defaut

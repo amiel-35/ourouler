@@ -25,8 +25,6 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.session import SessionHebergee
 from ourouler.noyau.erreurs import ErreurConfig
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 
 def test_la_sonde_de_sante_repond_sans_session():
     """Un service hébergé, sans authentification branchée, reste sondable.
@@ -247,6 +245,7 @@ def test_sans_dossier_front_la_racine_ne_sert_rien():
     reponse = client.get("/")
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "route_inconnue"
+
 
 # --- à qui appartient le TOML du serveur (lot L7.2, corrigé le 19/09/2026) ----
 

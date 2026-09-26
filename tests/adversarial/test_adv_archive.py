@@ -1,20 +1,20 @@
-"""L3.3 — archive météo (`connecteurs/openmeteo_archive.py`), mise à l'épreuve.
+"""Archive météo (`connecteurs/openmeteo_archive.py`), mise à l'épreuve.
 
-Cible : contrat du sprint 3 §3 et §4. La calibration repose entièrement sur ce
-connecteur : un vent mal lu se retrouve dans le CdA, et le rapport d'erreur du
-sprint ne veut alors plus rien dire.
+La calibration repose entièrement sur ce connecteur : un vent mal lu se
+retrouve dans le CdA, et le rapport d'erreur de la calibration ne veut alors
+plus rien dire.
 
 Ce qui est traqué :
 
-* le **jour futur** : l'archive ne sait rien de demain. Le contrat §4 dit
-  « jour futur refusé » — et refusé **sans** appeler le service ;
+* le **jour futur** : l'archive ne sait rien de demain. Un jour futur est
+  refusé — et refusé **sans** appeler le service ;
 * le **jour antérieur à 1940** : la réanalyse ERA5 commence là ; en deçà, la
   réponse est vide et le cache mémorise le vide ;
 * les **coordonnées hors du globe** : une latitude de 91° est une faute de
   l'appelant, elle n'a pas à devenir une requête HTTP ;
 * les **heures manquantes** : `time` porte 24 heures et `wind_speed_10m` dix.
   Un `zip` strict lève, un `zip` laxiste tronque en silence, un accès par
-  indice lève `IndexError` — le contrat §4 cite explicitement ce cas ;
+  indice lève `IndexError` — un cas que le service rend vraiment ;
 * la **mémoïsation** : « l'archive du passé ne change pas ». Deux fois le même
   jour au même point, c'est un seul appel — sinon la calibration sur 160
   sorties refait 160 appels à chaque lancement.
@@ -31,16 +31,13 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import httpx
 import pytest
 from outils import robuste, sans_accents, verifier_utc
 
+from ourouler.connecteurs import openmeteo_archive as module_openmeteo_archive
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-
-MOTIF_ABSENT = (
-    "module attendu par le contrat L3.3 absent (ourouler.connecteurs.openmeteo_archive)"
-)
 
 CHAMPS_HEURE = {"t", "vent_kmh", "vent_depuis_deg", "temp_c", "pression_hpa"}
 
@@ -51,10 +48,6 @@ ERREURS = (ErreurConnecteur, ErreurUtilisateur, ValueError)
 
 #: Jetons qui trahissent un paramètre de mémoïsation dans une signature.
 JETONS_CACHE = ("cache", "memo", "chemin", "sqlite", "base")
-
-
-def _module():
-    return pytest.importorskip("ourouler.connecteurs.openmeteo_archive", reason=MOTIF_ABSENT)
 
 
 def _parametre_cache(fonction) -> str | None:
@@ -70,7 +63,7 @@ def _parametre_cache(fonction) -> str | None:
 
 def _client(module, espion, *, memo=None):
     """Un `ClientArchive` branché sur le transport bouchon, avec mémo si possible."""
-    kwargs: dict[str, Any] = {"base_url": fabriques3.URL_ARCHIVE}
+    kwargs: dict[str, Any] = {"base_url": fabriques_physique.URL_ARCHIVE}
     if memo is not None:
         nom = _parametre_cache(module.ClientArchive.__init__)
         if nom is None:
@@ -83,7 +76,7 @@ def _client(module, espion, *, memo=None):
 
 
 def _espion(**options):
-    return fabriques.EspionHttp(lambda requete: fabriques3.repondre_archive(requete, **options))
+    return fabriques.EspionHttp(lambda requete: fabriques_physique.repondre_archive(requete, **options))
 
 
 # --- vérificateurs ------------------------------------------------------------
@@ -123,11 +116,12 @@ def _verifier_heures(heures: Any, quoi: str) -> list[Any]:
 
 
 def test_une_journee_complete_se_relit():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     heures = _verifier_heures(
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE), "horaires(jour passé)"
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
+        "horaires(jour passé)",
     )
     assert len(heures) == 24, f"{len(heures)} heures pour une journée de 24 heures"
     assert espion.requetes, "aucune requête émise"
@@ -142,24 +136,24 @@ def test_une_journee_complete_se_relit():
 
 def test_les_heures_sont_datees_en_utc():
     """Le reste du produit range tout en UTC ; une heure naïve décale le vent d'une sortie."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     heures = _verifier_heures(
-        _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE),
+        _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
         "horaires",
     )
-    assert heures[0].t.date() == fabriques3.JOUR_ARCHIVE, (
-        f"première heure au {heures[0].t.date()} pour un appel sur {fabriques3.JOUR_ARCHIVE}"
+    assert heures[0].t.date() == fabriques_physique.JOUR_ARCHIVE, (
+        f"première heure au {heures[0].t.date()} pour un appel sur {fabriques_physique.JOUR_ARCHIVE}"
     )
     assert heures[0].t.hour == 0, f"la journée commence à {heures[0].t.hour} h UTC"
 
 
 def test_la_requete_demande_bien_le_jour_voulu():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
-    _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+    _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     params = espion.params(0)
-    jour = fabriques3.JOUR_ARCHIVE.isoformat()
+    jour = fabriques_physique.JOUR_ARCHIVE.isoformat()
     assert any(jour in str(v) for v in params.values()), (
         f"le jour demandé ({jour}) n'apparaît pas dans les paramètres : {params}"
     )
@@ -169,25 +163,24 @@ def test_la_requete_demande_bien_le_jour_voulu():
 
 
 def test_un_jour_futur_est_refuse_sans_appel():
-    """Contrat §4 : « jour futur refusé »."""
-    module = _module()
+    """Un jour futur est refusé, sans appel au service."""
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     demain = datetime.now(UTC).date() + timedelta(days=3)
     with pytest.raises((ErreurConnecteur, ErreurUtilisateur)) as capture:
         client.horaires(fabriques.LAT0, fabriques.LON0, demain)
     assert not espion.requetes, (
-        f"{len(espion.requetes)} requête(s) émise(s) pour un jour futur : "
-        "le refus doit venir avant le réseau"
+        f"{len(espion.requetes)} requête(s) émise(s) pour un jour futur : le refus doit venir avant le réseau"
     )
-    assert demain.isoformat() in str(capture.value) or "futur" in sans_accents(
-        str(capture.value)
-    ).casefold(), f"le message ne dit pas ce qui cloche : « {capture.value} »"
+    assert (
+        demain.isoformat() in str(capture.value) or "futur" in sans_accents(str(capture.value)).casefold()
+    ), f"le message ne dit pas ce qui cloche : « {capture.value} »"
 
 
 def test_un_jour_anterieur_a_1940_est_refuse():
     """Angle obligatoire : la réanalyse ERA5 commence en 1940, avant c'est un vide mémorisé."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(heures=0)
     client = _client(module, espion)
     ancien = date(PREMIERE_ANNEE - 11, 6, 15)
@@ -198,17 +191,14 @@ def test_un_jour_anterieur_a_1940_est_refuse():
     )
     if resultat is None:
         assert not espion.requetes, (
-            "le jour est refusé, mais après avoir appelé le service : "
-            f"{len(espion.requetes)} requête(s)"
+            f"le jour est refusé, mais après avoir appelé le service : {len(espion.requetes)} requête(s)"
         )
         assert str(PREMIERE_ANNEE) in str(erreur) or ancien.isoformat() in str(erreur), (
             f"le message ne dit pas la borne de l'archive : « {erreur} »"
         )
         return
     heures = _verifier_heures(resultat, f"horaires({ancien})")
-    assert heures == [], (
-        f"{len(heures)} heure(s) rendues pour {ancien}, antérieur au début de l'archive"
-    )
+    assert heures == [], f"{len(heures)} heure(s) rendues pour {ancien}, antérieur au début de l'archive"
 
 
 @pytest.mark.parametrize(
@@ -217,20 +207,16 @@ def test_un_jour_anterieur_a_1940_est_refuse():
 )
 def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
     """Angle obligatoire : lat/lon hors bornes. Une faute d'appelant n'est pas une requête."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     resultat, _ = robuste(
-        lambda: client.horaires(lat, lon, fabriques3.JOUR_ARCHIVE),
+        lambda: client.horaires(lat, lon, fabriques_physique.JOUR_ARCHIVE),
         quoi=f"horaires({lat}, {lon})",
         erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
     )
-    assert resultat is None, (
-        f"horaires({lat}, {lon}) a rendu un résultat pour une coordonnée hors du globe"
-    )
-    assert not espion.requetes, (
-        f"requête émise pour ({lat}, {lon}) : la validation vient après le réseau"
-    )
+    assert resultat is None, f"horaires({lat}, {lon}) a rendu un résultat pour une coordonnée hors du globe"
+    assert not espion.requetes, f"requête émise pour ({lat}, {lon}) : la validation vient après le réseau"
 
 
 # --- réponses hostiles --------------------------------------------------------
@@ -238,11 +224,11 @@ def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
 
 def test_une_reponse_aux_heures_manquantes():
     """Angle obligatoire : `time` a 24 entrées, les mesures 10."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(colonnes_courtes=10)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(colonnes tronquées)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -273,12 +259,12 @@ def test_une_reponse_aux_heures_manquantes():
     ],
 )
 def test_des_reponses_incompletes(options):
-    """Contrat §4 : « archive météo vide/partielle »."""
-    module = _module()
+    """Une archive météo vide ou partielle ne casse pas la lecture."""
+    module = module_openmeteo_archive
     espion = _espion(**options)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi=f"horaires({options})",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -288,12 +274,12 @@ def test_des_reponses_incompletes(options):
 
 
 def test_des_valeurs_nulles_restent_nulles():
-    """Contrat §4 : « null ». `None` n'est pas `0.0` : un vent inconnu n'est pas un vent nul."""
-    module = _module()
+    """`None` n'est pas `0.0` : un vent inconnu n'est pas un vent nul."""
+    module = module_openmeteo_archive
     espion = _espion(vent_kmh=None, vent_depuis_deg=None, temp_c=None, pression_hpa=None)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(valeurs null)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -310,14 +296,14 @@ def test_des_valeurs_nulles_restent_nulles():
 
 @pytest.mark.parametrize("code", [400, 404, 429, 500, 503])
 def test_une_erreur_http_devient_une_erreur_utilisateur(code):
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(httpx.Response(code, json={"reason": "essai"}))
     client = _client(module, espion)
     with pytest.raises(ErreurConnecteur) as capture:
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     message = str(capture.value)
     assert str(code) in message, f"le code HTTP n'est pas dit : « {message} »"
-    assert fabriques3.URL_ARCHIVE.split("//")[1] in message, (
+    assert fabriques_physique.URL_ARCHIVE.split("//")[1] in message, (
         f"le message ne dit pas quel service a refusé : « {message} »"
     )
 
@@ -332,11 +318,11 @@ def test_une_erreur_http_devient_une_erreur_utilisateur(code):
     ],
 )
 def test_des_corps_de_reponse_inexploitables(reponse):
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(reponse)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(corps inexploitable)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -346,7 +332,7 @@ def test_des_corps_de_reponse_inexploitables(reponse):
 
 
 def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
-    module = _module()
+    module = module_openmeteo_archive
 
     def couper(_requete):
         raise httpx.ConnectError("serveur injoignable")
@@ -354,19 +340,19 @@ def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
     espion = fabriques.EspionHttp(couper)
     client = _client(module, espion)
     with pytest.raises(ErreurConnecteur):
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
 
 
 # --- mémoïsation ---------------------------------------------------------------
 
 
 def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
-    """Contrat §3 : « un appel par (jour, point arrondi à 0,05°) »."""
-    module = _module()
+    """Un appel par (jour, point arrondi à 0,05°)."""
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     for _ in range(3):
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     assert len(espion.requetes) == 1, (
         f"{len(espion.requetes)} requêtes pour trois fois le même (jour, point) : "
         "l'archive du passé ne change pas, elle se mémorise"
@@ -374,12 +360,12 @@ def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
 
 
 def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
-    """Contrat §3 : « point arrondi à 0,05° » — soit environ 5,5 km."""
-    module = _module()
+    """Le point est arrondi à 0,05°, soit environ 5,5 km."""
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(0.0011, 0.0017, fabriques3.JOUR_ARCHIVE)
-    client.horaires(0.0155, 0.0180, fabriques3.JOUR_ARCHIVE)
+    client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(0.0155, 0.0180, fabriques_physique.JOUR_ARCHIVE)
     assert len(espion.requetes) == 1, (
         f"{len(espion.requetes)} requêtes pour deux points distants de moins de 3 km, qui "
         "s'arrondissent au même 0,05°"
@@ -388,40 +374,37 @@ def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
 
 def test_deux_mailles_distinctes_font_deux_appels():
     """Le pendant du test précédent : l'arrondi ne doit pas tout écraser sur un seul point."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(0.0011, 0.0017, fabriques3.JOUR_ARCHIVE)
-    client.horaires(0.4011, 0.4017, fabriques3.JOUR_ARCHIVE)
-    assert len(espion.requetes) == 2, (
-        f"{len(espion.requetes)} requête(s) pour deux points distants de 60 km"
-    )
+    client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(0.4011, 0.4017, fabriques_physique.JOUR_ARCHIVE)
+    assert len(espion.requetes) == 2, f"{len(espion.requetes)} requête(s) pour deux points distants de 60 km"
 
 
 def test_deux_jours_distincts_font_deux_appels():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
-    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE - timedelta(days=1))
+    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE - timedelta(days=1))
     assert len(espion.requetes) == 2, (
-        f"{len(espion.requetes)} requête(s) pour deux jours différents : la mémoïsation "
-        "ignore la date"
+        f"{len(espion.requetes)} requête(s) pour deux jours différents : la mémoïsation ignore la date"
     )
 
 
 def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
-    """Contrat §3 : mémoïsé « dans cache.dossier / archive_meteo.sqlite »."""
-    module = _module()
+    """Mémoïsé dans `cache.dossier / archive_meteo.sqlite`, d'un client à l'autre."""
+    module = module_openmeteo_archive
     memo = tmp_path / "archive_meteo.sqlite"
     premier = _espion()
     _client(module, premier, memo=memo).horaires(
-        fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+        fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
     )
     assert len(premier.requetes) == 1
     second = _espion()
     heures = _client(module, second, memo=memo).horaires(
-        fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+        fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
     )
     _verifier_heures(heures, "horaires(depuis le fichier de mémoïsation)")
     assert not second.requetes, (
@@ -433,13 +416,13 @@ def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
 
 def test_un_fichier_de_memoisation_corrompu(tmp_path):
     """Le fichier appartient à l'utilisateur : message ou contournement, pas de trace."""
-    module = _module()
+    module = module_openmeteo_archive
     memo = tmp_path / "archive_meteo.sqlite"
     memo.write_bytes(b"ni sqlite ni json\x00\xff" * 50)
     espion = _espion()
     resultat, _ = robuste(
         lambda: _client(module, espion, memo=memo).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(mémo corrompu)",
         erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
@@ -450,12 +433,12 @@ def test_un_fichier_de_memoisation_corrompu(tmp_path):
 
 def test_une_reponse_en_erreur_n_est_pas_memorisee_comme_une_journee():
     """Mémoriser un échec transforme un incident passager en trou permanent."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(httpx.Response(500, json={"reason": "essai"}))
     client = _client(module, espion)
     for _ in range(2):
         robuste(
-            lambda: client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE),
+            lambda: client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
             quoi="horaires(HTTP 500)",
             erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
         )

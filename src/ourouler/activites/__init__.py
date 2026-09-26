@@ -1,5 +1,1 @@
-"""Activités : modèle unique, lecteurs FIT/GPX/TCX, cache local, inventaire."""
-
-from ourouler.noyau.activite import Activite, Point
-
-__all__ = ["Activite", "Point"]
+"""Activités : lecteurs FIT/GPX/TCX, cache local, inventaire (le modèle est dans `noyau.activite`)."""

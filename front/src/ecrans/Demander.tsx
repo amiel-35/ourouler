@@ -45,7 +45,7 @@ interface Props {
   nomSeance: string | null;
   demande: Demande;
   /**
-   * Ce que la recherche va coûter en attente, **avant de la lancer** (C3).
+   * Ce que la recherche va coûter en attente, **avant de la lancer**.
    *
    * Décision 6 du cycle UX : « semi-synchrone, en précisant que ça prend X
    * secondes », et « X doit être mesuré, pas inventé ». Le budget était déjà
@@ -200,10 +200,10 @@ export function Demander({
         </div>
       </div>
 
-      {/* Le premier choix de Q44, indépendant de `mode` : un seul des deux
+      {/* Le premier choix (décision Q44), indépendant de `mode` : un seul des deux
           sélecteurs suivants s'affiche, la contradiction disparaît par la
           forme. Et le vent s'affiche dans les deux modes — ce n'est pas une
-          alternative à ce choix, c'est son complément (Q44). */}
+          alternative à ce choix, c'est son complément. */}
       <ChoixDirection
         demande={demande}
         changer={changer}
@@ -257,9 +257,9 @@ export function Demander({
         type="button"
         className="bouton"
         onClick={surChercher}
-        // Q47 : `boucle` balaie tout l'horizon sans direction, comme
-        // `sortie` — « peu importe » n'est plus un blocage en Endurance Z2,
-        // c'est une demande valable que le moteur sait désormais traiter.
+        // `boucle` balaie tout l'horizon sans direction, comme `sortie` —
+        // « peu importe » n'est pas un blocage en Endurance Z2, c'est une
+        // demande valable que le moteur sait traiter.
         disabled={demande.mode === "seance" && dureeSeance_s === null}
       >
         Chercher {nombre(demande.candidates)} parcours

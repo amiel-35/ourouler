@@ -1,8 +1,8 @@
 """La position du cycliste dans sa zone, et ce qu'elle vaut en watts.
 
 Décision 7 du cycle UX (`docs/journal/ux/cycle_ux_contrat.md`) : **on stocke la
-position dans la zone, jamais la valeur.** Mots du mainteneur : « comme ça la
-FTP change ou les zones décalent, on suit ». Une FTP qui progresse de 12 W
+position dans la zone, jamais la valeur** : si la FTP change ou si les
+zones se décalent, la position suit. Une FTP qui progresse de 12 W
 déplace tout l'escalier sans qu'on touche à un réglage ; une puissance figée
 en watts, elle, aurait recréé la dette qu'on retire ici — une valeur posée à
 côté d'une table qui bouge.
@@ -18,7 +18,7 @@ eux. Désormais une seule donnée est stockée — la position — et
 Avec la table par défaut, la position qui rend 0,60 vaut 0,2105
 (`POSITION_ENDURANCE_DEFAUT`). C'est le défaut du projet, précisément pour
 que rien ne bouge : 0,60 est la **médiane mesurée** sur les sorties
-extérieures du mainteneur (Q11, close le 13/09/2026), et une mesure ne se
+extérieures réelles (décision Q11, `docs/journal/questions/questions_mainteneur.md`), et une mesure ne se
 remplace pas par une valeur ronde.
 
 **Les zones ouvertes.** La première zone part de 0 et la dernière n'a pas de
@@ -86,15 +86,11 @@ def bornes_zone(
     if not isinstance(numero, int) or isinstance(numero, bool):
         raise ErreurUtilisateur(f"zones : numéro de zone entier attendu, reçu {numero!r}")
     if not 1 <= numero <= len(zones):
-        raise ErreurUtilisateur(
-            f"zones : Z{numero} n'existe pas — la table en compte {len(zones)}"
-        )
+        raise ErreurUtilisateur(f"zones : Z{numero} n'existe pas — la table en compte {len(zones)}")
     return zones[numero - 1]
 
 
-def zone_ouverte(
-    numero: int, zones: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT
-) -> bool:
+def zone_ouverte(numero: int, zones: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT) -> bool:
     """Vrai pour la première et la dernière zone de la table.
 
     La première est ouverte vers le bas (son 0 est le pédalage à vide, pas une
@@ -139,7 +135,7 @@ def position_dans_zone(
     **Le résultat n'est pas ramené dans [0, 1], et c'est voulu.** Décision 8 :
     quelqu'un qui saisit sa moyenne compteur au lieu de sa vitesse à plat se
     retrouve *sous* sa Z2 — 0,508 × FTP donne ici −0,274, soit « à −27 % de la
-    bande », exactement le chiffre que le contrat rapporte. Un écrêtage aurait
+    bande », exactement le chiffre qu'il faut rapporter. Un écrêtage aurait
     masqué la faute au lieu de la montrer, et l'écran doit pouvoir la dire.
 
     Rend `None` pour une zone ouverte, pour la même raison que
@@ -197,13 +193,11 @@ def position_endurance(
 #: Position par défaut du cycliste dans sa bande.
 #:
 #: Ce n'est pas un chiffre choisi : c'est la position qu'occupe la puissance
-#: d'endurance **mesurée** (0,60 de FTP, Q11) dans la Z2 de la table par
+#: d'endurance **mesurée** (0,60 de FTP, décision Q11) dans la Z2 de la table par
 #: défaut, soit 0,2105. Le défaut est posé ainsi pour que la dérivation ne
 #: change aucun comportement observable : `puissance_endurance_pct(
-#: POSITION_ENDURANCE_DEFAUT)` rend exactement 0,60. Règle absolue 5.
-POSITION_ENDURANCE_DEFAUT = position_endurance(
-    PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT
-)
+#: POSITION_ENDURANCE_DEFAUT)` rend exactement 0,60.
+POSITION_ENDURANCE_DEFAUT = position_endurance(PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT)
 
 
 @dataclass(frozen=True)

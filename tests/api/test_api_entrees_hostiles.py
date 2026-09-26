@@ -34,14 +34,6 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Le passage à l'heure d'été 2027 en France : 02:30 n'existe pas ce jour-là.
 HEURE_QUI_N_EXISTE_PAS = "2027-03-28T02:30:00"
 #: Le retour à l'heure d'hiver 2026 : 02:30 existe deux fois ce jour-là.
@@ -79,9 +71,7 @@ def _demander_un_parcours(client, **champs):
     lue, et les quatre lignes du `parametrize` testaient la même chose.
     """
     schema, chemin, methode, operation = _route_de_parcours(client)
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 def _parametre(schema, operation, *motifs: str) -> str:
@@ -107,7 +97,6 @@ def _parametre(schema, operation, *motifs: str) -> str:
     ],
     ids=["negative", "nulle", "enorme", "texte"],
 )
-
 def test_une_duree_absurde_est_refusee_proprement(valeur, quoi: str):
     """Protège E16 (« Demander un parcours », champ Durée).
 
@@ -210,9 +199,9 @@ def test_une_heure_de_depart_au_changement_d_heure_ne_plante_pas(heure: str, quo
     if reponse.status_code >= 400:
         verifier_refus_exploitable(reponse, quoi)
         return
-    assert any(
-        mot in reponse.text.lower() for mot in ("heure", "fuseau", "utc", "retenu")
-    ), f"{quoi} : succès muet, rien ne dit quelle heure a été retenue"
+    assert any(mot in reponse.text.lower() for mot in ("heure", "fuseau", "utc", "retenu")), (
+        f"{quoi} : succès muet, rien ne dit quelle heure a été retenue"
+    )
 
 
 # --- géographie ---------------------------------------------------------------
@@ -248,9 +237,7 @@ def test_une_coordonnee_hors_du_globe_est_refusee_proprement(latitude, longitude
     client = _client_de_parcours()
     schema, _, _, operation = _route_de_parcours(client)
     point = _parametre(schema, operation, "depart", "point", "lieu")
-    reponse = _demander_un_parcours(
-        client, **{point: {"latitude": latitude, "longitude": longitude}}
-    )
+    reponse = _demander_un_parcours(client, **{point: {"latitude": latitude, "longitude": longitude}})
     verifier_refus_exploitable(reponse, quoi)
 
 
@@ -294,7 +281,7 @@ def test_une_adresse_hostile_est_refusee_avant_d_atteindre_le_geocodeur(adresse:
 
 #: Un ZWO minimal et valide, pour prouver que le refus n'est pas un refus de tout.
 ZWO_VALIDE = (
-    '<workout_file><name>Essai</name><workout>'
+    "<workout_file><name>Essai</name><workout>"
     '<SteadyState Duration="600" Power="0.6"/>'
     "</workout></workout_file>"
 )
@@ -360,9 +347,7 @@ def test_un_fichier_de_seance_hostile_est_refuse_proprement(nom: str, contenu: b
     """
     client = client_api(config=config_d_essai())
     chemin, methode, _ = _route_de_depot(client)
-    reponse = client.requete(
-        methode, chemin, files={"fichier": (nom, contenu, "application/octet-stream")}
-    )
+    reponse = client.requete(methode, chemin, files={"fichier": (nom, contenu, "application/octet-stream")})
     verifier_refus_exploitable(reponse, quoi)
 
 

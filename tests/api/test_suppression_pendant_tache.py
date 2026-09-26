@@ -15,18 +15,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from outils_api import config_d_essai
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from fastapi.testclient import TestClient  # noqa: E402
-from outils_api import config_d_essai  # noqa: E402
-
-from ourouler.activites import import_archive  # noqa: E402
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api import taches_fond  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.session import MODE_HEBERGE  # noqa: E402
+from ourouler.activites import import_archive
+from ourouler.activites.cache import Cache
+from ourouler.api import taches_fond
+from ourouler.api.application import creer_application
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import MODE_HEBERGE
 
 A = "essai-suppr-a"
 B = "essai-suppr-b"
@@ -46,7 +43,7 @@ def _gpx(rang: int) -> bytes:
     heure = 6 + rang // 60
     minute = rang % 60
     return (
-        "<?xml version='1.0'?>\n<gpx version=\"1.1\" creator=\"essai\"><trk><trkseg>"
+        '<?xml version=\'1.0\'?>\n<gpx version="1.1" creator="essai"><trk><trkseg>'
         f'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T{heure:02d}:{minute:02d}:00Z</time></trkpt>'
         f'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T{heure:02d}:{minute:02d}:30Z</time></trkpt>'
         "</trkseg></trk></gpx>\n"
@@ -84,9 +81,7 @@ def test_supprimer_le_compte_a_mi_import_ne_laisse_rien_revenir(tmp_path: Path, 
 
     # Au milieu de l'import : quelques fichiers déjà écrits, pas tous.
     debut = time.monotonic()
-    while client.get(f"/api/v1/activites/import/{id_job}", headers=h).json()["donnees"][
-        "traites"
-    ] < 5:
+    while client.get(f"/api/v1/activites/import/{id_job}", headers=h).json()["donnees"]["traites"] < 5:
         assert time.monotonic() - debut < 5
         time.sleep(0.01)
     cache = Cache(tmp_path / "cache", proprietaire=A)

@@ -32,18 +32,16 @@ from pathlib import Path
 import httpx
 import pytest
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import vie_privee  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import (  # noqa: E402
+from ourouler.api import vie_privee
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import (
     DepotComptes,
     ErreurInvitationRefusee,
 )
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import (
     NOM_COOKIE,
     SessionHebergee,
     SessionParCookie,
@@ -122,9 +120,7 @@ def _inscrire(app, url_base: str, adresse: str) -> tuple[str, str, dict[str, str
     """
     with ouvrir(url_base) as cx:
         emise = DepotComptes(cx).inviter(adresse)
-    reponse = _requete(
-        app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
-    )
+    reponse = _requete(app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE})
     assert reponse.status_code == 200, reponse.text
     proprietaire = reponse.json()["donnees"]["proprietaire"]
     jeton_session = reponse.cookies.get(NOM_COOKIE)
@@ -146,12 +142,10 @@ def _restes(url_base: str, compte: str) -> dict[str, int]:
     """
     with ouvrir(url_base) as cx:
         return {
-            "comptes": cx.execute(
-                "SELECT count(*) FROM comptes WHERE id = %s", (compte,)
-            ).fetchone()[0],
-            "sessions": cx.execute(
-                "SELECT count(*) FROM sessions WHERE compte = %s", (compte,)
-            ).fetchone()[0],
+            "comptes": cx.execute("SELECT count(*) FROM comptes WHERE id = %s", (compte,)).fetchone()[0],
+            "sessions": cx.execute("SELECT count(*) FROM sessions WHERE compte = %s", (compte,)).fetchone()[
+                0
+            ],
             "invitations": cx.execute(
                 "SELECT count(*) FROM invitations WHERE compte = %s", (compte,)
             ).fetchone()[0],
@@ -216,8 +210,7 @@ def test_deux_suppressions_concurrentes_une_seule_gagne(url_base):
 
     assert erreurs == [], f"une suppression concurrente a levé : {erreurs!r}"
     assert sorted(resultats) == [False, True], (
-        "deux suppressions simultanées devraient donner exactement un vrai et un "
-        f"faux, pas {resultats!r}"
+        f"deux suppressions simultanées devraient donner exactement un vrai et un faux, pas {resultats!r}"
     )
     assert _restes(url_base, compte) == {
         "comptes": 0,
@@ -280,9 +273,7 @@ def test_reinviter_la_meme_adresse_repart_de_zero(url_base, tmp_path):
     # Rien de l'ancien ne transparaît dans le neuf.
     nouveau_profil = _requete(app, "GET", f"{PREFIXE}/profil", cookies=cookies_2)
     assert nouveau_profil.status_code == 200, nouveau_profil.text
-    assert marque not in nouveau_profil.text, (
-        "le profil du compte neuf porte la sentinelle de l'ancien"
-    )
+    assert marque not in nouveau_profil.text, "le profil du compte neuf porte la sentinelle de l'ancien"
 
     # Et l'ancien cookie ne redevient pas valable parce qu'un compte existe
     # à nouveau sur cette adresse.
@@ -363,14 +354,11 @@ def test_un_effacement_interrompu_laisse_le_compte_ouvert(url_base, tmp_path):
         "la personne se retrouve dehors avec ses données encore dedans"
     )
     assert _requete(app, "GET", f"{PREFIXE}/profil", cookies=cookies).status_code == 200, (
-        "la session a été révoquée par un effacement qui a échoué — plus aucune "
-        "porte pour réessayer"
+        "la session a été révoquée par un effacement qui a échoué — plus aucune porte pour réessayer"
     )
     # Ce qui était passé avant la panne est bien parti : l'état est partiel,
     # pas intact. C'est le prix assumé de l'absence de transaction globale.
-    assert ctx.journal.tout(qui) == {}, (
-        "le journal aurait dû être effacé avant l'étape qui a levé"
-    )
+    assert ctx.journal.tout(qui) == {}, "le journal aurait dû être effacé avant l'étape qui a levé"
 
     # (b) rejouer finit le travail.
     seconde = _requete(app, "DELETE", f"{PREFIXE}/moi", cookies=cookies)
@@ -637,9 +625,7 @@ def test_supprimer_un_compte_invite_mais_jamais_active(url_base):
     with ouvrir(url_base) as cx:
         depot = DepotComptes(cx)
         emise = depot.inviter(ADRESSE_A)
-        compte = cx.execute(
-            "SELECT compte FROM invitations WHERE jeton = %s", (emise.jeton,)
-        ).fetchone()[0]
+        compte = cx.execute("SELECT compte FROM invitations WHERE jeton = %s", (emise.jeton,)).fetchone()[0]
         qui = depot.proprietaire_du_compte(compte)
 
         assert depot.supprimer_compte_du_proprietaire(qui) is True

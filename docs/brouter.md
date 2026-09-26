@@ -26,7 +26,7 @@ n'en ont **pas besoin** : la météo ne regarde que des coordonnées, et
 
 ### L'image et le conteneur
 
-Le dépôt `abrensch/brouter` publie une image sur GitHub Container Registry :
+Le dépôt *abrensch/brouter* publie une image sur GitHub Container Registry :
 `ghcr.io/abrensch/brouter`, en tags `nightly` (un build par jour depuis
 `master`), `latest`/version taguée, et par version (`v1.7.x`). Épingler par
 **digest** plutôt qu'un tag mouvant, `nightly` changeant de contenu à chaque
@@ -60,8 +60,8 @@ docker run -d --name brouter \
   ghcr.io/abrensch/brouter@sha256:<empreinte>
 ```
 
-Ou, en `deploiement/brouter/docker-compose.yml` (à créer si cette forme est
-préférée — rien de tel n'existe encore ici ; `deploiement/docker-compose.yml`
+Ou, en *deploiement/brouter/docker-compose.yml* (à créer si cette forme est
+préférée — rien de tel n'existe encore ici ; `deploiement/api/docker-compose.yml`
 orchestre `ourouler` lui-même, pas BRouter) :
 
 ```yaml
@@ -90,8 +90,8 @@ bords). Les fichiers vont dans `/segments4`.
 
 Les profils (`fastbike`, `fastbike-verylowtraffic`, `trekking`, `gravel`…)
 doivent être des fichiers `.brf` dans `/profiles2` — un profil absent donne
-un **HTTP 500 sans corps** (voir plus bas). Ceux du dépôt `abrensch/brouter`
-(`misc/profiles2/`) sont la source à copier ; `[brouter] profil` doit nommer
+un **HTTP 500 sans corps** (voir plus bas). Ceux du dépôt *abrensch/brouter* (dossier *misc/profiles2/*, sur GitHub)
+sont la source à copier ; `[brouter] profil` doit nommer
 exactement un fichier présent là, sans l'extension.
 
 ## Brancher `ourouler`
@@ -152,7 +152,8 @@ BRouter, et les commentaires de `src/ourouler/connecteurs/brouter.py`) :
 ## Exposer le serveur
 
 Ce dépôt n'installe rien sur un serveur pour le compte de qui que ce soit
-(règle absolue 7 de `CLAUDE.md`) : ce qui suit décrit un principe, pas une
+(`AGENTS.md` : « Aucune installation sur une machine ou un serveur sans
+l'accord explicite du mainteneur ») : ce qui suit décrit un principe, pas une
 procédure vers une machine précise. BRouter lui-même ne porte aucune
 authentification. L'exposer au-delà de `localhost` passe par un **proxy
 inverse avec authentification basique** devant le conteneur, jamais par le

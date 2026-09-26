@@ -1,8 +1,7 @@
 """La carte de vérification : le tracé, les blocs là où ils tombent, le profil.
 
-C'est le livrable que le mainteneur a demandé pour **voir** ce que le
-placement a décidé : « on voit d'un coup d'œil qu'un bloc traverse un bourg »
-(cadrage du sprint 4). La page est un fichier HTML autonome — Leaflet et le
+Elle sert à **voir** ce que le placement a décidé : on voit d'un coup d'œil
+qu'un bloc traverse un bourg. La page est un fichier HTML autonome — Leaflet et le
 fond OpenStreetMap sont les deux seules ressources externes, tout le reste
 (données, styles, script) est dans le fichier.
 
@@ -18,17 +17,15 @@ Quatre couches sur la carte :
 - chaque **bloc** dans une couleur vive, avec son numéro et sa note ; au
   survol, ses motifs ;
 - chaque autre étape (échauffement, récupérations, retour au calme) en
-  **pointillés clairs** (`COULEUR_LIAISON`), sur sa propre position — Q13,
-  lot L5.2. Ces portions-là ne sont pas notées — décision du 13/09, une
-  récupération absorbe le point dur et ne se juge pas — mais elles sont
-  roulées, et la carte doit le montrer : c'est tout le défaut que Q13
-  signalait (« t'as pas oublié l'échauffement ? ») ;
-- des **flèches de vent**, une par échantillon météo assez venté (lot du
-  16/09/2026) : le sprint 5 a mis le vent dans le placement, il déplace les
-  blocs de plusieurs kilomètres, et sans une flèche sur la carte personne ne
-  peut vérifier à l'œil que ce déplacement est cohérent avec le vent réel —
-  exactement la leçon de Q13, appliquée cette fois au vent plutôt qu'à la
-  séance entière. La flèche pointe d'où vient le vent, comme une girouette ;
+  **pointillés clairs** (`COULEUR_LIAISON`), sur sa propre position. Ces
+  portions-là ne sont pas notées — une récupération absorbe le point dur et
+  ne se juge pas — mais elles sont roulées, et la carte doit le montrer : une
+  carte qui n'afficherait que les blocs ferait croire l'échauffement oublié
+  (décision Q13, `docs/journal/questions/questions_mainteneur.md`) ;
+- des **flèches de vent**, une par échantillon météo assez venté : le vent
+  entre dans le placement, il déplace les blocs de plusieurs kilomètres, et
+  sans une flèche sur la carte personne ne peut vérifier à l'œil que ce
+  déplacement est cohérent avec le vent réel. La flèche pointe d'où vient le vent, comme une girouette ;
   sa forme (pleine, creuse ou en pointillés) dit si ce vent est de face, dans
   le dos ou de travers **au cap suivi à cet endroit** — `vent_relatif` de
   `meteo.rapport`, pas une règle réinventée ici. Chiffres à côté : vitesse
@@ -44,21 +41,19 @@ précède, mais elle est roulée deux fois là où le bloc ne l'est qu'une —
 d'où la pénalité du bloc suivant et le motif « demi-tour » dans son
 étiquette, pendant que la récupération, elle, reste sans note.
 
-**La page du jour** (lot L5.4, `construire_page_jour`) réutilise tout ce qui
-précède : c'est la même carte, une par proposition contrastée, superposées.
-Décision du 16/09/2026 (Q18, contrat du sprint 5 §4.1) — « une carte et 3
-itinéraires superposés qui se mettent en grisé ou en surbrillance, c'est la
-méthode de Strava et des GPS » — retenue contre trois cartes séparées, parce
-que c'est la seule forme qui montre **où** les propositions divergent.
-Correction du 16/09/2026 (Q20, contrat de la mise en service) : la
-sélectionnée est **pleine de bout en bout** — blocs en couleurs vives,
-liaisons en couleur franche, et sa boucle non parcourue en fond, sous ses
-blocs, pour que la portion au-delà d'un demi-tour ne reste plus invisible.
-Les autres propositions passent en **pointillé gris** — le pointillé ne veut
-plus dire « ce n'est pas un bloc » (héritage de L5.2) mais « ce n'est pas la
-sélection », et rien d'autre : un seul sens, celui que le mainteneur a
-demandé. Les miniatures sous la carte ne sont pas perdues : elles deviennent
-le sélecteur, chacune avec sa phrase de distinction (`sortie.contraste`) et
+**La page du jour** (`construire_page_jour`) réutilise tout ce qui
+précède : c'est la même carte, une par proposition contrastée, superposées —
+une carte et trois itinéraires qui passent en grisé ou en surbrillance,
+comme sur Strava et les GPS (décisions Q18 et Q20), plutôt que trois cartes
+séparées, parce que c'est la seule forme qui montre **où** les propositions
+divergent. La sélectionnée est **pleine de bout en bout** — blocs en
+couleurs vives, liaisons en couleur franche, et sa boucle non parcourue en
+fond, sous ses blocs, pour que la portion au-delà d'un demi-tour reste
+visible. Les autres propositions passent en **pointillé gris** — le
+pointillé ne veut pas dire « ce n'est pas un bloc » mais « ce n'est pas la
+sélection », et rien d'autre : un seul sens. Les miniatures sous la carte ne
+sont pas perdues : elles deviennent le sélecteur, chacune avec sa phrase de
+distinction (`sortie.contraste`) et
 ses chiffres — jamais un onglet, un onglet cache et comparer demande de voir
 ensemble.
 """
@@ -70,6 +65,7 @@ from collections.abc import Sequence
 
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.rendu.carte_dessin import (
     _FORME_FLECHE_VENT,
@@ -90,7 +86,6 @@ from ourouler.rendu.carte_dessin import (
     _blocs,
     _charge_json,
     _cumuls,
-    _fr,
     _liaisons,
     _profil_svg,
     _section_vent,
@@ -101,7 +96,7 @@ from ourouler.rendu.carte_jour import (
     construire_page_jour,
     construire_page_sans_seance,
 )
-from ourouler.seance.placement import Placement
+from ourouler.seance.placement_resultat import Placement
 
 
 def construire(
@@ -291,16 +286,14 @@ window.addEventListener('resize', function () {{ carte.invalidateSize(); }});
 """
 
 
-def _page(
-    *, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool
-) -> str:
+def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool) -> str:
     """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
     puces = "".join(
         f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
-        f"{_fr(bloc['note'], 2)}</li>"
+        f"{nombre_fr(bloc['note'], 2)}</li>"
         for bloc in blocs
     )
-    lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
+    lignes_notes = "".join(f'<p class="note">{html.escape(str(n))}</p>' for n in notes)
     section_vent = _section_vent() if avec_vent else ""
     charge = _charge_json(donnees)
     return (

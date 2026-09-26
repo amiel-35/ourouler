@@ -1,7 +1,7 @@
 """Ce que toutes les routes de l'API partagent : contexte, propriétaire, services.
 
 Les routes elles-mêmes vivent dans les modules voisins, un par domaine, et
-`api/routes/__init__.py` les assemble dans l'ordre d'enregistrement (lot 13).
+`api/routes/__init__.py` les assemble dans l'ordre d'enregistrement.
 Ici : les pannes déclarées sur toutes les routes, le routeur que chaque module
 fabrique (même préfixe, mêmes pannes), les clients injectables, le contexte
 de l'application, la résolution du propriétaire, et les petits services que
@@ -26,13 +26,14 @@ from ourouler.api.modeles import Point, ReponseErreur
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.quotas import Quotas
 from ourouler.api.session import CODE_SANS_SESSION, MESSAGE_SANS_SESSION, MODE_PERSONNEL, FournisseurSession
-from ourouler.config import Config, Depart
+from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.openmeteo import ClientOpenMeteo
-from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
+from ourouler.noyau.profil import Depart
+from ourouler.services.physique import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
 #:
@@ -40,7 +41,7 @@ from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 #: mais à un code (`erreurs.CODES_PANNE`), et n'importe quelle route de calcul
 #: peut rendre n'importe lequel : une liste par route se périmerait sans
 #: bruit. Déclarer la forme une fois, avec l'énumération complète des codes,
-#: donne à F2 de quoi brancher ses écrans sans lire le code de F1.
+#: donne au front de quoi brancher ses écrans sans lire le code de l'API.
 PANNES_DECLAREES: dict[int | str, dict] = {
     code: {
         "model": ReponseErreur,
@@ -82,16 +83,15 @@ def nouveau_routeur() -> APIRouter:
 #: kilo-octets ; au-delà d'un mégaoctet, ce n'est plus une séance.
 TAILLE_MAX_SEANCE = 1_000_000
 
-#: Taille maximale d'un GPX déposé pour être analysé (L9.8) — un BRM de
-#: 600 km, un point tous les 10 m, pèse environ 4 Mo. Ramené de 20 à 5 Mo
-#: à la relecture : la lecture (gpxpy) coûte en mémoire environ 24 fois la
-#: taille du fichier — mesuré le 25/09/2026, +465 Mo de pic pour 20 Mo,
-#: +120 Mo pour 5 Mo (dépôt 0,8 s, analyse 1,1 s).
-#: `physique.commande.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
+#: Taille maximale d'un GPX déposé pour être analysé — un BRM de
+#: 600 km, un point tous les 10 m, pèse environ 4 Mo. 5 Mo et pas plus : la
+#: lecture (gpxpy) coûte en mémoire environ 24 fois la taille du fichier —
+#: mesuré, +465 Mo de pic pour 20 Mo, +120 Mo pour 5 Mo (dépôt 0,8 s, analyse 1,1 s).
+#: `services.physique.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
 TAILLE_MAX_PARCOURS = 5_000_000
 
 
-#: **La convention d'injection de l'API, tranchée le 17/09/2026.**
+#: **La convention d'injection de l'API.**
 #:
 #: Ce qu'on injecte est un **transport** — un `httpx.Client`, à transport
 #: bouchonné dans un test — et l'API l'habille du connecteur qui va avec, au
@@ -112,16 +112,14 @@ TAILLE_MAX_PARCOURS = 5_000_000
 #: pour toutes dans la fabrique serait celle du premier venu servie à tous —
 #: la fuite que `depots.py` refuse déjà pour le socle.
 FABRIQUES_CONNECTEUR: dict[str, Callable[[Config, httpx.Client], object]] = {
-    "brouter": lambda config, http: ClientBrouter(
-        config.brouter, http=http, evitements=config.evitements
-    ),
+    "brouter": lambda config, http: ClientBrouter(config.brouter, http=http, evitements=config.evitements),
     "meteo": lambda config, http: ClientOpenMeteo(http=http),
     "intervals": lambda config, http: ClientIntervals(
         config.intervals.athlete_id, config.intervals.api_key, http=http
     ),
     "ban": lambda config, http: ClientBAN(http=http),
     "nominatim": lambda config, http: ClientNominatim(http=http),
-    # L9.4 : l'archive météo de la calibration. Son cache sur disque est
+    # L'archive météo de la calibration. Son cache sur disque est
     # **partagé** entre comptes (`PROPRIETAIRE_PARTAGE`, le vent d'un jour
     # passé est le même pour tous) et vit dans le dossier de cache du serveur.
     "archive": lambda config, http: ClientArchive(
@@ -136,7 +134,7 @@ class Clients:
 
     `None` partout en service : chaque commande du cœur fabrique alors le
     sien, comme depuis la ligne de commande. Les tests passent un transport
-    bouchonné, et aucun test ne touche le réseau (règle absolue 3).
+    bouchonné, et aucun test ne touche le réseau.
 
     Chaque champ porte, au choix, un `httpx.Client` — habillé par
     `connecteur()`, voir `FABRIQUES_CONNECTEUR` — ou un connecteur déjà
@@ -169,21 +167,20 @@ class Contexte:
 
     profils: DepotProfils
     fichiers: DepotFichiers
-    #: Les GPX des propositions d'une génération, en mémoire (Q40 g).
+    #: Les GPX des propositions d'une génération, en mémoire.
     generations: DepotGenerations
     clients: Clients
     budgets: Budgets
-    #: Quota journalier de générations coûteuses par compte (L9.3) —
+    #: Quota journalier de générations coûteuses par compte —
     #: `POST /sorties`, `POST /boucles`. Le mode personnel n'est pas
     #: concerné — voir `_verifier_quota`.
     quotas: Quotas
-    #: Quota journalier séparé pour `GET /meteo` (L9.3, poste distinct :
+    #: Quota journalier séparé pour `GET /meteo` (poste distinct :
     #: ~50 appels par consultation contre ~150 par génération).
     quotas_meteo: Quotas
-    #: Quota journalier des calibrations (L9.4), une par jour par défaut.
+    #: Quota journalier des calibrations, une par jour par défaut.
     quotas_calibration: Quotas
-    #: Quota journalier des imports d'historique (contre-lecture Fable du
-    #: 25/09/2026) — cinq par jour par défaut, vérifié aussi **avant** la
+    #: Quota journalier des imports d'historique — cinq par jour par défaut, vérifié aussi **avant** la
     #: lecture du corps (`api/garde_avant_corps.py`).
     quotas_import: Quotas
     journal: JournalServices
@@ -191,15 +188,14 @@ class Contexte:
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
     session: FournisseurSession
     #: Le dossier de cache du **serveur** — `[cache]`, un réglage commun
-    #: (Q35), pas le profil d'un propriétaire : à la différence de tout ce
-    #: qui précède, il n'a donc pas de clause. Ajouté le 21/09/2026 pour
-    #: `GET /moi/export` et `DELETE /moi` (`api/vie_privee.py`), qui n'ont
-    #: jamais eu besoin que de ce chemin et exigeaient jusque-là la `Config`
-    #: entière d'un propriétaire rien que pour l'obtenir — ce qui échoue
-    #: maintenant, à raison, pour qui n'a pas encore écrit son tiers 3.
+    #: pas le profil d'un propriétaire : à la différence de tout ce qui
+    #: précède, il n'a donc pas de clause. Il sert `GET /moi/export` et
+    #: `DELETE /moi` (`api/vie_privee.py`), qui n'ont besoin que de ce chemin :
+    #: exiger la `Config` entière d'un propriétaire pour l'obtenir échouerait,
+    #: à raison, pour qui n'a pas encore écrit son profil personnel.
     dossier_cache: Path
-    #: Par quel chemin les routes de calcul appellent le cœur (lot 11,
-    #: `api/double_chemin.py`) : `ancien`, `nouveau` ou `double`.
+    #: Par quel chemin les routes de calcul appellent le cœur
+    #: (`api/double_chemin.py`) : `ancien`, `nouveau` ou `double`.
     chemin_api: str = "ancien"
 
 
@@ -210,13 +206,9 @@ def contexte(requete: Request) -> Contexte:
 def proprietaire(requete: Request) -> Proprietaire:
     """Le propriétaire de la requête — ou un refus, jamais un défaut.
 
-    **Le point du lot L7.A.** Cette fonction rendait `PROPRIETAIRE_LOCAL` quoi
-    qu'il arrive : une requête anonyme obtenait les données du mainteneur, et
-    le commentaire annonçait qu'« F3 remplacera `resoudre` par la session ».
-    C'est fait. Ce qui la remplace n'est pas une méthode d'authentification —
-    aucune n'est choisie, ce serait un arbitrage du mainteneur — mais
-    l'**interface** derrière laquelle elle se branchera : le fournisseur de
-    session, injecté dans le contexte.
+    Elle ne choisit pas de méthode d'authentification : elle lit
+    l'**interface** derrière laquelle une méthode se branche, le fournisseur
+    de session injecté dans le contexte (`api/session.py`).
 
     Deux issues, et deux seulement :
 
@@ -251,7 +243,7 @@ Qui = Annotated[Proprietaire, Depends(proprietaire)]
 def _config(ctx: Contexte, qui: Proprietaire) -> Config:
     """La `Config` de ce propriétaire — jamais « la » configuration du serveur.
 
-    **Sa calibration est la sienne** (L9.4). En mode hébergé, le dossier de
+    **Sa calibration est la sienne.** En mode hébergé, le dossier de
     cache est celui du serveur, partagé : le fichier de calibration y serait
     le même pour tous les comptes, et la calibration d'un vélo nommé
     « Route » servirait à tous les « Route » du service. `fichier_calibration`
@@ -274,7 +266,7 @@ def _config(ctx: Contexte, qui: Proprietaire) -> Config:
 
 
 def _base_routes(config: Config, qui: Proprietaire):
-    """La base des routes apprises **de ce propriétaire** ([[Q58]], 18/09/2026).
+    """La base des routes apprises **de ce propriétaire** (décision Q58).
 
     Le seul endroit du service qui prononce le mot, avec `_cache` juste en
     dessous et `api/vie_privee.py` : doctrine §10.1, « le propriétaire entre
@@ -283,7 +275,7 @@ def _base_routes(config: Config, qui: Proprietaire):
     authentifié ».
 
     **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
-    ce que font `boucle/commande._base_routes` et son jumeau de `sortie` —
+    ce que font `services.apprentissage.base_routes_existante` pour `boucle` et `sortie` —
     eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
     cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
     retomber la commande sur son propre constructeur, donc sur le
@@ -291,8 +283,8 @@ def _base_routes(config: Config, qui: Proprietaire):
     `GET /routes/{action}` l'ouvrait déjà sans condition, le fichier n'est
     donc pas une nouveauté de ce service.
     """
-    from ourouler.apprentissage.commande import NOM_BASE
     from ourouler.apprentissage.routes import BaseRoutes
+    from ourouler.services.apprentissage import NOM_BASE
 
     try:
         return BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))
@@ -324,9 +316,9 @@ def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
 
 
 def _verifier_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
-    """Décompte un crédit pour ce compte sur ce poste — ou refuse (L9.3).
+    """Décompte un crédit pour ce compte sur ce poste — ou refuse.
 
-    **Rien en mode personnel** : `ourouler api` sur la machine du mainteneur
+    **Rien en mode personnel** : `ourouler api` sur un poste personnel
     sert toujours `PROPRIETAIRE_LOCAL` par `SessionPersonnelle`
     (`api/session.py`), qui appelle Open-Meteo et BRouter depuis sa propre
     adresse — aucun poste partagé à protéger (doctrine §10.1). Le test porte
@@ -345,7 +337,7 @@ def _verifier_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
 
 
 def _rembourser_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
-    """Annule le décompte de `_verifier_quota` quand le travail a échoué (L9.3).
+    """Annule le décompte de `_verifier_quota` quand le travail a échoué.
 
     **Seul un succès consomme réellement le crédit.** Une panne BRouter ou
     Open-Meteo, un `calcul_en_cours` (409, un autre calcul occupait déjà le
@@ -387,7 +379,7 @@ def _depart(point: Point | None) -> Depart | None:
     """Le point de départ de cette requête, déjà tranché par le front.
 
     L'API ne géocode jamais au vol : le front choisit dans la liste que rend
-    `/geocodage`, et envoie des coordonnées (F0.7).
+    `/geocodage`, et envoie des coordonnées.
     """
     if point is None:
         return None
@@ -400,8 +392,7 @@ def _message_occupe(nature: str | None) -> str:
         nature or "", "un import ou une calibration"
     )
     return (
-        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez "
-        "dans quelques minutes"
+        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez dans quelques minutes"
     )
 
 

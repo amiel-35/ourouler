@@ -19,13 +19,11 @@ import pytest
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.config import depuis_dict
-from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.meteo import HeureArchive
 from ourouler.physique.calibration import (
     CDA_MAX,
-    DELTA_V_MAX_MS,
-    LONGUEUR_ECHANTILLON_M,
     MASSE_VELO_DEFAUT_KG,
     Echantillon,
     Parametres,
@@ -36,10 +34,9 @@ from ourouler.physique.calibration import (
     echantillonner,
     motif_multisport,
     partager,
-    puissance_moyenne_en_mouvement,
-    temps_mouvement_s,
     valider,
 )
+from ourouler.physique.echantillonnage import DELTA_V_MAX_MS, LONGUEUR_ECHANTILLON_M
 from ourouler.physique.modele import (
     FACTEUR_VENT_HAUTEUR,
     RHO_DEFAUT,
@@ -47,6 +44,7 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
     vitesse_regime,
 )
+from ourouler.physique.validation import puissance_moyenne_en_mouvement, temps_mouvement_s
 from ourouler.services.calibrer import (
     masse_totale_kg,
     motif_exclusion,
@@ -213,9 +211,7 @@ def echantillons_avec_acceleration(
         echantillons.append(
             Echantillon(
                 v_ms=v,
-                puissance_w=puissance_requise(v, pente, vent, p)
-                + cinetique
-                + alea.gauss(0.0, bruit_w),
+                puissance_w=puissance_requise(v, pente, vent, p) + cinetique + alea.gauss(0.0, bruit_w),
                 pente=pente,
                 vent_face_ms=vent,
                 temp_c=15.0,
@@ -238,9 +234,7 @@ def test_echantillonner_retrouve_vitesse_pente_et_vent():
     vent_ms = 5.0
     activite = sortie_synthetique(pente=0.02, vent_face_ms=vent_ms)
     # Le tracé va plein est (cap 90°) : un vent qui vient de l'est est de face.
-    echantillons = echantillonner(
-        activite, archive(vent_kmh=vent_archive_kmh(vent_ms), depuis_deg=90.0)
-    )
+    echantillons = echantillonner(activite, archive(vent_kmh=vent_archive_kmh(vent_ms), depuis_deg=90.0))
     retenus = [e for e in echantillons if e.retenu]
     assert len(retenus) > 40
     milieu = retenus[len(retenus) // 2]
@@ -292,8 +286,11 @@ def test_archive_qui_ne_couvre_pas_l_heure():
     """L'archive d'un autre jour ne doit pas être extrapolée."""
     veille = [
         HeureArchive(
-            t=DEPART.replace(day=14, hour=h), vent_kmh=20.0, vent_depuis_deg=90.0,
-            temp_c=10.0, pression_hpa=1000.0,
+            t=DEPART.replace(day=14, hour=h),
+            vent_kmh=20.0,
+            vent_depuis_deg=90.0,
+            temp_c=10.0,
+            pression_hpa=1000.0,
         )
         for h in range(24)
     ]
@@ -338,9 +335,7 @@ def test_puissance_hors_bornes_jetee():
 
 def test_acceleration_forte_jetee():
     """Une marche de puissance fait sauter la vitesse : les tronçons voisins sont jetés."""
-    activite = sortie_synthetique(
-        duree_s=2000, puissances=lambda s: 120.0 if s < 1000 else 400.0
-    )
+    activite = sortie_synthetique(duree_s=2000, puissances=lambda s: 120.0 if s < 1000 else 400.0)
     echantillons = echantillonner(activite, archive())
     assert any(e.motif == "accélération" for e in echantillons)
     # Seuil relâché à 1,0 m/s (point 2 de la relecture) : depuis que la
@@ -388,9 +383,18 @@ def test_sortie_trop_courte_ne_donne_aucun_echantillon():
     courte = sortie_synthetique(duree_s=5)
     assert echantillonner(courte, archive()) == []
     vide = Activite(
-        source="fit", fichier=None, debut=DEPART, duree_s=0.0, duree_mouvement_s=None,
-        distance_m=0.0, denivele_m=None, puissance_moy_w=None, puissance_np_w=None,
-        sport="cycling", appareil=None, points=[],
+        source="fit",
+        fichier=None,
+        debut=DEPART,
+        duree_s=0.0,
+        duree_mouvement_s=None,
+        distance_m=0.0,
+        denivele_m=None,
+        puissance_moy_w=None,
+        puissance_np_w=None,
+        sport="cycling",
+        appareil=None,
+        points=[],
     )
     assert echantillonner(vide, archive()) == []
 
@@ -436,9 +440,7 @@ def test_calibrer_n_utilise_que_les_echantillons_retenus():
 def test_les_bornes_sont_respectees():
     """Un CdA vrai de 1,0 m² (impossible à vélo) est ramené à la borne, et c'est dit."""
     hors = Parametres(masse_totale_kg=MASSE, cda_m2=1.0, crr=CRR_VRAI)
-    ajustement = calibrer(
-        echantillons_synthetiques(p=hors, bruit_w=0.0), masse_totale_kg=MASSE
-    )
+    ajustement = calibrer(echantillons_synthetiques(p=hors, bruit_w=0.0), masse_totale_kg=MASSE)
     assert ajustement.cda_m2 == pytest.approx(CDA_MAX)
     assert ajustement.bornes_atteintes
     assert "CdA" in ajustement.bornes_atteintes[0]
@@ -478,8 +480,14 @@ def test_trop_peu_d_echantillons():
 def test_echantillons_tous_identiques_ne_font_pas_exploser():
     """CdA et Crr ne sont plus séparables : on le dit, on ne rend pas n'importe quoi."""
     unique = Echantillon(
-        v_ms=8.0, puissance_w=180.0, pente=0.0, vent_face_ms=0.0, temp_c=15.0,
-        retenu=True, motif="", longueur_m=200.0,
+        v_ms=8.0,
+        puissance_w=180.0,
+        pente=0.0,
+        vent_face_ms=0.0,
+        temp_c=15.0,
+        retenu=True,
+        motif="",
+        longueur_m=200.0,
     )
     ajustement = calibrer([unique] * 20, masse_totale_kg=MASSE)
     assert ajustement.avertissements
@@ -560,7 +568,7 @@ def test_validation_vide():
 
 
 def test_la_validation_est_serialisable_en_json():
-    """Contrat §3 : « rapport texte + JSON ». Les lignes par sortie doivent passer.
+    """Le rapport existe en texte et en JSON : les lignes par sortie doivent passer.
 
     D'où `ErreurSortie` en `NamedTuple` avec un jour en chaîne ISO : une
     dataclass portant une `date` faisait échouer `json.dumps` sur le rapport.
@@ -645,9 +653,7 @@ def test_deux_passes_ecartent_la_sortie_en_groupe():
     # Datée au milieu du lot : elle tombe donc dans l'apprentissage, pas dans
     # le test — c'est là que la première passe doit la repérer.
     sorties.append(_sortie(date(2026, 1, 3), duree_s=2600, facteur_vitesse=1.20))
-    rapport = calibrer_en_deux_passes(
-        sorties, velo="Essai", masse_totale_kg=MASSE, part_validation=0.25
-    )
+    rapport = calibrer_en_deux_passes(sorties, velo="Essai", masse_totale_kg=MASSE, part_validation=0.25)
     assert [nom for nom, _ in rapport.groupes]
     assert rapport.ajustement.cda_m2 == pytest.approx(CDA_VRAI, rel=0.08)
     # La première passe, polluée par le peloton, sous-estime la traînée.
@@ -750,9 +756,7 @@ def test_sorties_calibrables_trie_et_filtre(tmp_path: Path, generateur):
     config = depuis_dict(CONFIG_BRUTE)
     toutes = cache.lister()
     assert len(toutes) == 2, "les deux entrées doivent être indexées, sinon le test ne mesure rien"
-    motifs = {
-        e.meta.get("nom"): motif_exclusion(e, config, config.velo("Route")) for e in toutes
-    }
+    motifs = {e.meta.get("nom"): motif_exclusion(e, config, config.velo("Route")) for e in toutes}
     # La fixture du dépôt fait 5,5 km : les deux sorties sont trop courtes, et
     # c'est ce motif-là qui tombe en premier (l'ordre des filtres est vérifié
     # sur des entrées fabriquées dans `test_motif_exclusion`).
@@ -764,9 +768,7 @@ def test_sorties_calibrables_trie_et_filtre(tmp_path: Path, generateur):
     ancien = calib.DISTANCE_MINIMALE_M
     calib.DISTANCE_MINIMALE_M = 1000.0
     try:
-        retenues = sorties_calibrables(
-            cache, config, config.velo("Route"), depuis=date(2000, 1, 1)
-        )
+        retenues = sorties_calibrables(cache, config, config.velo("Route"), depuis=date(2000, 1, 1))
     finally:
         calib.DISTANCE_MINIMALE_M = ancien
     assert [e.meta.get("nom") for e in retenues] == ["sortie neutre"]
@@ -775,9 +777,7 @@ def test_sorties_calibrables_trie_et_filtre(tmp_path: Path, generateur):
 def test_masse_totale_kg():
     config = depuis_dict(CONFIG_BRUTE)
     assert masse_totale_kg(config, config.velo("Route")) == 80.0 + MASSE_VELO_DEFAUT_KG
-    lourd = depuis_dict(
-        {**CONFIG_BRUTE, "velos": [{"nom": "Route", "usage": "route", "masse_kg": 8.2}]}
-    )
+    lourd = depuis_dict({**CONFIG_BRUTE, "velos": [{"nom": "Route", "usage": "route", "masse_kg": 8.2}]})
     assert masse_totale_kg(lourd, lourd.velo("Route")) == pytest.approx(88.2)
 
 
@@ -800,9 +800,7 @@ def test_sans_les_vitesses_aux_bornes_l_acceleration_fausse_l_ajustement():
     n'ont nulle part où aller et se rangent dans la traînée et le roulement.
     """
     avec = echantillons_avec_acceleration(dv_min=0.2, dv_max=0.9)
-    sans = [
-        Echantillon(**{**e.__dict__, "v_debut_ms": 0.0, "v_fin_ms": 0.0}) for e in avec
-    ]
+    sans = [Echantillon(**{**e.__dict__, "v_debut_ms": 0.0, "v_fin_ms": 0.0}) for e in avec]
     juste = calibrer(avec, masse_totale_kg=MASSE)
     faux = calibrer(sans, masse_totale_kg=MASSE)
     assert juste.cda_m2 == pytest.approx(CDA_VRAI, rel=0.01)
@@ -833,9 +831,7 @@ def test_puissance_cinetique_signe_et_ordre_de_grandeur():
     descend = Echantillon(**{**monte.__dict__, "v_debut_ms": 9.0, "v_fin_ms": 8.0})
     assert monte.duree_s == pytest.approx(200.0 / 8.5)
     assert monte.puissance_cinetique_w(100.0) == pytest.approx(37.0, abs=1.0)
-    assert descend.puissance_cinetique_w(100.0) == pytest.approx(
-        -monte.puissance_cinetique_w(100.0)
-    )
+    assert descend.puissance_cinetique_w(100.0) == pytest.approx(-monte.puissance_cinetique_w(100.0))
 
 
 def test_puissance_cinetique_nulle_sans_vitesses_aux_bornes():
@@ -945,10 +941,7 @@ def test_sorties_calibrables_ecarte_le_multisport(tmp_path: Path, generateur, mo
     cache, _ = _cache_a_deux_sorties(tmp_path, generateur)
     config = depuis_dict(CONFIG_BRUTE)
     velo = config.velo("Route")
-    identifiants = {
-        e.meta.get("nom"): e.identifiant
-        for e in cache.lister(depuis=date(2000, 1, 1))
-    }
+    identifiants = {e.meta.get("nom"): e.identifiant for e in cache.lister(depuis=date(2000, 1, 1))}
 
     def relire(identifiant: str):
         activite = cache.relire(identifiant)
@@ -966,9 +959,7 @@ def test_sorties_calibrables_ecarte_le_multisport(tmp_path: Path, generateur, mo
     assert motifs == {"multisport": 1}
 
 
-def test_sorties_calibrables_ne_relit_pas_les_sorties_deja_ecartees(
-    tmp_path: Path, generateur, monkeypatch
-):
+def test_sorties_calibrables_ne_relit_pas_les_sorties_deja_ecartees(tmp_path: Path, generateur, monkeypatch):
     """Le lecteur ne doit pas être appelé sur les footings ni sur l'autre vélo.
 
     Relire un FIT coûte cher ; le cache du mainteneur en contient neuf cents,
@@ -1022,9 +1013,7 @@ def test_sans_relecture_le_comportement_est_celui_d_avant(tmp_path: Path, genera
 
 def test_calibrer_a_crr_fixe_retrouve_le_cda_exactement():
     """Le Crr donné (pneu), seul le CdA est cherché : sans bruit, il est exact."""
-    ajustement = calibrer(
-        echantillons_synthetiques(bruit_w=0.0), masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
-    )
+    ajustement = calibrer(echantillons_synthetiques(bruit_w=0.0), masse_totale_kg=MASSE, crr_fixe=CRR_VRAI)
     assert ajustement.crr_fixe
     assert ajustement.crr == CRR_VRAI  # reçu, jamais retouché
     assert ajustement.cda_m2 == pytest.approx(CDA_VRAI, rel=1e-6)
@@ -1101,9 +1090,7 @@ def test_chercher_cda_sans_sortie_est_refuse():
 
 def test_deux_passes_a_crr_fixe_ne_cherchent_que_le_cda():
     sorties = [*_sorties_variees(), _sortie(date(2026, 2, 9), duree_s=1500)]
-    rapport = calibrer_en_deux_passes(
-        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
-    )
+    rapport = calibrer_en_deux_passes(sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI)
     assert rapport.ajustement.crr == CRR_VRAI
     assert rapport.ajustement.crr_fixe
     assert rapport.passe1.crr == CRR_VRAI
@@ -1126,10 +1113,7 @@ def test_mesurer_porte_a_porte_rend_les_centiles_du_ratio_ecoule_sur_simule():
     from ourouler.physique.calibration import mesurer_porte_a_porte
 
     facteurs = [1.00, 1.02, 1.04, 1.06, 1.08, 1.10, 1.12, 1.14]
-    sorties = [
-        _avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), f)
-        for i, f in enumerate(facteurs)
-    ]
+    sorties = [_avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), f) for i, f in enumerate(facteurs)]
     mesure = mesurer_porte_a_porte(sorties, VRAI)
     assert mesure.n == 8
     bas, mediane, haut = mesure.centiles
@@ -1145,9 +1129,7 @@ def test_mesurer_porte_a_porte_ecarte_les_sorties_en_groupe():
     """Le filtre à 50 % de signal de groupe se fait dans le pipeline, une fois."""
     from ourouler.physique.calibration import mesurer_porte_a_porte
 
-    sorties = [
-        _avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), 1.05) for i in range(8)
-    ]
+    sorties = [_avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), 1.05) for i in range(8)]
     peloton = _avec_arrets(_sortie(date(2026, 3, 20), duree_s=1200, facteur_vitesse=1.2), 0.8)
     mesure = mesurer_porte_a_porte([*sorties, peloton], VRAI)
     assert len(mesure.sorties) == 9
@@ -1159,9 +1141,7 @@ def test_mesurer_porte_a_porte_ecarte_les_sorties_en_groupe():
 def test_trop_peu_de_sorties_solo_ne_donne_pas_de_fourchette():
     from ourouler.physique.calibration import SORTIES_MIN_FOURCHETTE, mesurer_porte_a_porte
 
-    sorties = [
-        _sortie(date(2026, 3, i + 1), duree_s=1200) for i in range(SORTIES_MIN_FOURCHETTE - 1)
-    ]
+    sorties = [_sortie(date(2026, 3, i + 1), duree_s=1200) for i in range(SORTIES_MIN_FOURCHETTE - 1)]
     mesure = mesurer_porte_a_porte(sorties, VRAI)
     assert mesure.n == SORTIES_MIN_FOURCHETTE - 1
     assert mesure.centiles is None
@@ -1172,29 +1152,33 @@ def test_le_vent_le_long_prend_le_point_le_plus_proche_comme_avant():
     """La dichotomie de `vent_le_long` rend le même instant que l'ancien
     parcours linéaire (premier point le plus proche), y compris aux égalités
     et aux distances répétées d'un arrêt."""
-    from ourouler.physique import calibration as calib
+    from ourouler.physique import echantillonnage
+    from ourouler.physique.validation import vent_le_long
 
     activite = sortie_synthetique(duree_s=300)
     # Un arrêt : trois points à la même distance.
     for p in activite.points[100:103]:
         p.dist_m = activite.points[100].dist_m
     points = [p for p in activite.points if p.t is not None]
-    distances = calib._distances_points(points)
+    distances = echantillonnage._distances_points(points)
     # Un vent qui change d'heure en heure, pour que l'instant choisi se voie.
     heures = [
         HeureArchive(
-            t=DEPART.replace(hour=h), vent_kmh=float(h), vent_depuis_deg=90.0, temp_c=15.0,
+            t=DEPART.replace(hour=h),
+            vent_kmh=float(h),
+            vent_depuis_deg=90.0,
+            temp_c=15.0,
             pression_hpa=1013.25,
         )
         for h in range(24)
     ]
-    face = calib.vent_le_long(activite, heures)
+    face = vent_le_long(activite, heures)
     milieu = (distances[10] + distances[11]) / 2
     for d in [0.0, distances[100], distances[100] + 0.001, milieu, distances[-1], 1e9]:
         attendu = min(range(len(distances)), key=lambda k: abs(distances[k] - d))
         instant = points[attendu].t
         assert face(d, 90.0) == pytest.approx(
-            calib._vent_de_face(calib._interpoler_archive(heures, instant), 90.0)
+            echantillonnage._vent_de_face(echantillonnage._interpoler_archive(heures, instant), 90.0)
         )
 
 
@@ -1247,18 +1231,14 @@ def test_trop_peu_de_sorties_solo_replie_et_le_dit():
     from ourouler.physique.calibration import SORTIES_MIN_SOLO
 
     sorties = [_sortie(date(2026, 4, j), duree_s=1500) for j in range(1, 8)]
-    rapport = calibrer_en_deux_passes(
-        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
-    )
+    rapport = calibrer_en_deux_passes(sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI)
     assert rapport.n_solo < SORTIES_MIN_SOLO
     assert "il en faut" in rapport.repli_solo
 
 
 def test_la_fourchette_n_est_mesuree_que_sur_la_validation():
     sorties = [_sortie(date(2026, 4, j), duree_s=1200) for j in range(1, 13)]
-    rapport = calibrer_en_deux_passes(
-        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
-    )
+    rapport = calibrer_en_deux_passes(sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI)
     assert len(rapport.porte_a_porte.sorties) == rapport.n_validation == 3
     jours_validation = {s.jour for s in rapport.porte_a_porte.sorties}
     assert jours_validation == {"2026-04-10", "2026-04-11", "2026-04-12"}

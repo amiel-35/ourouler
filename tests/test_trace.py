@@ -1,4 +1,4 @@
-"""Tests du modèle de tracé partagé (sprint 2, socle)."""
+"""Tests du modèle de tracé partagé (`noyau.trace`)."""
 
 import math
 
@@ -34,6 +34,9 @@ def test_sens_boucle():
     aller_retour = Trace(
         nom="ar",
         points=[PointTrace(0, 0, None, 0), PointTrace(0.01, 0, None, 0), PointTrace(0, 0, None, 0)],
-        segments=[], distance_m=0, denivele_m=None, temps_moteur_s=None,
+        segments=[],
+        distance_m=0,
+        denivele_m=None,
+        temps_moteur_s=None,
     )
     assert sens_boucle(aller_retour) == "indetermine"

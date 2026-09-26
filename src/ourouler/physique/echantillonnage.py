@@ -1,6 +1,6 @@
 """Les échantillons de la calibration : des tronçons de sortie qualifiés, avec leur vent.
 
-Sorti de `physique/calibration.py`, qui réexporte ces noms. Physique pure
+Sorti de `physique/calibration.py`. Physique pure
 comme lui : des objets en entrée, aucun chemin, réseau ni configuration.
 Mêmes calculs, dans le même ordre, qu'avant le déplacement.
 """
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ourouler.noyau.activite import Activite, Point
-from ourouler.noyau.meteo import HeureArchive
+from ourouler.noyau.meteo import HeureArchive, interpoler_angle, interpoler_lineaire
 from ourouler.noyau.trace import PointTrace, cap_deg, distance_m
 from ourouler.physique.modele import (
     RENDEMENT_DEFAUT,
@@ -22,7 +22,7 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
 )
 
-#: Longueur visée d'un échantillon, en mètres (contrat de sprint §3).
+#: Longueur visée d'un échantillon, en mètres.
 LONGUEUR_ECHANTILLON_M = 200.0
 
 #: Sous cette vitesse instantanée, le cycliste est à l'arrêt (feu, stop).
@@ -34,7 +34,7 @@ SEUIL_ARRET_MS = 1.0
 #: capteur de puissance qui n'a pas fini de se caler.
 DEBUT_IGNORE_M = 2000.0
 
-#: Bornes de pente des échantillons retenus (contrat §3).
+#: Bornes de pente des échantillons retenus.
 PENTE_MIN = -0.03
 PENTE_MAX = 0.08
 
@@ -47,8 +47,8 @@ FACTEUR_FTP_MAX = 2.0
 
 #: Variation de vitesse tolérée entre deux échantillons voisins, en m/s.
 #:
-#: Le seuil valait 0,3 m/s (contrat §3) : il ne gardait que des tronçons
-#: « stationnaires », 5 % du total, et ceux-là ne sont pas un échantillon
+#: Un seuil à 0,3 m/s ne garderait que des tronçons « stationnaires », 5 % du
+#: total, et ceux-là ne sont pas un échantillon
 #: neutre d'une sortie (faux plats descendants, vent arrière). Depuis que la
 #: variation d'énergie cinétique du tronçon entre dans la part **connue** de sa
 #: puissance (`Echantillon.puissance_cinetique_w`), l'accélération n'est plus
@@ -83,8 +83,7 @@ class Echantillon:
     """Un tronçon d'environ 200 m d'une sortie réelle, et ce qu'on en sait.
 
     `retenu` dit si la calibration s'en sert, `motif` dit pourquoi pas. Les
-    champs après `motif` sont des compléments du contrat de sprint : la
-    longueur (pour pondérer par la distance), la masse volumique de l'air
+    champs après `motif` complètent : la longueur (pour pondérer par la distance), la masse volumique de l'air
     mesurée du jour, si le vent était connu, l'instant de passage, et les
     **vitesses aux deux bouts** — sans elles, on ne sait pas si le cycliste a
     accéléré pendant les 200 m.
@@ -123,9 +122,7 @@ class Echantillon:
         """
         return self.longueur_m / self.v_ms if self.v_ms > 0 and self.longueur_m > 0 else 0.0
 
-    def puissance_cinetique_w(
-        self, masse_totale_kg: float, rendement: float = RENDEMENT_DEFAUT
-    ) -> float:
+    def puissance_cinetique_w(self, masse_totale_kg: float, rendement: float = RENDEMENT_DEFAUT) -> float:
         """La puissance qu'a coûtée (ou rendue) le changement de vitesse du tronçon.
 
         `m · (v_fin² − v_début²) / (2 · Δt)`, au pédalier donc divisée par le
@@ -217,9 +214,7 @@ def echantillonner(
     return echantillons
 
 
-def _decouper(
-    points: Sequence[Point], distances: Sequence[float]
-) -> list[tuple[int, int, float, float]]:
+def _decouper(points: Sequence[Point], distances: Sequence[float]) -> list[tuple[int, int, float, float]]:
     """(début, fin, longueur, durée) de chaque tronçon d'environ 200 m."""
     troncons = []
     debut = 0
@@ -337,15 +332,11 @@ def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
     équilibre : la garder reviendrait à demander au modèle d'expliquer un
     arrêt par de la traînée.
     """
-    return any(
-        p.vitesse_ms is not None and float(p.vitesse_ms) < SEUIL_ARRET_MS for p in points[i : j + 1]
-    )
+    return any(p.vitesse_ms is not None and float(p.vitesse_ms) < SEUIL_ARRET_MS for p in points[i : j + 1])
 
 
-def _qualifier(
-    echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float
-) -> None:
-    """Pose `retenu` et `motif` sur chaque échantillon, filtres du contrat §3."""
+def _qualifier(echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float) -> None:
+    """Pose `retenu` et `motif` sur chaque échantillon, selon les filtres ci-dessus."""
     vitesse_min_ms = vitesse_min_kmh / 3.6
     puissance_max = FACTEUR_FTP_MAX * ftp_w
     for indice, e in enumerate(echantillons):
@@ -396,10 +387,10 @@ def _interpoler_archive(heures: Sequence[HeureArchive], t: datetime) -> HeureArc
             f = (t - avant.t).total_seconds() / duree if duree > 0 else 0.0
             return HeureArchive(
                 t=t,
-                vent_kmh=_lineaire(avant.vent_kmh, apres.vent_kmh, f),
-                vent_depuis_deg=_angulaire(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
-                temp_c=_lineaire(avant.temp_c, apres.temp_c, f),
-                pression_hpa=_lineaire(avant.pression_hpa, apres.pression_hpa, f),
+                vent_kmh=interpoler_lineaire(avant.vent_kmh, apres.vent_kmh, f),
+                vent_depuis_deg=interpoler_angle(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
+                temp_c=interpoler_lineaire(avant.temp_c, apres.temp_c, f),
+                pression_hpa=interpoler_lineaire(avant.pression_hpa, apres.pression_hpa, f),
             )
     return None
 
@@ -422,21 +413,3 @@ def _vent_de_face(heure: HeureArchive | None, cap: float | None) -> float | None
         return None
     a_10m = (heure.vent_kmh / 3.6) * math.cos(math.radians(heure.vent_depuis_deg - cap))
     return vent_au_cycliste(a_10m)
-
-
-def _lineaire(a: float | None, b: float | None, f: float) -> float | None:
-    if a is None or b is None:
-        return None
-    return a + (b - a) * f
-
-
-def _angulaire(a: float | None, b: float | None, f: float) -> float | None:
-    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°."""
-    if a is None or b is None:
-        return None
-    ra, rb = math.radians(a), math.radians(b)
-    x = math.cos(ra) + (math.cos(rb) - math.cos(ra)) * f
-    y = math.sin(ra) + (math.sin(rb) - math.sin(ra)) * f
-    if x == 0.0 and y == 0.0:
-        return a
-    return math.degrees(math.atan2(y, x)) % 360.0

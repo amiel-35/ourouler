@@ -249,9 +249,7 @@ def test_seance_refuse_une_option_inconnue():
 # tests couvrent le branchement dans `ourouler config`, pas le calcul
 # lui-même (couvert par tests/test_physique_modele.py).
 
-CONFIG_VELO = (
-    CONFIG + '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\ncda_m2=0.30\ncrr=0.005\n'
-)
+CONFIG_VELO = CONFIG + '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\ncda_m2=0.30\ncrr=0.005\n'
 CONFIG_VELO_MESURE = CONFIG_VELO + "facteur_compteur=0.85\n"
 
 
@@ -385,7 +383,7 @@ def test_invitations_sans_database_url_echoue_avec_un_message_lisible(tmp_path, 
 
 # --- _charger_service / _url_publique : les deux lecteurs propres à ce lot --
 #
-# Seul `cli.py` a le droit de lire `service.toml` ou la variable qui porte
+# Seul `cli/` a le droit de lire `service.toml` ou la variable qui porte
 # l'URL publique (règle absolue 2) — ces deux fonctions sont donc testées ici,
 # directement, avec un fichier à nous. Jamais le vrai `service.toml` du
 # mainteneur : ni ouvert, ni approché.

@@ -28,14 +28,16 @@ def inventaire(
     gestes de ligne de commande : ils écrivent dans le cache du serveur et
     durent des minutes.
 
-    **Le cache est construit ici, avec le propriétaire de la session** (Q58,
-    18/09/2026). Jusque-là cette route recevait bien `qui` — le balayage
-    d'isolation la voyait donc conforme — mais la commande construisait son
-    `Cache` toute seule, avec le défaut `PROPRIETAIRE_LOCAL` : quel que soit
-    le demandeur, elle servait l'inventaire du mainteneur. C'est la couche web
-    qui nomme le propriétaire, et elle seule (doctrine §10.1).
+    **Le cache est construit ici, avec le propriétaire de la session**
+    (décision Q58, `docs/journal/questions/questions_mainteneur.md`). Recevoir
+    `qui` ne suffit pas : si la commande construisait son `Cache` toute seule,
+    avec le défaut
+    `PROPRIETAIRE_LOCAL`, elle servirait l'inventaire du cycliste local à
+    n'importe quel demandeur — et le balayage d'isolation la verrait pourtant
+    conforme. C'est la couche web qui nomme le propriétaire, et elle seule
+    (doctrine §10.1).
     """
-    from ourouler.activites import commande as activites
+    from ourouler.services import activites
 
     config = _config(ctx, qui)
     resultat = calculer(
@@ -60,11 +62,11 @@ def routes_connues(
 ) -> dict:
     """Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule).
 
-    **La base est construite ici, avec le propriétaire de la session** (Q58,
-    18/09/2026) — même correctif et même raison que `GET /inventaire`
+    **La base est construite ici, avec le propriétaire de la session** —
+    même raison que `GET /inventaire`
     juste au-dessus.
     """
-    from ourouler.apprentissage import commande as apprentissage
+    from ourouler.services import apprentissage
 
     if action not in ("stats", "poids"):
         raise ErreurApi(

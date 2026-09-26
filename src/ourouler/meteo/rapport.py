@@ -109,11 +109,11 @@ class RapportMeteo:
         l'aller — on rentre alors poussé, ce qui est le bon sens du cycliste.
         Le point « ici » n'est pas une direction : il est exclu.
 
-        Une cellule de pluie absente n'ajoutait rien au cumul : une direction
-        dont le modèle ne rendait aucune pluie affichait donc 0,0 mm et
-        était **conseillée**, avec le motif « cumul de pluie le plus faible ».
-        C'est l'affirmation sans mesure que la règle absolue 5 interdit. Les
-        directions incomplètes sont donc écartées tant qu'il reste une
+        Une cellule de pluie absente n'ajoute rien au cumul : une direction
+        dont le modèle ne rend aucune pluie afficherait donc 0,0 mm et serait
+        **conseillée**, avec le motif « cumul de pluie le plus faible ». Ce
+        serait affirmer sans mesure. Les directions incomplètes sont donc
+        écartées tant qu'il reste une
         direction complète ; s'il n'en reste aucune, on conseille la moins
         trouée et **le motif dit combien d'heures manquent**.
         """
@@ -235,9 +235,9 @@ def construire(
             f"{len(prevision_principale)} prévision(s) pour {len(couronne)} point(s) de couronne"
         )
     avec_second = bool(prevision_second_avis)
-    if avec_second and len(prevision_second_avis) != len(couronne):  # type: ignore[arg-type]
+    if avec_second and len(prevision_second_avis) != len(couronne):
         raise ValueError(
-            f"second avis : {len(prevision_second_avis)} prévision(s) pour "  # type: ignore[arg-type]
+            f"second avis : {len(prevision_second_avis)} prévision(s) pour "
             f"{len(couronne)} point(s) de couronne"
         )
 
@@ -259,9 +259,7 @@ def construire(
                     pluie_second_avis_mm=pluie_second,
                     vent_kmh=heure.vent_kmh,
                     vent_depuis_deg=heure.vent_depuis_deg,
-                    vent_relatif=vent_relatif(
-                        point.azimut_deg, heure.vent_depuis_deg, direction=point.nom
-                    ),
+                    vent_relatif=vent_relatif(point.azimut_deg, heure.vent_depuis_deg, direction=point.nom),
                     ressenti_c=heure.ressenti_c,
                     confiance=confiance(heure.pluie_mm, pluie_second),
                 )

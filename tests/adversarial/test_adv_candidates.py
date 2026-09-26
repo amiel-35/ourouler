@@ -1,6 +1,6 @@
-"""L2.3 — génération des candidates de boucle, mise à l'épreuve.
+"""Génération des candidates de boucle, mise à l'épreuve.
 
-Cible : contrat du sprint 2 §3 et §8. Le moteur est remplacé par un
+Le moteur est remplacé par un
 `MoteurFactice` qui note chaque appel et rend la distance qu'on lui dicte :
 c'est le seul moyen de vérifier en aveugle la **stratégie** (azimuts, rayon
 initial, ajustement par proportion, plafond d'appels) sans dépendre d'un
@@ -23,21 +23,16 @@ import fabriques
 import pytest
 from outils import robuste
 
+from ourouler.boucle import candidates as module_candidates
 from ourouler.config import Depart
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
 from ourouler.noyau.trace import Trace
-
-MOTIF_ABSENT = "module attendu par le contrat L2.3 absent (ourouler.boucle.candidates)"
 
 DEPART = Depart(nom="Point fictif", latitude=fabriques.LAT0, longitude=fabriques.LON0)
 
 #: Le contrat fixe le rayon initial à `distance_km * 1000 / 5` et mesure un
 #: ratio d'environ 5 entre rayon demandé et boucle obtenue.
 RATIO_MESURE = 5.0
-
-
-def _module():
-    return pytest.importorskip("ourouler.boucle.candidates", reason=MOTIF_ABSENT)
 
 
 def _trace_de_distance(distance_m: float, *, fermee: bool = True) -> Trace:
@@ -116,9 +111,7 @@ def _verifier_candidates(candidates, *, cible_km: float, quoi: str) -> None:
     for i, c in enumerate(candidates):
         fabriques.verifier_trace(c.trace, quoi=f"{quoi} candidates[{i}].trace")
         assert math.isfinite(c.ecart_relatif), f"{quoi} : candidates[{i}].ecart_relatif non fini"
-        assert math.isfinite(c.rayon_m) and c.rayon_m > 0, (
-            f"{quoi} : candidates[{i}].rayon_m = {c.rayon_m!r}"
-        )
+        assert math.isfinite(c.rayon_m) and c.rayon_m > 0, f"{quoi} : candidates[{i}].rayon_m = {c.rayon_m!r}"
         assert math.isfinite(c.azimut_deg), f"{quoi} : candidates[{i}].azimut_deg non fini"
         attendu = (c.trace.distance_m - cible_km * 1000.0) / (cible_km * 1000.0)
         assert c.ecart_relatif == pytest.approx(attendu, abs=1e-6), (
@@ -134,7 +127,7 @@ def _verifier_candidates(candidates, *, cible_km: float, quoi: str) -> None:
 
 
 def test_le_rayon_initial_suit_la_regle_du_contrat():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     candidates = _generer(module, moteur, distance_km=60.0)
 
@@ -150,7 +143,7 @@ def test_le_rayon_initial_suit_la_regle_du_contrat():
 
 
 def test_l_ajustement_par_proportion_rattrape_une_boucle_trop_courte():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * 4.0)  # 20 % trop court au premier essai
     candidates = _generer(module, moteur, distance_km=60.0, nb=1, tolerance=0.05)
 
@@ -166,7 +159,7 @@ def test_l_ajustement_par_proportion_rattrape_une_boucle_trop_courte():
 
 
 def test_les_azimuts_explorent_de_part_et_d_autre():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     _generer(module, moteur, azimut_deg=90.0, nb=5)
 
@@ -184,7 +177,7 @@ def test_les_azimuts_explorent_de_part_et_d_autre():
 
 def test_les_azimuts_restent_dans_le_tour_du_compas():
     """`roundTripStartDirection` est un cap : 370° ou −30° n'ont rien à faire dans l'URL."""
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     _generer(module, moteur, azimut_deg=350.0, nb=5)
     hors = [a for a in moteur.azimuts if not 0.0 <= a < 360.0]
@@ -192,7 +185,7 @@ def test_les_azimuts_restent_dans_le_tour_du_compas():
 
 
 def test_un_seul_candidat_demande_n_explore_qu_un_azimut():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     candidates = _generer(module, moteur, nb=1)
     assert {round(a, 6) for a in moteur.azimuts} == {90.0}
@@ -203,7 +196,7 @@ def test_un_seul_candidat_demande_n_explore_qu_un_azimut():
 
 
 def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
-    """Contrat §8 : « moteur qui renvoie toujours la même boucle ».
+    """Un moteur qui renvoie toujours la même boucle n'use pas tous les appels.
 
     Rendre 30 km pour une cible de 60 (écart de −50 %) en silence, quand la
     tolérance vaut 10 %, est exactement le défaut corrigé le 17/09/2026:
@@ -212,7 +205,7 @@ def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
     que de servir une candidate hors sujet. Le plafond d'appels reste le
     vrai sujet ici, vérifié sur le moteur bouchon.
     """
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)  # 30 km quoi qu'on demande, cible 60 km
     with pytest.raises(ErreurDistanceInatteignable):
         _generer(module, moteur, distance_km=60.0, nb=5, tolerance=0.10, appels_max=12)
@@ -220,25 +213,23 @@ def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
     assert len(moteur.appels) <= 12, f"plafond d'appels dépassé : {len(moteur.appels)}"
 
 
-#: Ajustements de rayon consentis à un azimut, essai initial exclu. Le contrat
-#: du sprint 2 §3 écrivait « au plus 2 fois » ; le superviseur l'a porté à 3 le
-#: 13/09/2026, après la vérification réelle : l'élagage des antennes (L3.1)
-#: retire des centaines de mètres à la boucle du moteur, la distance mesurée
-#: oscille (53,6 puis 65,4 km pour 60 demandés) et deux corrections
-#: s'arrêtaient au milieu de l'oscillation. Ce qui est testé ici n'a pas
-#: changé : un azimut ne mange pas le plafond global d'appels.
+#: Ajustements de rayon consentis à un azimut, essai initial exclu : trois,
+#: parce que l'élagage des antennes retire des centaines de mètres à la boucle
+#: du moteur, la distance mesurée oscille (53,6 puis 65,4 km pour 60 demandés)
+#: et deux corrections s'arrêtaient au milieu de l'oscillation. Un azimut ne
+#: mange pas pour autant le plafond global d'appels.
 AJUSTEMENTS_CONSENTIS = 3
 
 
 def test_un_azimut_ne_coute_jamais_plus_de_trois_ajustements():
-    """Contrat §3, révisé par le superviseur le 13/09 : voir `AJUSTEMENTS_CONSENTIS`.
+    """Au plus `AJUSTEMENTS_CONSENTIS` ajustements de rayon par azimut.
 
     Le moteur ne converge jamais vers 60 km (30 km quoi qu'on demande), donc
     la tolérance de 1 % ne peut être tenue même élargie au maximum : la
     demande refuse. Le sujet du test — le nombre d'ajustements consentis à
     un seul azimut — se lit sur le moteur bouchon, refus ou pas.
     """
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)  # ne converge jamais vers 60 km
     with pytest.raises(ErreurDistanceInatteignable):
         _generer(module, moteur, nb=1, tolerance=0.01, appels_max=12)
@@ -251,7 +242,7 @@ def test_un_azimut_ne_coute_jamais_plus_de_trois_ajustements():
 
 def test_les_candidates_sont_triees_par_ecart_absolu():
     """Une boucle 2 % trop longue vaut mieux qu'une boucle 20 % trop courte."""
-    module = _module()
+    module = module_candidates
     cible = 60_000.0
     facteurs = {90.0: 1.30, 110.0: 0.95, 70.0: 1.02, 130.0: 0.80, 50.0: 1.15}
     moteur = MoteurFactice(par_azimut={a: cible * f for a, f in facteurs.items()})
@@ -277,18 +268,16 @@ def test_le_plafond_d_appels_est_respecte_a_la_lettre():
     # même élargie), la demande refuse systématiquement. Le plafond d'appels
     # lui-même — le vrai sujet — se vérifie sur le moteur bouchon, refus ou
     # pas.
-    module = _module()
+    module = module_candidates
     for plafond in (1, 2, 3, 7):
         moteur = MoteurFactice(30_000.0)
         with pytest.raises(ErreurDistanceInatteignable):
             _generer(module, moteur, appels_max=plafond, nb=5)
-        assert len(moteur.appels) <= plafond, (
-            f"appels_max={plafond} : {len(moteur.appels)} appels effectués"
-        )
+        assert len(moteur.appels) <= plafond, f"appels_max={plafond} : {len(moteur.appels)} appels effectués"
 
 
 def test_un_plafond_nul_n_appelle_pas_le_moteur():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur, appels_max=0),
@@ -301,7 +290,7 @@ def test_un_plafond_nul_n_appelle_pas_le_moteur():
 
 
 def test_les_boucles_non_bornees_sont_ecartees():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE, fermee=False)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur),
@@ -315,7 +304,7 @@ def test_les_boucles_non_bornees_sont_ecartees():
 
 
 def test_une_panne_du_moteur_ne_remonte_pas_en_trace():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE, lever_a_partir_de=3)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur),
@@ -332,7 +321,7 @@ def test_une_panne_du_moteur_ne_remonte_pas_en_trace():
 
 def test_une_distance_nulle_ne_divise_pas_par_zero():
     """`ecart_relatif = (distance − cible)/cible` : cible nulle = ZeroDivisionError."""
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur, distance_km=0.0),
@@ -346,7 +335,7 @@ def test_une_distance_nulle_ne_divise_pas_par_zero():
 
 @pytest.mark.parametrize("distance_km", [-10.0, float("nan"), float("inf")])
 def test_une_distance_absurde_est_refusee_ou_ignoree(distance_km):
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur, distance_km=distance_km),
@@ -361,7 +350,7 @@ def test_une_distance_absurde_est_refusee_ou_ignoree(distance_km):
 
 @pytest.mark.parametrize("nb", [0, -3])
 def test_un_nombre_de_candidates_absurde_ne_casse_rien(nb):
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur, nb=nb),
@@ -375,7 +364,7 @@ def test_un_nombre_de_candidates_absurde_ne_casse_rien(nb):
 
 @pytest.mark.parametrize("tolerance", [0.0, -0.5, 10.0])
 def test_une_tolerance_absurde_ne_fait_pas_boucler(tolerance):
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(30_000.0)
     candidates, erreur = robuste(
         lambda: _generer(module, moteur, tolerance=tolerance, appels_max=12),
@@ -388,7 +377,7 @@ def test_une_tolerance_absurde_ne_fait_pas_boucler(tolerance):
 
 
 def test_le_profil_demande_est_transmis_au_moteur():
-    module = _module()
+    module = module_candidates
     moteur = MoteurFactice(lambda rayon: rayon * RATIO_MESURE)
     _generer(module, moteur, nb=1, profil="gravel")
     assert moteur.appels, "aucun appel"

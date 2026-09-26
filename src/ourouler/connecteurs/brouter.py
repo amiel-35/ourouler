@@ -68,19 +68,17 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 
 #: Paramètres de profil qui demandent au moteur de recaler lui-même les points
 #: de passage tombés à côté de la route — la cause des crochets en mode boucle,
-#: où c'est le moteur qui place ces points (contrat du sprint 3 §1).
+#: où c'est le moteur qui place ces points.
 #:
-#: **La mesure du 13/09/2026 (« accepté, sans effet, ce serveur ignore le
-#: mécanisme entier ») était fausse, et pour deux raisons empilées.**
+#: **Deux pièges, et chacun fait croire que le mécanisme ne fait rien.**
 #:
-#: 1. Mauvais nom. BRouter attend le camelCase `correctMisplacedViaPoints` et
-#:    `correctMisplacedViaPointsDistance` (PR abrensch/brouter#759, fusionnée
-#:    le 31/03/2025, livrée en 1.7.8) ; le code envoyait le snake_case
-#:    `profile:correct_misplaced_via_points…`, qu'un paramètre inconnu est
-#:    silencieusement jeté par le serveur — d'où une réponse identique avec ou
-#:    sans lui, prise à tort pour « le mécanisme ne fait rien ».
-#: 2. Même corrigé, le seuil de 40 m envoyé ne déclenche jamais rien : mesuré
-#:    le 18/09/2026 sur le serveur du mainteneur, 8 azimuts × 2 rayons
+#: 1. Le nom. BRouter attend le camelCase `correctMisplacedViaPoints` et
+#:    `correctMisplacedViaPointsDistance` (PR abrensch/brouter#759, livrée en
+#:    1.7.8) ; le snake_case `profile:correct_misplaced_via_points…` est un
+#:    paramètre inconnu, silencieusement jeté par le serveur — d'où une
+#:    réponse identique avec ou sans lui.
+#: 2. Le seuil. À 40 m, il ne déclenche jamais rien : mesuré sur un serveur
+#:    réel, 8 azimuts × 2 rayons
 #:    (8 km et 20 km), la réponse à seuil 40 est identique à celle sans
 #:    correction. Le seuil doit descendre à **0** (« pas de vérification de
 #:    distance », dit la PR elle-même) pour que le recalage agisse : au
@@ -88,9 +86,9 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 #:    40-200 ; au rayon 8 km, le nombre d'antennes baisse aux seuils
 #:    croissants (2 827 m médians à 40-200, 321 m à 1000) mais **ne tombe pas
 #:    à zéro même à seuil 0** (283 m médians, 4 boucles sur 7 encore
-#:    porteuses d'une antenne). **Pourquoi, on ne le sait pas** (relecture du
-#:    18/09/2026) : ce peut être de vrais culs-de-sac du réseau routier à ce
-#:    rayon, qu'aucun réglage ne recale ; ce peut être aussi que le moteur
+#:    porteuses d'une antenne). **Pourquoi, on ne le sait pas** : ce peut être
+#: de vrais culs-de-sac du réseau routier à ce rayon, qu'aucun réglage ne recale
+#: ; ce peut être aussi que le moteur
 #:    renonce, `snapPathConnection` bornant sa remontée à `MAX_STEPS_CHECK`
 #:    nœuds et abandonnant sur plusieurs conditions sans rapport avec la
 #:    voirie. Les deux explications sont ouvertes, aucune n'est départagée.
@@ -99,8 +97,7 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 #:    mais **ne garantit pas** l'absence d'antenne : `boucle/antennes.py`
 #:    reste nécessaire en filet, voir son docstring de module.
 #: **Ce que ce mécanisme fait, et qu'il faut lire avant de toucher au seuil**
-#: (ajouté le 18/09/2026, après qu'une relecture a dû aller lire la source de
-#: BRouter pour le savoir) : il ne **déplace** aucun point de passage et ne
+#: (la source de BRouter le dit, sa documentation non) : il ne **déplace** aucun point de passage et ne
 #: recolle rien sur la route la plus proche. `snapPathConnection` remonte le
 #: tracé déjà calculé, repère les nœuds parcourus deux fois — à l'aller puis
 #: au retour — et **les retire du tracé**. Le seuil n'est donc pas un rayon
@@ -125,8 +122,7 @@ class ClientBrouter:
     ):
         if not params.url:
             raise ErreurConnecteur(
-                "BRouter : [brouter] url est vide — renseigner l'adresse du serveur "
-                "dans la configuration"
+                "BRouter : [brouter] url est vide — renseigner l'adresse du serveur dans la configuration"
             )
         self.base_url = params.url.rstrip("/")
         self.profil_defaut = params.profil or "fastbike"
@@ -135,9 +131,7 @@ class ClientBrouter:
         # Le mot de passe n'est **pas** conservé en attribut : il ne vit que
         # dans l'objet d'authentification, passé à chaque requête. Un client
         # injecté par un test n'est jamais modifié.
-        self._auth = (
-            httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
-        )
+        self._auth = httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
         # Les zones à éviter viennent de `Config.evitements` et sont passées
         # par l'appelant : ce module ne lit aucune configuration.
         self.nogos = _nogos(evitements)
@@ -152,9 +146,7 @@ class ClientBrouter:
 
     # --- endpoints ------------------------------------------------------------
 
-    def itineraire(
-        self, points: Sequence[tuple[float, float]], *, profil: str | None = None
-    ) -> Trace:
+    def itineraire(self, points: Sequence[tuple[float, float]], *, profil: str | None = None) -> Trace:
         """Itinéraire passant par `points`, donnés en (lat, lon) — au moins deux."""
         if len(points) < 2:
             raise ErreurConnecteur(
@@ -248,17 +240,14 @@ class ClientBrouter:
             ) from e
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
-                f"BRouter : HTTP {reponse.status_code} sur {self.url_itineraire}"
-                f"{_indice(reponse, profil)}"
+                f"BRouter : HTTP {reponse.status_code} sur {self.url_itineraire}{_indice(reponse, profil)}"
             )
         if not reponse.content:
             raise ErreurConnecteur(f"BRouter : réponse vide sur {self.url_itineraire}")
         try:
             return reponse.json()
         except ValueError as e:
-            raise ErreurConnecteur(
-                f"BRouter : réponse non-JSON sur {self.url_itineraire} ({e})"
-            ) from e
+            raise ErreurConnecteur(f"BRouter : réponse non-JSON sur {self.url_itineraire} ({e})") from e
 
 
 #: Nombre de caractères du corps d'erreur cités dans un message. Assez pour
@@ -333,8 +322,7 @@ def _trace(charge: Any, *, nom: str, profil: str, url: str) -> Trace:
     entites = charge.get("features")
     if not isinstance(entites, list) or not entites:
         raise ErreurConnecteur(
-            f"BRouter : réponse sans « features » exploitable sur {url} "
-            "(aucun itinéraire trouvé ?)"
+            f"BRouter : réponse sans « features » exploitable sur {url} (aucun itinéraire trouvé ?)"
         )
     entite = entites[0]
     if not isinstance(entite, dict):
@@ -424,8 +412,7 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
             # `meta["messages_ignores"]` annoncerait 0 alors que des tronçons
             # ont disparu, le contraire de l'intention.
             ignores.extend(
-                f"ligne {reste} : plus de point où s'accrocher"
-                for reste in range(numero, len(lignes))
+                f"ligne {reste} : plus de point où s'accrocher" for reste in range(numero, len(lignes))
             )
             break
         if not isinstance(ligne, (list, tuple)) or len(ligne) <= colonnes["Latitude"]:
@@ -451,7 +438,7 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
                 # garde tel quel, sans le convertir ni le moyenner ici. Une
                 # colonne absente ou illisible donne `None`, jamais 0 — un
                 # coût nul voudrait dire « route idéale », ce qui est le
-                # contraire d'une mesure manquante (règle absolue 5).
+                # contraire d'une mesure manquante (on n'affirme rien sans mesure).
                 cout_km=_nombre(_colonne(ligne, colonnes, "CostPerKm")),
                 # `NodeTags` décrit le **nœud de fin** du tronçon, celui que la
                 # ligne cite : `highway=traffic_signals`, `highway=crossing`…
@@ -517,9 +504,7 @@ def _point_suivant(
     return min(range(depuis, len(points)), key=lambda i: distance_m(points[i], cible))
 
 
-def _facteur_coordonnees(
-    points: list[PointTrace], lignes: list, colonnes: dict[str, int]
-) -> float:
+def _facteur_coordonnees(points: list[PointTrace], lignes: list, colonnes: dict[str, int]) -> float:
     """L'unité des coordonnées des messages, décidée **une fois pour toute la réponse**.
 
     Deviner valeur par valeur était faux : une coordonnée à moins de 0,001°

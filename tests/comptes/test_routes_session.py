@@ -21,15 +21,12 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
-import pytest
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import DepotComptes  # noqa: E402
-from ourouler.api.depots import SocleVide  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import SocleVide
+from ourouler.api.session import (
     NOM_COOKIE,
     SessionHebergee,
     SessionParCookie,
@@ -85,9 +82,7 @@ def test_get_invitation_rend_l_adresse_et_l_echeance_d_un_jeton_valide(url_base,
     with ouvrir(url_base) as cx:
         emise = DepotComptes(cx).inviter("get-invitation@exemple.invalid")
 
-    reponse = requete(
-        _app(url_base, tmp_path), "GET", f"{PREFIXE}/invitation", params={"jeton": emise.jeton}
-    )
+    reponse = requete(_app(url_base, tmp_path), "GET", f"{PREFIXE}/invitation", params={"jeton": emise.jeton})
 
     assert reponse.status_code == 200, reponse.text
     donnees = reponse.json()["donnees"]
@@ -98,9 +93,7 @@ def test_get_invitation_rend_la_meme_reponse_pour_inconnu_expire_ou_consomme(url
     with ouvrir(url_base) as cx:
         depot = DepotComptes(cx)
         depart = datetime(2026, 9, 1, tzinfo=UTC)
-        expiree = depot.inviter(
-            "expiree-route@exemple.invalid", duree=timedelta(days=1), maintenant=depart
-        )
+        expiree = depot.inviter("expiree-route@exemple.invalid", duree=timedelta(days=1), maintenant=depart)
         consommee = depot.inviter("consommee-route@exemple.invalid")
         depot.activer(consommee.jeton, MOT_DE_PASSE)
 
@@ -126,9 +119,7 @@ def test_entrer_active_le_compte_ouvre_une_session_et_pose_le_cookie(url_base, t
         emise = DepotComptes(cx).inviter("entrer-route@exemple.invalid")
 
     app = _app(url_base, tmp_path)
-    reponse = requete(
-        app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
-    )
+    reponse = requete(app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE})
 
     assert reponse.status_code == 200, reponse.text
     proprietaire = reponse.json()["donnees"]["proprietaire"]
@@ -208,8 +199,7 @@ def test_entrer_rend_la_meme_reponse_pour_inconnu_expire_ou_consomme(url_base, t
         assert 400 <= reponse.status_code < 500, f"{nom} : {reponse.status_code} {reponse.text}"
 
     distinctifs = {
-        (r.status_code, r.json()["erreur"]["code"], r.json()["erreur"]["message"])
-        for r in reponses.values()
+        (r.status_code, r.json()["erreur"]["code"], r.json()["erreur"]["message"]) for r in reponses.values()
     }
     assert len(distinctifs) == 1, f"les trois cas se distinguent : {distinctifs}"
 
@@ -276,8 +266,7 @@ def test_connexion_refuse_une_adresse_inconnue_et_un_mauvais_mot_de_passe_de_la_
         assert not reponse.cookies.get(NOM_COOKIE), f"{nom} : un cookie a été posé malgré le refus"
 
     assert inconnue.json()["erreur"]["message"] == mauvais.json()["erreur"]["message"], (
-        "les deux refus se distinguent par le message — un oracle pour qui cherche une "
-        "adresse valide"
+        "les deux refus se distinguent par le message — un oracle pour qui cherche une adresse valide"
     )
 
 
@@ -290,9 +279,7 @@ def test_sortir_revoque_la_session_en_base_pas_seulement_le_cookie(url_base, tmp
         emise = DepotComptes(cx).inviter("sortir-route@exemple.invalid")
 
     app = _app(url_base, tmp_path)
-    entree = requete(
-        app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
-    )
+    entree = requete(app, "POST", f"{PREFIXE}/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE})
     jeton_session = entree.cookies.get(NOM_COOKIE)
     assert jeton_session
 
@@ -307,21 +294,16 @@ def test_sortir_revoque_la_session_en_base_pas_seulement_le_cookie(url_base, tmp
     # marcherait pas non plus (même vérification, la copie n'a pas de vie
     # séparée puisque c'est la même chaîne).
     with ouvrir(url_base) as cx:
-        restantes = cx.execute(
-            "SELECT count(*) FROM sessions WHERE jeton = %s", (jeton_session,)
-        ).fetchone()[0]
+        restantes = cx.execute("SELECT count(*) FROM sessions WHERE jeton = %s", (jeton_session,)).fetchone()[
+            0
+        ]
     assert restantes == 0
 
 
 def test_sortir_sans_cookie_ou_avec_un_cookie_deja_mort_reussit_quand_meme(url_base, tmp_path):
     app = _app(url_base, tmp_path)
     assert requete(app, "POST", f"{PREFIXE}/sortir").status_code == 200
-    assert (
-        requete(
-            app, "POST", f"{PREFIXE}/sortir", cookies={NOM_COOKIE: "jeton-invente"}
-        ).status_code
-        == 200
-    )
+    assert requete(app, "POST", f"{PREFIXE}/sortir", cookies={NOM_COOKIE: "jeton-invente"}).status_code == 200
 
 
 # --- le mode personnel et l'hébergé sans base restent hors jeu -----------------

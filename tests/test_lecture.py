@@ -312,6 +312,7 @@ def test_np_penalise_les_variations_longues():
 # faite par échantillon et non pondérée par la durée. Un même effort physique
 # donnait 315,1 W ou 196,4 W au lieu de 275 W selon la façon de l'enregistrer.
 
+
 #: Profil physique unique : 900 s à 320 W, 900 s à 150 W, ondulation de ±30 W.
 #: Les variations sont lentes devant le pas le plus grossier testé (10 s), donc
 #: un échantillonnage grossier décrit bien le même effort — sans quoi la

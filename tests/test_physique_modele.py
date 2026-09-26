@@ -47,9 +47,7 @@ def trace_plate(longueur_m: float, *, pente: float = 0.0, pas_m: float = 100.0) 
     n = int(round(longueur_m / pas_m))
     for i in range(n + 1):
         d = i * pas_m
-        points.append(
-            PointTrace(lat=0.0, lon=d * METRE_EN_DEGRE, alt_m=100.0 + d * pente, dist_m=d)
-        )
+        points.append(PointTrace(lat=0.0, lon=d * METRE_EN_DEGRE, alt_m=100.0 + d * pente, dist_m=d))
     return Trace(
         nom="essai",
         points=points,
@@ -71,7 +69,7 @@ PUISSANCES = (25.0, 75.0, 150.0, 250.0, 400.0, 600.0)
 @pytest.mark.parametrize("vent", VENTS)
 @pytest.mark.parametrize("puissance", PUISSANCES)
 def test_puissance_requise_inverse_vitesse_regime(pente: float, vent: float, puissance: float):
-    """`puissance_requise(vitesse_regime(P)) = P` à 0,1 W près (contrat §4)."""
+    """`puissance_requise(vitesse_regime(P)) = P` à 0,1 W près."""
     v = vitesse_regime(puissance, pente, vent, P)
     if v >= V_MAX_BISSECTION_MS:
         pytest.skip("puissance au-delà de la borne de bissection")
@@ -132,7 +130,7 @@ def test_puissance_demesuree_est_bornee():
 def test_vent_de_dos_fort_pousse_sans_freiner():
     """Un vent arrière plus rapide que le cycliste ne doit pas devenir une traînée.
 
-    C'est l'écart assumé au contrat §3 : `v_air·|v_air|` au lieu de
+    C'est l'écart assumé à la formule usuelle : `v_air·|v_air|` au lieu de
     `(v + v_vent)²`. Avec le carré, un vent de dos de 15 m/s rendait une
     traînée positive et une vitesse **plus faible** qu'à vent nul.
     """
@@ -258,8 +256,7 @@ def test_simulation_refuse_un_trace_degenere():
 
 def test_simulation_sans_altitude_est_plate():
     points = [
-        PointTrace(lat=0.0, lon=d * METRE_EN_DEGRE, alt_m=None, dist_m=float(d))
-        for d in range(0, 2001, 100)
+        PointTrace(lat=0.0, lon=d * METRE_EN_DEGRE, alt_m=None, dist_m=float(d)) for d in range(0, 2001, 100)
     ]
     trace = Trace("sans alt", points, [], 2000.0, None, None)
     sim = simuler(trace, 200.0, P)
@@ -378,9 +375,7 @@ def test_le_facteur_par_defaut_est_une_fraction_plausible():
 def test_sans_relief_ni_arret_le_facteur_vaut_un():
     """Le plat sans arrêt, c'est exactement la vitesse à plat : le seul cas où
     la troisième valeur n'apprend rien."""
-    facteur = facteur_compteur_defaut(
-        PUISSANCE_ESSAI, LEGER, denivele_m_par_km=0.0, part_arret=0.0
-    )
+    facteur = facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, denivele_m_par_km=0.0, part_arret=0.0)
     assert facteur == pytest.approx(1.0, abs=1e-9)
 
 
@@ -397,9 +392,7 @@ def test_le_relief_coute_toujours_quelque_chose():
     ne rend, donc plus de dénivelé fait toujours tomber le facteur."""
     precedent = 1.1
     for denivele in (0.0, 5.0, 10.0, 20.0):
-        facteur = facteur_compteur_defaut(
-            PUISSANCE_ESSAI, LEGER, denivele_m_par_km=denivele, part_arret=0.0
-        )
+        facteur = facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, denivele_m_par_km=denivele, part_arret=0.0)
         assert facteur < precedent
         precedent = facteur
 
@@ -409,9 +402,7 @@ def test_le_facteur_depend_de_la_masse_et_c_est_tout_l_interet():
     sauf son auteur. Vingt-cinq kilos de plus coûtent plusieurs points de
     facteur sur le vallonné — et aucun sur le plat, où la masse ne joue que par
     le roulement, qui ne dépend pas de la pente."""
-    assert facteur_compteur_defaut(PUISSANCE_ESSAI, LOURD) < facteur_compteur_defaut(
-        PUISSANCE_ESSAI, LEGER
-    )
+    assert facteur_compteur_defaut(PUISSANCE_ESSAI, LOURD) < facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER)
     a_plat = facteur_compteur_defaut(PUISSANCE_ESSAI, LOURD, denivele_m_par_km=0.0)
     assert a_plat == pytest.approx(
         facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, denivele_m_par_km=0.0), rel=1e-12
@@ -448,18 +439,14 @@ def test_la_moyenne_compteur_applique_le_facteur_mesure():
 def test_la_moyenne_compteur_retombe_sur_le_defaut():
     """Vélo neuf, aucun historique : le défaut dérivé prend le relais plutôt que
     de laisser l'écran sans troisième valeur."""
-    attendue = vitesse_a_plat_kmh(PUISSANCE_ESSAI, LEGER) * facteur_compteur_defaut(
-        PUISSANCE_ESSAI, LEGER
-    )
+    attendue = vitesse_a_plat_kmh(PUISSANCE_ESSAI, LEGER) * facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER)
     assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER) == pytest.approx(attendue)
 
 
 def test_la_moyenne_compteur_est_sous_la_vitesse_a_plat():
     """C'est toute la raison d'afficher la troisième valeur : elle doit être
     visiblement plus basse que le champ « à plat » qu'on vient de remplir."""
-    assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER) < vitesse_a_plat_kmh(
-        PUISSANCE_ESSAI, LEGER
-    )
+    assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER) < vitesse_a_plat_kmh(PUISSANCE_ESSAI, LEGER)
 
 
 @pytest.mark.parametrize("mauvais", [0.0, -0.5, float("nan")])

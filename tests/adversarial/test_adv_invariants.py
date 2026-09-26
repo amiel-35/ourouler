@@ -1,8 +1,8 @@
-"""Invariants du produit — ce qui doit rester vrai quel que soit le lot.
+"""Invariants du produit — ce qui doit rester vrai quel que soit le changement.
 
-Contrat §5 et règles absolues 1 à 3 de CLAUDE.md :
+Règles absolues 1 à 3 d'AGENTS.md :
 
-* aucun module de `src/ourouler/` autre que `cli.py` et `config.py` ne lit
+* aucun module de `src/ourouler/` hors du paquet `cli/` et de `config.py` ne lit
   `tomllib`, `os.environ`, `Path.home()` ni un chemin utilisateur ;
 * aucun test n'ouvre de socket, et tout `httpx.Client` de `tests/` reçoit un
   transport bouchon ;
@@ -11,8 +11,8 @@ Contrat §5 et règles absolues 1 à 3 de CLAUDE.md :
 * la clé d'API ne sort jamais de la CLI, même en `--json` ;
 * la hiérarchie d'exceptions sur laquelle repose le code de sortie 2 tient.
 
-Ces tests ne dépendent d'aucun lot : ils doivent passer dès maintenant et le
-rester à chaque livraison.
+Ces tests ne visent aucune fonctionnalité en particulier : ils doivent
+rester verts à chaque livraison.
 """
 
 from __future__ import annotations
@@ -23,25 +23,30 @@ import socket
 from datetime import date, datetime
 from pathlib import Path
 
-import fabriques4
+import fabriques_seance
 import httpx
 import outils
 import pytest
-from conftest import RACINE, ReseauInterdit
+from outils import ReseauInterdit
 
 from ourouler import cli
 from ourouler import config as module_config
 from ourouler.noyau import erreurs
-from ourouler.sortie import commande as commande_sortie
+from ourouler.services import sortie as commande_sortie
 
+RACINE = Path(__file__).resolve().parents[2]
 SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
 
 #: Seuls modules autorisés à connaître la machine hôte (CLAUDE.md règle 2).
-FICHIERS_AUTORISES = {"cli.py", "config.py"}
+FICHIERS_AUTORISES = {"config.py"}
+
+#: Le paquet de la ligne de commande, autorisé en entier : un **dossier**
+#: directement sous `src/ourouler/`, pas un nom de fichier.
+PAQUETS_AUTORISES = {"cli"}
 
 #: **L'unique porte du paquet `api/`** (lot F1). L'API est une couche
-#: d'exploitation comme `cli.py` ; ce droit est donné à un **chemin**, et à un
+#: d'exploitation comme `cli/` ; ce droit est donné à un **chemin**, et à un
 #: seul module — les routes, les dépôts et la traduction d'erreurs restent
 #: soumis à la règle absolue 2. Le jumeau de cet invariant,
 #: `tests/test_invariants.py`, vérifie en plus que le reste du paquet est bien
@@ -94,42 +99,63 @@ def test_src_existe():
     assert _fichiers_python(SRC), "aucun module Python sous src/ourouler"
 
 
+def _imports_interdits(arbre: ast.AST, racines_interdites: set[str]) -> list[tuple[int, str]]:
+    """`import os`, `from pathlib import …` : les modules qui touchent la machine."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            for alias in noeud.names:
+                if alias.name.split(".")[0] in racines_interdites:
+                    fautes.append((noeud.lineno, f"import {alias.name}"))
+        elif isinstance(noeud, ast.ImportFrom):
+            if (noeud.module or "").split(".")[0] in racines_interdites:
+                fautes.append((noeud.lineno, f"from {noeud.module} import …"))
+    return fautes
+
+
+def _attributs_interdits(arbre: ast.AST) -> list[tuple[int, str]]:
+    """`environ`, `expanduser`… importés, lus comme attribut ou comme nom."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.ImportFrom):
+            for alias in noeud.names:
+                if alias.name in ATTRIBUTS_INTERDITS:
+                    fautes.append((noeud.lineno, f"from … import {alias.name}"))
+        elif isinstance(noeud, ast.Attribute) and noeud.attr in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, f".{noeud.attr}"))
+        elif isinstance(noeud, ast.Name) and noeud.id in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, noeud.id))
+    return fautes
+
+
+def _acces_machine(chemin: Path, *, autorise: bool) -> list[str]:
+    """Les imports et attributs d'un module qui touchent la machine hôte."""
+    interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
+    arbre = _arbre(chemin)
+    fautes = _imports_interdits(arbre, {m.split(".")[0] for m in interdits})
+    if not autorise:
+        fautes += _attributs_interdits(arbre)
+    relatif = chemin.relative_to(RACINE)
+    return [f"{relatif}:{ligne} {quoi}" for ligne, quoi in fautes]
+
+
 def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
         autorise = (
             chemin.name in FICHIERS_AUTORISES
+            or chemin.relative_to(SRC).parts[0] in PAQUETS_AUTORISES
             or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
         )
-        interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
-        relatif = chemin.relative_to(RACINE)
-        for noeud in ast.walk(_arbre(chemin)):
-            if isinstance(noeud, ast.Import):
-                for alias in noeud.names:
-                    if alias.name.split(".")[0] in {m.split(".")[0] for m in interdits}:
-                        fautes.append(f"{relatif}:{noeud.lineno} import {alias.name}")
-            elif isinstance(noeud, ast.ImportFrom):
-                racine_module = (noeud.module or "").split(".")[0]
-                if racine_module in {m.split(".")[0] for m in interdits}:
-                    fautes.append(f"{relatif}:{noeud.lineno} from {noeud.module} import …")
-                if not autorise:
-                    for alias in noeud.names:
-                        if alias.name in ATTRIBUTS_INTERDITS:
-                            fautes.append(f"{relatif}:{noeud.lineno} from … import {alias.name}")
-            elif not autorise and isinstance(noeud, ast.Attribute):
-                if noeud.attr in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} .{noeud.attr}")
-            elif not autorise and isinstance(noeud, ast.Name):
-                if noeud.id in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} {noeud.id}")
+        fautes += _acces_machine(chemin, autorise=autorise)
     assert not fautes, (
-        "seuls cli.py et config.py peuvent toucher la machine hôte "
+        "seuls cli/ et config.py peuvent toucher la machine hôte "
         "(CLAUDE.md règle 2, contrat §0) :\n  " + "\n  ".join(sorted(set(fautes)))
     )
 
 
-def test_les_lots_absents_ne_cassent_pas_les_autres_commandes(ecrire_config, capsys):
-    """Contrat §0 : chaque sous-commande importe son module paresseusement."""
+def test_chaque_sous_commande_importe_son_module_paresseusement(ecrire_config, capsys):
+    """Une sous-commande qui ne s'importe pas ne doit pas empêcher `config` de tourner."""
     parseur = cli.construire_parseur()
     assert parseur is not None
     chemin = ecrire_config()
@@ -179,7 +205,7 @@ def test_toutes_les_erreurs_metier_sont_des_erreurs_utilisateur(nom):
 
 
 def test_erreur_config_reste_une_value_error():
-    """Contrat §0 : `ErreurConfig(ValueError)`, et erreur utilisateur à la fois."""
+    """`ErreurConfig` est une `ValueError` et une erreur utilisateur à la fois."""
     assert issubclass(erreurs.ErreurConfig, ValueError)
     assert issubclass(erreurs.ErreurUtilisateur, Exception)
 
@@ -202,7 +228,7 @@ def test_le_transport_bouchon_n_est_pas_gene_par_la_coupure():
 
 
 def test_tout_client_httpx_des_tests_recoit_un_transport():
-    """Contrat §5 : « httpx reçoit toujours un MockTransport »."""
+    """Dans les tests, httpx reçoit toujours un `MockTransport`."""
     fautes: list[str] = []
     for chemin in _fichiers_python(TESTS):
         for noeud in ast.walk(_arbre(chemin)):
@@ -267,7 +293,9 @@ def _fichiers_texte(racine: Path) -> list[Path]:
 def test_aucune_coordonnee_francaise_dans_les_tests():
     """Règle absolue 1 : pas de coordonnée de départ dans le dépôt, même en fixture."""
     fautes = []
-    for chemin in _fichiers_texte(TESTS):
+    # `scripts/` aussi : les scripts de mesure de `scripts/validation/` lisent
+    # les vraies données du mainteneur, raison de plus pour n'en rien écrire.
+    for chemin in [*_fichiers_texte(TESTS), *_fichiers_texte(RACINE / "scripts")]:
         texte = chemin.read_text(encoding="utf-8", errors="replace")
         for numero, lat, lon, ville, distance in _paires_suspectes(texte):
             fautes.append(
@@ -356,24 +384,22 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
             appele = ast.unparse(noeud.func)
             fabrique = appele.endswith("ModuleType") and "ourouler" in texte
             accroche = (
-                appele == "setattr"
-                and noeud.args
-                and ast.unparse(noeud.args[0]).startswith("ourouler")
+                appele == "setattr" and noeud.args and ast.unparse(noeud.args[0]).startswith("ourouler")
             )
             if fabrique or accroche:
                 fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
-    assert not fautes, (
-        "un test remplace un module de production au lieu de l'importer :\n  "
-        + "\n  ".join(fautes)
+    assert not fautes, "un test remplace un module de production au lieu de l'importer :\n  " + "\n  ".join(
+        fautes
     )
 
 
-def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monkeypatch):
-    """`fabriques4.module` doit laisser remonter un `ImportError` **interne**.
+def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
+    """`fabriques_seance.module` ne saute plus : il échoue si le module manque.
 
-    Sauter est le bon comportement quand le lot n'existe pas encore. Le faire
-    quand le paquet est là mais qu'un de ses imports a disparu transforme une
-    suite adversariale entière en « skipped », c'est-à-dire en vert.
+    Tous les lots du contrat existent. Un module introuvable est donc une
+    régression, et un `ImportError` interne remonte tel quel : dans les deux
+    cas, un saut transformerait une suite adversariale entière en vert (c'est
+    arrivé au retrait des réexports : 30 tests sautaient en silence).
     """
     paquet = tmp_path / "paquet_de_test"
     paquet.mkdir()
@@ -383,15 +409,15 @@ def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monk
         "from paquet_de_test.inexistant import quoi_que_ce_soit\n", encoding="utf-8"
     )
     monkeypatch.syspath_prepend(str(tmp_path))
-    monkeypatch.setattr(fabriques4, "PAQUETS", ("paquet_de_test",))
+    monkeypatch.setattr(fabriques_seance, "PAQUETS", ("paquet_de_test",))
 
-    assert fabriques4.module("present", motif="absent").VALEUR == 1
+    assert fabriques_seance.module("present", motif="absent").VALEUR == 1
 
     with pytest.raises(ModuleNotFoundError):
-        fabriques4.module("casse", motif="ne doit pas être sauté")
+        fabriques_seance.module("casse", motif="ne doit pas être sauté")
 
-    with pytest.raises(pytest.skip.Exception, match="lot jamais écrit"):
-        fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
+    with pytest.raises(pytest.fail.Exception, match="lot jamais écrit"):
+        fabriques_seance.module("jamais_ecrit", motif="lot jamais écrit")
 
 
 def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
@@ -440,16 +466,14 @@ def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
         commande_sortie.chemin_carte_par_defaut(demande, config.cache.dossier),
     ]
     dans_le_depot = [c for c in par_defaut if c.resolve().is_relative_to(tmp_path.resolve())]
-    assert not dans_le_depot, (
-        f"`ourouler sortie` écrirait ces fichiers dans le dépôt : {dans_le_depot}"
-    )
+    assert not dans_le_depot, f"`ourouler sortie` écrirait ces fichiers dans le dépôt : {dans_le_depot}"
     for chemin in par_defaut:
         assert chemin.resolve().is_relative_to(dossier_cache.resolve()), (
             f"{chemin} n'est pas sous le dossier de cache configuré {dossier_cache}"
         )
 
 
-# --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------
+# --- le mot de passe BRouter ne sort jamais ------------------------------------
 
 #: Faux mot de passe de serveur BRouter (aucune valeur réelle, règle absolue 1).
 MOT_DE_PASSE_BIDON = "mot-de-passe-brouter-de-test-qui-ne-doit-jamais-fuiter-0123456789"
@@ -462,7 +486,7 @@ SECTION_BROUTER = (
 
 @pytest.mark.parametrize("arguments", [["config"], ["--json", "config"]])
 def test_le_mot_de_passe_brouter_ne_s_affiche_jamais(ecrire_config, capsys, arguments):
-    """Contrat sprint 2 §0 : « jamais le mot de passe dans une erreur, un log, un `repr` »."""
+    """Jamais le mot de passe dans une erreur, un journal ou un `repr`."""
     chemin = ecrire_config(SECTION_BROUTER)
     assert cli.main(["--config", str(chemin), *arguments]) == 0
     sortie = capsys.readouterr()
@@ -495,7 +519,7 @@ def test_le_mot_de_passe_brouter_ne_sort_pas_d_une_erreur_de_configuration(ecrir
         assert MOT_DE_PASSE_BIDON not in texte, f"le mot de passe fuit dans « {texte[:200]} »"
 
 
-# --- sprint 2 : rien de personnel dans src/ ni tests/ ------------------------
+# --- rien de personnel dans src/ ni tests/ -------------------------------------
 
 #: Identifiants d'équipement Intervals et capteurs du mainteneur. Ils ont leur
 #: place dans `docs/` (le contrat les cite pour que le code sache quoi chercher)
@@ -526,8 +550,8 @@ def _occurrences(texte: str) -> list[str]:
 #: Fichiers hors `src/` et `tests/` que le détecteur doit quand même lire.
 #: `config.example.toml` est celui que l'utilisateur copie — et c'est
 #: précisément lui qui portait le capteur réel avant `24d2f09` : le détecteur
-#: regardait à côté du seul endroit où la faute s'est produite (point 13 de la
-#: relecture du sprint 2). `README.md` est publié tel quel.
+#: regardait à côté du seul endroit où la faute s'est produite. `README.md` est
+#: publié tel quel.
 FICHIERS_PUBLIES = ("config.example.toml", "README.md")
 
 
@@ -599,13 +623,13 @@ def test_les_tests_adversariaux_n_appellent_que_des_domaines_de_test():
     )
 
 
-# --- sprint 3 : numpy reste dans physique/ -----------------------------------
+# --- numpy reste dans physique/ ------------------------------------------------
 
-#: `numpy` est autorisé par le contrat du sprint 3 §3 pour l'ajustement aux
-#: moindres carrés, et **seulement** là. Partout ailleurs il transformerait une
-#: bibliothèque que le mainteneur installe en une seconde en un paquet compilé
-#: de 20 Mo, pour une somme pondérée qu'un `for` écrit aussi bien (CLAUDE.md :
-#: « 50 lignes évidentes valent mieux que 20 lignes malignes »).
+#: `numpy` est autorisé pour l'ajustement aux moindres carrés, et **seulement**
+#: là. Partout ailleurs il transformerait une bibliothèque que le mainteneur
+#: installe en une seconde en un paquet compilé de 20 Mo, pour une somme
+#: pondérée qu'un `for` écrit aussi bien (CLAUDE.md : « 50 lignes évidentes
+#: valent mieux que 20 lignes malignes »).
 DOSSIER_NUMPY_AUTORISE = SRC / "physique"
 MODULES_CALCUL_LOURD = {"numpy", "scipy", "pandas"}
 
@@ -623,7 +647,7 @@ def _imports(chemin: Path) -> list[tuple[int, str]]:
 
 
 def test_numpy_ne_sort_pas_de_physique():
-    """Contrat sprint 3 §3 et §4 : « numpy autorisé, pas scipy » — et seulement dans `physique/`."""
+    """numpy est autorisé, pas scipy — et seulement dans `physique/`."""
     fautes = []
     for chemin in _fichiers_python(SRC):
         dans_physique = DOSSIER_NUMPY_AUTORISE in chemin.parents
@@ -648,10 +672,10 @@ def test_le_detecteur_d_imports_fonctionne(tmp_path):
     assert "math" in modules, "le détecteur doit voir tous les imports, pas seulement les interdits"
 
 
-# --- sprint 3 : le cœur ne fabrique pas les chemins du cache -----------------
+# --- le cœur ne fabrique pas les chemins du cache ------------------------------
 
-#: Fichiers que le sprint 3 range dans `cache.dossier`. Le contrat est explicite :
-#: « le cœur ne lit pas de fichier : c'est `boucle/commande.py` qui lit le JSON
+#: Fichiers rangés dans `cache.dossier`. La règle est explicite :
+#: « le cœur ne lit pas de fichier : c'est `services/boucle.py` qui lit le JSON
 #: et passe le dict », « le cache est passé en paramètre (le cœur ne connaît pas
 #: le chemin) ». Un module du cœur qui écrit le nom de fichier en dur sait donc
 #: où il tourne — c'est la règle absolue 2 contournée par une chaîne.
@@ -671,13 +695,22 @@ def _chaines(chemin: Path) -> list[tuple[int, str]]:
     ]
 
 
+#: Les cas d'usage qui composent les chemins du cache (autrefois les
+#: `*/commande.py` de chaque paquet, aujourd'hui dans `services/`).
+CAS_D_USAGE_AU_DISQUE = frozenset(
+    f"services/{nom}.py"
+    for nom in ("activites", "apprentissage", "boucle", "geocodage", "meteo", "physique", "seance", "sortie")
+)
+
+
 def _peut_nommer_un_fichier_du_cache(chemin: Path) -> bool:
-    """`cli.py` et les `commande.py` de chaque paquet : eux seuls lisent le disque."""
-    return chemin.name == "cli.py" or chemin.name == "commande.py"
+    """Le paquet `cli/` et les cas d'usage de `services/` : eux seuls lisent le disque."""
+    relatif = chemin.relative_to(SRC)
+    return relatif.parts[0] == "cli" or relatif.as_posix() in CAS_D_USAGE_AU_DISQUE
 
 
 def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
-    """Contrat sprint 3 §2 et §3 : le cœur reçoit des objets, la CLI lit les fichiers."""
+    """Le cœur reçoit des objets, la CLI lit les fichiers."""
     fautes = []
     for chemin in _fichiers_python(SRC):
         if _peut_nommer_un_fichier_du_cache(chemin):
@@ -687,7 +720,7 @@ def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
                 if fichier in texte:
                     fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} — « {fichier} »")
     assert not fautes, (
-        "nom de fichier du cache écrit en dur hors de cli.py et des commande.py "
+        "nom de fichier du cache écrit en dur hors de cli/ et des cas d'usage de services/ "
         "(le cœur reçoit un chemin ou un dict, il ne le fabrique pas) :\n  "
         + "\n  ".join(sorted(set(fautes)))
     )
@@ -695,9 +728,7 @@ def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
 
 def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     faux = tmp_path / "faux.py"
-    faux.write_text(
-        'CHEMIN = dossier / "poids_routes.json"\nAUTRE = "index.sqlite"\n', encoding="utf-8"
-    )
+    faux.write_text('CHEMIN = dossier / "poids_routes.json"\nAUTRE = "index.sqlite"\n', encoding="utf-8")
     textes = {texte for _, texte in _chaines(faux)}
     assert "poids_routes.json" in textes, "le détecteur ne voit pas la chaîne fautive"
     assert not any(f in t for t in textes for f in FICHIERS_DU_CACHE if f != "poids_routes.json"), (
@@ -705,22 +736,32 @@ def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     )
 
 
-# --- sprint 4 : le paquet de la séance reste dans le cœur --------------------
+# --- les paquets de la séance restent dans le cœur -----------------------------
 
-#: Le contrat du sprint 4 nomme le paquet `seance/`, la doctrine §4 `sortie/`.
-#: Les règles valent pour celui des deux qui existe.
+#: Les modules de séance vivent sous `seance/` et `sortie/` : les règles valent
+#: pour les deux.
 PAQUETS_SEANCE = ("seance", "sortie")
 
-#: Modules du cœur du sprint 4. `commande.py` en est exclu : c'est lui qui a le
-#: droit de lire le disque et de connaître le jour courant (CLAUDE.md règle 2).
+#: Modules de la séance qui font partie du cœur. Le cas d'usage
+#: (`services/seance.py`) n'y est pas : c'est lui qui a le droit de lire le
+#: disque et de connaître le jour courant (CLAUDE.md règle 2).
 MODULES_SEANCE_COEUR = ("modele.py", "intervals.py", "terrain.py", "placement.py", "tenue.py")
 
 #: Modules qui trahissent un accès au disque. `json` est traité à part : seuls
 #: `json.load` et `json.dump` (les variantes fichier) sont interdits.
 MODULES_DISQUE = {"pathlib", "sqlite3", "shutil", "tempfile", "os", "tomllib", "csv"}
 APPELS_DISQUE = {
-    "open", "read_text", "write_text", "read_bytes", "write_bytes",
-    "mkdir", "unlink", "iterdir", "glob", "rglob", "connect",
+    "open",
+    "read_text",
+    "write_text",
+    "read_bytes",
+    "write_bytes",
+    "mkdir",
+    "unlink",
+    "iterdir",
+    "glob",
+    "rglob",
+    "connect",
 }
 #: Lectures de l'horloge : le cœur reçoit le jour, il ne le devine pas.
 APPELS_HORLOGE = {"now", "today", "utcnow", "fromtimestamp"}
@@ -764,9 +805,7 @@ def _appels(chemin: Path) -> list[tuple[int, str]]:
 def _fautes_de_disque(chemin: Path) -> list[str]:
     relatif = chemin.relative_to(RACINE) if chemin.is_relative_to(RACINE) else chemin.name
     fautes = [
-        f"{relatif}:{ligne} import {module}"
-        for ligne, module in _imports(chemin)
-        if module in MODULES_DISQUE
+        f"{relatif}:{ligne} import {module}" for ligne, module in _imports(chemin) if module in MODULES_DISQUE
     ]
     for ligne, appel in _appels(chemin):
         if appel in APPELS_DISQUE or appel in ("json.load", "json.dump"):
@@ -775,11 +814,11 @@ def _fautes_de_disque(chemin: Path) -> list[str]:
 
 
 def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
-    """La règle « le cœur ne sait pas où il tourne » doit couvrir le paquet du sprint 4.
+    """La règle « le cœur ne sait pas où il tourne » doit couvrir la séance.
 
-    Les détecteurs des sprints 1 à 3 parcourent `src/ourouler/` en entier : ce
-    test vérifie que le nouveau paquet n'y échappe pas, sans quoi la garantie
-    serait vide pour les modules qui viennent d'arriver.
+    Les détecteurs parcourent `src/ourouler/` en entier : ce test vérifie que
+    les modules de la séance n'y échappent pas, sans quoi la garantie serait
+    vide pour eux.
     """
     modules = _modules_seance()
     scannes = set(_fichiers_python(SRC))
@@ -788,15 +827,15 @@ def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
 
 
 def test_le_coeur_de_la_seance_ne_touche_pas_au_disque():
-    """Contrat §1 à §3 : le cœur reçoit une séance, un tracé et des paramètres.
+    """Le cœur reçoit une séance, un tracé et des paramètres, jamais un chemin.
 
-    Seuls `cli.py` et les `commande.py` lisent un chemin. Un `open()` ou un
+    Seuls `cli/` et les cas d'usage de `services/` lisent un chemin. Un `open()` ou un
     `pathlib` dans `placement.py` est la règle absolue 2 contournée.
     """
     fautes = [faute for chemin in _modules_seance() for faute in _fautes_de_disque(chemin)]
     assert not fautes, (
-        "accès au disque dans le cœur du sprint 4 (seuls cli.py et les commande.py y ont droit) :\n  "
-        + "\n  ".join(fautes)
+        "accès au disque dans le cœur du sprint 4 "
+        "(seuls cli/ et les cas d'usage de services/ y ont droit) :\n  " + "\n  ".join(fautes)
     )
 
 
@@ -819,7 +858,7 @@ def test_le_coeur_de_la_seance_ne_lit_pas_l_horloge():
     )
 
 
-#: Modules du sprint 4 qui ne parlent à personne : ils reçoivent des objets.
+#: Modules de la séance qui ne parlent à personne : ils reçoivent des objets.
 MODULES_SANS_RESEAU = ("modele.py", "terrain.py", "placement.py", "tenue.py")
 
 
@@ -843,7 +882,7 @@ SYMBOLES_DE_COUTS = {"HIGHWAY_TRAFIC", "virages_detectes", "tags_par_troncon"}
 
 
 def test_le_terrain_reutilise_la_mecanique_des_couts():
-    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer ».
+    """Le terrain réutilise la mécanique de `couts` au lieu de la dupliquer.
 
     L'assertion d'origine se contentait de `"couts" in texte` : un commentaire
     contenant le mot suffisait à la satisfaire, et une réécriture complète de
@@ -866,7 +905,7 @@ def test_le_terrain_reutilise_la_mecanique_des_couts():
     )
 
 
-def test_les_detecteurs_du_sprint_4_fonctionnent(tmp_path):
+def test_les_detecteurs_de_disque_et_d_horloge_reperent_une_faute(tmp_path):
     """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
     faux = tmp_path / "faux.py"
     faux.write_text(
@@ -883,6 +922,7 @@ def test_les_detecteurs_du_sprint_4_fonctionnent(tmp_path):
     appels = {appel for _, appel in _appels(faux)}
     assert "date.today" in appels and "today" in appels, f"date.today() non repéré : {appels}"
     propre = tmp_path / "propre.py"
-    propre.write_text("def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n",
-                      encoding="utf-8")
+    propre.write_text(
+        "def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n", encoding="utf-8"
+    )
     assert not _fautes_de_disque(propre), "faux positif sur un module qui ne touche à rien"

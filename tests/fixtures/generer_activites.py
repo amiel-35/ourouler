@@ -262,9 +262,7 @@ def encoder_fit_multisession(
     return fichier_fit(bytes(corps))
 
 
-def _donnees_session(
-    echantillons: list[Echantillon], *, sport: int, sous_sport: int
-) -> bytes:
+def _donnees_session(echantillons: list[Echantillon], *, sport: int, sous_sport: int) -> bytes:
     """La trame `session` d'un tronçon : sa durée et sa distance, pas celles du fichier."""
     premier, dernier = echantillons[0], echantillons[-1]
     ecoule = (dernier.t - premier.t).total_seconds()
@@ -382,8 +380,9 @@ def encoder_tcx(echantillons: list[Echantillon], *, sport: str = "Biking") -> st
     lignes.append("          </ns3:LX>\n")
     lignes.append("        </Extensions>\n")
     lignes.append("      </Lap>\n")
-    lignes.append("      <Creator xsi:type=\"Device_t\" "
-                  'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n')
+    lignes.append(
+        '      <Creator xsi:type="Device_t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+    )
     lignes.append("        <Name>Appareil de test</Name>\n")
     lignes.append("      </Creator>\n")
     lignes.append("    </Activity>\n")
@@ -413,9 +412,7 @@ def generer(dossier: Path = DOSSIER_DEFAUT) -> dict[str, Path]:
         # distingue un home-trainer d'une sortie.
         "home_trainer.fit": encoder_fit(sans_gps, sport=2, sous_sport=6),
         "sans_puissance.gpx": encoder_gpx(sans_puissance).encode("utf-8"),
-        "sans_altitude.gpx": encoder_gpx(
-            trajectoire(n=50, avec_altitude=False)
-        ).encode("utf-8"),
+        "sans_altitude.gpx": encoder_gpx(trajectoire(n=50, avec_altitude=False)).encode("utf-8"),
         "COURTE.GPX": encoder_gpx(courte).encode("utf-8"),  # extension en majuscules
         # --- cas dégradés ---
         "vide.fit": b"",

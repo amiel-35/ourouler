@@ -15,7 +15,7 @@ from ourouler.cli import construire_parseur
 from ourouler.commandes.geocoder import executer_depuis_namespace as executer
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.geocodage import Candidat, ClientBAN, ClientNominatim
-from ourouler.geocodage.commande import rendre_json, rendre_texte
+from ourouler.services.geocodage import rendre_json, rendre_texte
 
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
@@ -110,11 +110,7 @@ def test_executer_texte_adresse_introuvable_message_clair(capsys):
 
 def test_executer_json(capsys):
     ban = client_ban_avec(
-        [
-            Candidat(
-                "7 Rue du If 44999 Vallombreuse", 0.1, 0.2, 0.83, "ban", "Vallombreuse", "44999"
-            )
-        ]
+        [Candidat("7 Rue du If 44999 Vallombreuse", 0.1, 0.2, 0.83, "ban", "Vallombreuse", "44999")]
     )
     code = executer(args(adresse="7 rue du if", json=True), config_de_test(), ban=ban)
     assert code == 0

@@ -1,36 +1,36 @@
 """Ce qui fait « la ville » sous les roues : feux, stops, passages piétons,
 cédez-le-passage, ralentisseurs — comptés au kilomètre.
 
-Le mainteneur nomme lui-même ce qu'il appelle la ville : « des croisements,
-des voitures, des dos d'âne ou des chicanes, des feux ». Ce module compte
+Ce qu'un cycliste appelle la ville : croisements, voitures, dos d'âne ou
+chicanes, feux. Ce module compte
 exactement ces marqueurs-là sur un tracé entier et en tire une **densité au
 kilomètre**.
 
 **Pourquoi ce module existe.** `seance.terrain` sait déjà les compter, mais
-seulement **sous un bloc** — et le plan du mainteneur ne contient aucune
-séance à blocs en extérieur (contrat du sprint 5 §3.1.3 b). Sur une
-endurance, sa sortie ordinaire, la note de terrain vaut zéro et rien ne dit
+seulement **sous un bloc** — et bien des plans ne contiennent aucune séance
+à blocs en extérieur. Sur une endurance, la sortie ordinaire, la note de
+terrain vaut zéro et rien ne dit
 qu'une boucle traverse six bourgs quand l'autre n'en traverse aucun. Il
 fallait donc une mesure qui porte sur le **tracé entier**, indépendante du
 placement.
 
 **Ce qu'il remplace fonctionnellement.** `seance.terrain.MAXSPEED_BATI_KMH`
-devait repérer l'agglomération par la vitesse limite ; mesuré le 16/09/2026,
-notre profil BRouter ne renvoie **jamais** `maxspeed`, et la zone bâtie se
+devait repérer l'agglomération par la vitesse limite ; mesuré, notre profil
+BRouter ne renvoie **jamais** `maxspeed`, et la zone bâtie se
 réduit donc à trois valeurs de `highway`. Un bourg traversé sur une
 départementale n'est pas vu. Les marqueurs de nœud, eux, sont renvoyés — et
 ils sont ce qu'un cycliste perçoit réellement.
 
 **Vocabulaire partagé, pas dupliqué.** `NOEUDS_CARREFOUR`,
-`CLE_RALENTISSEUR` et `RALENTISSEURS_SANS_EFFET` vivaient dans
-`seance.terrain` ; ils sont ici et `seance.terrain` les importe. Deux
+`CLE_RALENTISSEUR` et `RALENTISSEURS_SANS_EFFET` sont ici, et
+`seance.terrain` les importe. Deux
 définitions de « ce qui fait lever le pied » finiraient par diverger, et la
 note sous un bloc ne dirait plus la même chose que la densité du tracé.
 
 **Zéro ne veut jamais dire « aucun feu ».** Un GPX importé n'a pas de
 `segments` : il ne porte aucun tag de nœud, ce qui n'est pas la même chose
 que n'avoir aucun feu. `Marqueurs.connue` est faux dans ce cas et `par_km`
-rend `None` — règle absolue 5, une ignorance se dit.
+rend `None` — on n'affirme rien sans mesure, une ignorance se dit.
 """
 
 from __future__ import annotations
@@ -43,27 +43,23 @@ from ourouler.noyau.trace import Trace
 #: `highway` d'un **nœud** qui impose un arrêt ou un ralentissement. Ils
 #: arrivent par `Segment.node_tags`, alimenté par la colonne `NodeTags` des
 #: messages BRouter.
-NOEUDS_CARREFOUR = frozenset(
-    {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
-)
+NOEUDS_CARREFOUR = frozenset({"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"})
 
 #: Ceux qui **arrêtent** vraiment, par opposition à ceux qui font lever le
-#: pied. Mesuré le 16/09/2026 sur une boucle réelle de 55 km : 457 marqueurs,
+#: pied. Mesuré sur une boucle réelle de 55 km : 457 marqueurs,
 #: dont **296 passages piétons (65 %)** et seulement **28 feux (6 %)**. Le
-#: composite était donc dominé par ce qui coûte le moins — un passage piéton
+#: composite est donc dominé par ce qui coûte le moins — un passage piéton
 #: sur une route de campagne se traverse sans lever le pied.
 #:
-#: Le mainteneur l'a dit autrement, et c'est la vraie raison de cette
-#: distinction : « quand je lis 1,7 feux par km, si je fais 100 km je me dis
-#: que je vais croiser 170 feux ». Une unité qui invite à multiplier, sur un
+#: C'est la vraie raison de cette distinction : qui lit « 1,7 feux par km » et
+#: roule 100 km s'attend à croiser 170 feux. Une unité qui invite à multiplier, sur un
 #: composite qui mélange l'arrêt et le rien.
 NOEUDS_ARRET = frozenset({"traffic_signals", "stop"})
 
 #: Un **ralentisseur** : dos d'âne, coussin, chicane, plateau. Il arrive par la
-#: clé `traffic_calming` des `NodeTags`, pas par `highway` — c'est pourquoi la
-#: première rédaction de `seance.terrain` ne le voyait pas du tout, alors que
-#: BRouter en pose 30 sur une seule boucle au nord de Rennes (mesuré le
-#: 16/09/2026).
+#: clé `traffic_calming` des `NodeTags`, pas par `highway` — un compte fondé
+#: sur `highway` ne le verrait pas, alors que BRouter en pose 30 sur une seule
+#: boucle réelle (mesuré).
 CLE_RALENTISSEUR = "traffic_calming"
 
 #: Valeurs de `traffic_calming` qui ne ralentissent pas un cycliste : une
@@ -114,7 +110,7 @@ class Marqueurs:
         """Feux et stops seulement : ce qui pose le pied, pas ce qui ralentit.
 
         `None` quand le tracé ne porte pas de tronçons — l'absence n'est alors
-        pas une mesure (règle absolue 5).
+        pas une mesure (on n'affirme rien sans mesure).
         """
         if not self.connue:
             return None

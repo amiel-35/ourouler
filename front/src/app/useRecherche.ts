@@ -1,4 +1,4 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — l'état et
+/** Séparé d'`App.tsx` — l'état et
  * la fonction d'une recherche de parcours (séance du jour ou boucle Z2),
  * calculée en semi-synchrone contre le budget annoncé par `/systeme/budgets`.
  */
@@ -45,13 +45,13 @@ export function useRecherche(params: {
   const [erreurCalcul, setErreurCalcul] = useState<ErreurApi | null>(null);
   const [memoire, setMemoire] = useState<SortieMemorisee | null>(() => sortieRetenue(jour));
   /**
-   * Les jours pour lesquels ce navigateur a déjà un parcours (C10).
+   * Les jours pour lesquels ce navigateur a déjà un parcours.
    *
-   * `etat/memoire` range chaque sortie sous sa propre clé depuis le début ;
-   * c'est l'application qui ne retenait que celle du jour. Générer le parcours
-   * de demain depuis « Ma semaine » ne laissait donc aucune trace : le bouton
-   * restait « Générer le parcours », et le calcul — trois à sept secondes
-   * contre BRouter et Open-Meteo — était à refaire.
+   * `etat/memoire` range chaque sortie sous sa propre clé. Ne retenir que
+   * celle du jour ferait que générer le parcours de demain depuis « Ma
+   * semaine » ne laisserait aucune trace : le bouton resterait « Générer le
+   * parcours », et le calcul — trois à sept secondes contre BRouter et
+   * Open-Meteo — serait à refaire.
    */
   const [joursMemorises, setJoursMemorises] = useState<string[]>([]);
 
@@ -63,7 +63,7 @@ export function useRecherche(params: {
     setEnCalcul(budgetDe(operation) ?? null);
     try {
       if (finale.mode === "seance") {
-        // **Un seul des deux champs part** (Q44) : l'API refuse `direction`
+        // **Un seul des deux champs part** (décision Q44) : l'API refuse `direction`
         // et un `vent` contraignant envoyés ensemble. `modeDirection` est la
         // seule source de vérité ici — jamais les deux champs à la fois,
         // quoi que porte encore `demande.direction`/`demande.vent` d'un
@@ -80,7 +80,7 @@ export function useRecherche(params: {
           candidates: finale.candidates,
           ...orientation,
           depart: finale.depart ?? undefined,
-          // **Le jour doit correspondre** (B1) — voir `fichierPourLaRecherche`.
+          // **Le jour doit correspondre** — voir `fichierPourLaRecherche`.
           fichier_seance: fichierPourLaRecherche(fichierSeance, finale.jour),
         });
         // La séance placée porte les emplacements, pas les étapes : celles-ci
@@ -92,7 +92,7 @@ export function useRecherche(params: {
           seance = null;
         }
         setResultat({ sortie: reponse, boucle: null, seance, jour: finale.jour });
-        // Retenu pour **son** jour, quel qu'il soit (C10).
+        // Retenu pour **son** jour, quel qu'il soit.
         const memorisee = retenirSortie(finale.jour, reponse);
         if (finale.jour === jour) setMemoire(memorisee);
         setJoursMemorises((connus) =>
@@ -100,11 +100,10 @@ export function useRecherche(params: {
         );
         setVue({ genre: "propositions" });
       } else {
-        // Q47 : `boucle` balaie tout l'horizon sans direction, comme `sortie`
+        // `boucle` balaie tout l'horizon sans direction, comme `sortie`
         // — même règle que la branche `seance` ci-dessus, `modeDirection` est
-        // la seule source de vérité. `/boucles` n'a pas de champ `vent`
-        // (Q44, resté ouvert) : le mode « vent » retombe déjà sur « peu
-        // importe » en Z2 (voir l'effet dans `Demander.tsx`), donc seul
+        // la seule source de vérité. `/boucles` n'a pas de champ `vent` : le
+        // mode « vent » retombe déjà sur « peu importe » en Z2 (voir l'effet dans `Demander.tsx`), donc seul
         // « direction » envoie un azimut ici.
         const reponse = await api.boucle({
           distance_km: Math.max(

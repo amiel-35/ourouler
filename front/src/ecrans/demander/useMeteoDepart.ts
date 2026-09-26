@@ -6,7 +6,7 @@ import { api, ErreurApi } from "../../api/client";
 import type { Enveloppe, Meteo, VentDepart } from "../../api/types";
 
 export function useMeteoDepart(jour: string, heure_depart: string) {
-  // D'où vient le vent au départ (Q44) — chargé pendant que le cycliste
+  // D'où vient le vent au départ — chargé pendant que le cycliste
   // choisit, affiché dans les deux modes, jamais recalculé ici.
   const [vent, setVent] = useState<Enveloppe<VentDepart> | null>(null);
   const [erreurVent, setErreurVent] = useState<string | null>(null);
@@ -34,7 +34,6 @@ export function useMeteoDepart(jour: string, heure_depart: string) {
     return () => {
       annule = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jour, heure_depart]);
 
   // La rose : même déclenchement que le vent au départ ci-dessus (jour et

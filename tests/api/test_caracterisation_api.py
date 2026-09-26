@@ -17,7 +17,7 @@ c'est `httpx.Client` lui-même qui est rejoué (`outils_caracterisation`). Une
 restructuration qui change la façon d'injecter les clients ne casse donc pas
 ces références ; une qui change ce que l'API répond, si.
 
-**Lot 11 : chaque test tourne sur les trois chemins de l'API**
+**Chaque test tourne sur les trois chemins de l'API**
 (`api/double_chemin.py`) — `ancien` (l'adaptateur de la ligne de commande),
 `nouveau` (service et rendu), `double` (les deux, l'ancien répond) — contre
 les **mêmes** références. En `double`, deux choses de plus : aucune ligne
@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import sys
 import time
 from dataclasses import dataclass
 from datetime import date
@@ -40,15 +39,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-#: Sans l'extra `api`, ce module se saute au lieu de casser la collecte.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
-
-from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique  # noqa: E402
-from outils_api import ClientApi  # noqa: E402
-from outils_caracterisation import (  # noqa: E402
+from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique
+from outils_api import ClientApi
+from outils_caracterisation import (
     DOSSIER,
     JOUR,
     MODELE_SECOND,
@@ -58,12 +51,12 @@ from outils_caracterisation import (  # noqa: E402
     preparer,
 )
 
-from ourouler.api.adaptateur import Budgets  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.quotas import Quotas  # noqa: E402
-from ourouler.api.session import MODE_HEBERGE, SessionHebergee  # noqa: E402
+from ourouler.api.adaptateur import Budgets
+from ourouler.api.application import creer_application
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
+from ourouler.api.session import MODE_HEBERGE, SessionHebergee
 
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 
@@ -135,7 +128,6 @@ class Serveur:
         racine = str(self.racine)
         return normaliser(resultat, {racine: "<TMP>", os.path.realpath(racine): "<TMP>"})
 
-
     def _journal_d_un_passage(self) -> list[str]:
         """Le journal réseau d'**un** chemin : en `double`, la moitié répétée.
 
@@ -161,10 +153,7 @@ def _chronos(valeur: Any) -> Any:
         chronos = set(CLES_CHRONOMETREES)
         if valeur.get("source") == "mesure":
             chronos |= CLES_CHRONOMETREES_SI_MESURE
-        return {
-            cle: ("<CHRONO>" if cle in chronos else _chronos(sous))
-            for cle, sous in valeur.items()
-        }
+        return {cle: ("<CHRONO>" if cle in chronos else _chronos(sous)) for cle, sous in valeur.items()}
     if isinstance(valeur, list):
         return [_chronos(sous) for sous in valeur]
     return valeur
@@ -175,14 +164,14 @@ def rejeu(monkeypatch: pytest.MonkeyPatch):
     return preparer(monkeypatch)
 
 
-#: Les trois chemins de l'API (lot 11, `api/double_chemin.py`), écrits en
+#: Les trois chemins de l'API (`api/double_chemin.py`), écrits en
 #: clair : le filet ne dépend que de surfaces stables
 #: (`test_le_filet_ne_depend_que_de_surfaces_stables`), et ces trois mots
 #: sont celles d'`OUROULER_API_CHEMIN`.
 CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE = "ancien", "nouveau", "double"
 CHEMINS = (CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE)
 
-#: Le chemin de l'API de chaque test (lot 11), lu par `verifier`.
+#: Le chemin de l'API de chaque test, lu par `verifier`.
 _CHEMIN_COURANT: list[str] = [CHEMIN_ANCIEN]
 
 
@@ -223,9 +212,7 @@ def test_systeme(serveur, regenerer_golden: bool):
 def test_profil(serveur, regenerer_golden: bool):
     obtenu = {
         "profil": serveur().appel("GET", "/api/v1/profil"),
-        "sans_session_401": serveur("heberge", session=SessionHebergee()).appel(
-            "GET", "/api/v1/profil"
-        ),
+        "sans_session_401": serveur("heberge", session=SessionHebergee()).appel("GET", "/api/v1/profil"),
     }
     verifier("profil", obtenu, regenerer_golden)
 
@@ -245,9 +232,7 @@ def test_zones(serveur, regenerer_golden: bool):
 def test_profil_intervals(serveur, regenerer_golden: bool):
     obtenu = {
         "avec_cle": serveur().appel("GET", "/api/v1/profil/intervals"),
-        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel(
-            "GET", "/api/v1/profil/intervals"
-        ),
+        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel("GET", "/api/v1/profil/intervals"),
     }
     verifier("profil_intervals", obtenu, regenerer_golden)
 
@@ -263,12 +248,8 @@ def test_geocodage(serveur, regenerer_golden: bool):
 
 def test_meteo(serveur, regenerer_golden: bool):
     obtenu = {
-        "meteo": serveur().appel(
-            "GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}
-        ),
-        "horizon_invalide_422": serveur("invalide").appel(
-            "GET", "/api/v1/meteo", params={"horizon": 0}
-        ),
+        "meteo": serveur().appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}),
+        "horizon_invalide_422": serveur("invalide").appel("GET", "/api/v1/meteo", params={"horizon": 0}),
         "quota_atteint_429": serveur(
             "quota", session=SessionUnCompte(), quotas_meteo=Quotas(plafond=0)
         ).appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}),
@@ -277,52 +258,40 @@ def test_meteo(serveur, regenerer_golden: bool):
 
 
 def test_vent_depart(serveur, regenerer_golden: bool):
-    obtenu = serveur().appel(
-        "GET", "/api/v1/vent-depart", params={"jour": JOUR, "heure_depart": "09:00"}
-    )
+    obtenu = serveur().appel("GET", "/api/v1/vent-depart", params={"jour": JOUR, "heure_depart": "09:00"})
     verifier("vent_depart", obtenu, regenerer_golden)
 
 
 def test_seances(serveur, regenerer_golden: bool):
     s = serveur()
     obtenu = {
-        "semaine": s.appel(
-            "GET", "/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-13"}
-        ),
+        "semaine": s.appel("GET", "/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-13"}),
         "jour_avec_seance": s.appel("GET", f"/api/v1/seances/{JOUR}"),
         "jour_sans_seance": s.appel("GET", "/api/v1/seances/2026-09-09"),
         "jour_illisible_422": s.appel("GET", "/api/v1/seances/pas-une-date"),
-        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel(
-            "GET", f"/api/v1/seances/{JOUR}"
-        ),
+        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel("GET", f"/api/v1/seances/{JOUR}"),
     }
     verifier("seances", obtenu, regenerer_golden)
 
 
 def test_sorties(serveur, regenerer_golden: bool):
     s = serveur()
-    sortie = s.appel(
-        "POST", "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2}
-    )
+    sortie = s.appel("POST", "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2})
     generation = s.client.post(
         "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2}
     ).json()
     identifiant = _generation(generation)
     obtenu = {
         "sortie": sortie,
-        "gpx_proposition_1": s.appel(
-            "GET", f"/api/v1/sorties/{identifiant}/propositions/1/gpx"
-        ),
-        "gpx_proposition_inconnue_404": s.appel(
-            "GET", f"/api/v1/sorties/{identifiant}/propositions/99/gpx"
-        ),
+        "gpx_proposition_1": s.appel("GET", f"/api/v1/sorties/{identifiant}/propositions/1/gpx"),
+        "gpx_proposition_inconnue_404": s.appel("GET", f"/api/v1/sorties/{identifiant}/propositions/99/gpx"),
         "demande_invalide_422": s.appel("POST", "/api/v1/sorties", json={"candidates": 0}),
         "sans_session_401": serveur("heberge", session=SessionHebergee()).appel(
             "POST", "/api/v1/sorties", json={"jour": JOUR}
         ),
-        "quota_atteint_429": serveur(
-            "quota", session=SessionUnCompte(), quotas=Quotas(plafond=0)
-        ).appel("POST", "/api/v1/sorties", json={"jour": JOUR}),
+        "quota_atteint_429": serveur("quota", session=SessionUnCompte(), quotas=Quotas(plafond=0)).appel(
+            "POST", "/api/v1/sorties", json={"jour": JOUR}
+        ),
     }
     verifier("sorties", obtenu, regenerer_golden)
 
@@ -462,14 +431,13 @@ def test_heberge_import_d_activites(serveur, regenerer_golden: bool):
 def test_avertissement_second_avis_en_panne(serveur, rejeu, regenerer_golden: bool):
     """Le second modèle météo répond 500 : la météo sort, avec un avertissement **codé**.
 
-    Le chemin est celui que le lot 11 réécrit (sortie d'erreur du cœur →
-    `avertissements` de l'enveloppe) : sans ce scénario, toutes les
-    références portent `avertissements: []`, et un adaptateur qui les
-    perdrait passerait.
+    Le chemin est celui que le nouveau chemin de l'API réécrit (sortie d'erreur
+    du cœur → `avertissements` de l'enveloppe) : sans ce scénario, toutes les
+    références portent `avertissements: []`, et un adaptateur qui les perdrait
+    passerait.
     """
     rejeu.en_panne("api.open-meteo.com", models=MODELE_SECOND)
     obtenu = serveur().appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"})
     avertissements = obtenu["corps"]["avertissements"]
     assert avertissements and all(a.get("code") for a in avertissements), avertissements
     verifier("avertissement", obtenu, regenerer_golden)
-

@@ -1,4 +1,4 @@
-"""Les clients concrets satisfont les protocoles du noyau, tels quels (lot 9).
+"""Les clients concrets satisfont les protocoles du noyau, tels quels.
 
 `ourouler.noyau.ports` décrit ce que le domaine demande ; les connecteurs n'en
 héritent pas. La conformité est donc de forme, et elle se vérifie ici,
@@ -31,11 +31,7 @@ PAIRES = [
 
 
 def _methodes(protocole: type) -> list[str]:
-    return [
-        nom
-        for nom, valeur in vars(protocole).items()
-        if callable(valeur) and not nom.startswith("_")
-    ]
+    return [nom for nom, valeur in vars(protocole).items() if callable(valeur) and not nom.startswith("_")]
 
 
 def ecarts(protocole: type, concret: type) -> list[str]:
@@ -58,9 +54,14 @@ def ecarts(protocole: type, concret: type) -> list[str]:
             elif p.default is not inspect.Parameter.empty and q.default is inspect.Parameter.empty:
                 trouves.append(f"{concret.__name__}.{nom} : `{p.name}` sans valeur par défaut")
         for q in offerts.values():
-            if q.name not in voulus and q.default is inspect.Parameter.empty and q.kind not in (
-                inspect.Parameter.VAR_POSITIONAL,
-                inspect.Parameter.VAR_KEYWORD,
+            if (
+                q.name not in voulus
+                and q.default is inspect.Parameter.empty
+                and q.kind
+                not in (
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                )
             ):
                 trouves.append(f"{concret.__name__}.{nom} : `{q.name}` en plus, sans valeur par défaut")
         ordre_voulu = [n for n, p in voulus.items() if p.kind is not inspect.Parameter.KEYWORD_ONLY]

@@ -3,9 +3,13 @@
 Nom : **ourouler** (paquet Python, commande et dépôt GitHub `amiel-35/ourouler`),
 validé par le mainteneur le 13/09/2026. Ce
 document fixe les choix structurants et leurs raisons. On le modifie par
-décision explicite du mainteneur, jamais par dérive. `CLAUDE.md` en est le
-résumé opérationnel pour les agents ; en cas de doute, c'est ce document qui
-fait foi. Le besoin d'origine est dans `docs/journal/cadrage.md`.
+décision explicite du mainteneur, jamais par dérive. `AGENTS.md` en est le
+résumé opérationnel pour les agents de code, `ARCHITECTURE.md` la carte du
+code tel qu'il est ; en cas de doute, c'est ce document qui fait foi. Le
+besoin d'origine est dans `docs/journal/cadrage.md`.
+
+Les passages marqués *État* disent où le code en est par rapport à une
+décision écrite plus tôt ; ils ne changent pas la décision.
 
 ## 1. Principes
 
@@ -16,11 +20,13 @@ un lot n'est fini que lorsqu'une commande tourne sur *ses* vraies données.
 **Le cœur ne sait pas où il tourne.** La bibliothèque ne lit jamais un chemin
 en dur, une variable d'environnement, un fichier `~/.config` : elle reçoit un
 objet de configuration (point de départ, cycliste, vélos, clés) et des
-connecteurs. La ligne de commande est la seule couche qui sait lire un fichier
-de configuration. Raison : le graal à terme est un service hébergé où d'autres
-cyclistes se créent un compte, renseignent leur profil et importent leurs
-données. On ne le construit pas maintenant, mais on s'interdit ce qui le
-rendrait impossible : un profil utilisateur est une donnée, pas une constante.
+connecteurs. Seules les entrées savent lire un fichier de configuration ou
+l'environnement : la ligne de commande (`cli/`, `config.py`) et, pour
+l'API, `api/exploitation.py` (`tests/test_invariants.py`). Raison : le graal
+à terme est un service hébergé où d'autres cyclistes se créent un compte,
+renseignent leur profil et importent leurs données. On s'interdit ce qui le
+rendrait impossible : un profil utilisateur est une donnée, pas une
+constante. *État : ce service existe, sur invitation (§10).*
 
 **Il y aura un front web, à terme (confirmé par le mainteneur le
 12/09/2026).** La cible finale est un service hébergé avec une interface
@@ -31,7 +37,9 @@ ni environnement, chaque commande sait rendre du JSON, et la CLI n'est qu'un
 adaptateur parmi d'autres — l'API web en sera un second, le moment venu.
 Ordre imposé : d'abord la CLI qui couvre le besoin du mainteneur, ensuite
 l'API, enfin le front. Ni API ni front ne s'écrivent avant que le sprint
-« séance ↔ terrain » ait tourné sur ses vraies sorties.
+« séance ↔ terrain » ait tourné sur ses vraies sorties. *État : cet ordre a
+été suivi ; l'API (`src/ourouler/api/`) et le front (`front/`) existent, et
+l'API rend le même JSON que la CLI (`ARCHITECTURE.md` §4).*
 
 **Les données et les clés restent chez l'utilisateur.** Rien de personnel
 dans le dépôt : ni fichier d'activité, ni coordonnées, ni clé d'API. Le
@@ -49,7 +57,8 @@ C'est aussi ce qui rend chaque lot démontrable.
 
 **Natif et simple d'abord.** Pas de service payant obligatoire, pas de base
 de données serveur, pas de file de messages. Tout tourne sur un Mac ou un
-petit Linux. Ce projet préfère 50 lignes évidentes à 20 lignes malignes.
+petit Linux. *État : le service hébergé a sa base PostgreSQL pour les
+comptes (§10.2) ; la ligne de commande n'en a toujours pas.* Ce projet préfère 50 lignes évidentes à 20 lignes malignes.
 
 ## 2. Vue d'ensemble
 
@@ -66,16 +75,17 @@ petit Linux. Ce projet préfère 50 lignes évidentes à 20 lignes malignes.
 ```
 
 Un seul paquet Python, `src/ourouler/`, avec des sous-modules par domaine.
-La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
+La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus ; l'API
+en est un second, et le front ne parle qu'à l'API. *État : ni GraphHopper
+ni Garmin Connect, dessinés ici au cadrage, ne sont branchés.*
 
 ## 3. Stack
 
 - **Python ≥ 3.12**, `uv` + `pyproject.toml`, layout `src/`. Typage par
-  annotations et `dataclasses` ; pas de Pydantic tant qu'il n'y a pas d'API.
-  L'API est arrivée (lot F1, 17/09/2026) : **FastAPI et Pydantic entrent, et
-  ne dépassent pas `src/ourouler/api/`**, où Pydantic ne décrit que les corps
-  de requête. Le cœur reste en dataclasses, et un `ourouler` installé sans
-  l'extra `api` n'en voit rien.
+  annotations et `dataclasses`. **FastAPI et Pydantic ne dépassent pas
+  `src/ourouler/api/`**, où Pydantic ne décrit que les corps de requête ; le
+  cœur reste en dataclasses, et un `ourouler` installé sans l'extra `api`
+  n'en voit rien.
 - **CLI** : `argparse` (stdlib). Sortie texte lisible, `--json` quand un
   autre programme doit consommer.
 - **HTTP** : `httpx`. Chaque connecteur expose une fonction qui prend un
@@ -85,8 +95,11 @@ La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
 - **Cache local** : un dossier (`~/.cache/ourouler` par défaut, configurable)
   avec les fichiers bruts tels que reçus, et un index **SQLite** (stdlib)
   pour retrouver une activité par date, vélo, source. Pas d'ORM.
-- **Configuration** : un fichier **TOML** (`tomllib`, stdlib) lu par la CLI
-  seulement ; `config.example.toml` versionné, le vrai fichier ignoré.
+- **Configuration** : un fichier **TOML** (`tomllib`, stdlib) lu par les
+  entrées seulement (`cli/`, `config.py`, `api/exploitation.py`), plus
+  `service.toml` pour les réglages du service hébergé ;
+  `config.example.toml` et `service.example.toml` versionnés, les vrais
+  fichiers ignorés.
 - **Tests** : `pytest`, fixtures synthétiques ou anonymisées dans
   `tests/fixtures/`. Réseau interdit dans les tests. **Lint** : `ruff`.
 - **Licence** : AGPL-3.0-or-later. Choisie le 18/09/2026 en remplacement de
@@ -98,26 +111,31 @@ La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
 ## 4. Repo et structure
 
 ```
-bike-routing/
-├── CLAUDE.md                  ← résumé opérationnel pour les agents
+ourouler/
+├── AGENTS.md                  ← consignes pour tout agent de code
+├── ARCHITECTURE.md            ← la carte du code, paquet par paquet
 ├── doctrine_architecture.md   ← ce document
-├── .claude/agents/            ← fiches des agents (superviseur, devs, testeur, relecteur)
-├── docs/                      ← cadrage, plan de sprints, contrats de sprint, questions
-├── config.example.toml
+├── config.example.toml        ← modèle du fichier du cycliste
+├── service.example.toml       ← modèle des réglages du service hébergé
+├── docs/                      ← documents relus ; docs/journal/ : le matériau brut
 ├── src/ourouler/
-│   ├── cli.py                 ← argparse, lecture de la config, appel du cœur
-│   ├── config.py              ← dataclasses Config/Depart/Velo/Cycliste, chargement TOML
-│   ├── activites/             ← modèle Activite, lecteurs fit/gpx/tcx, cache SQLite
-│   ├── connecteurs/           ← intervals.py (et plus tard garmin, strava-export…)
-│   ├── meteo/                 ← openmeteo.py (client), couronne.py (directions), rapport
-│   ├── boucle/                ← S2 : moteurs de tracé, coûts, GPX
-│   ├── physique/              ← S3 : modèle puissance→vitesse, calibration
-│   └── seance/                ← S4 : séance ↔ terrain, tenue, résumé
+│   ├── cli/, config.py        ← entrées : argparse, lecture TOML et environnement
+│   ├── commandes/             ← du Namespace à la Demande, puis au rendu imprimé
+│   ├── api/                   ← FastAPI, comptes, dépôts par propriétaire
+│   ├── rendu/                 ← texte, JSON, carte HTML
+│   ├── services/              ← cas d'usage, un module par sous-commande de calcul
+│   ├── connecteurs/, stockage/  ← adaptateurs HTTP et disque
+│   ├── physique/, meteo/, boucle/, seance/, sortie/  ← le domaine
+│   ├── activites/, apprentissage/, geocodage/
+│   └── noyau/                 ← types partagés, bibliothèque standard seulement
+├── front/                     ← l'interface web, qui ne parle qu'à l'API
+├── deploiement/               ← images et compose (API et front)
 └── tests/
 ```
 
-Les dossiers `boucle/`, `physique/`, `seance/` n'existent qu'à partir de
-leur sprint : pas de squelette vide « pour plus tard ».
+Le détail, et la règle d'imports entre ces couches, sont dans
+`ARCHITECTURE.md`. Un dossier n'existe qu'à partir du lot qui le remplit :
+pas de squelette vide « pour plus tard ».
 
 ## 5. Données de l'utilisateur
 
@@ -138,31 +156,35 @@ leur sprint : pas de squelette vide « pour plus tard ».
   avec le même lecteur. Un connecteur ne fait que rapatrier des fichiers et
   des métadonnées.
 
-  **Mais on ne le conserve pas — précisé le 19/09/2026 par le mainteneur**,
-  parce que ce chapitre disait « on stocke le brut » là où [[Q48]] (17/09)
-  avait décidé « on jette le brut, on garde le dérivé », et que les deux
-  tournaient en même temps sans que personne l'ait voulu.
+  **Le brut d'un export déposé se conserve** — tranché le 26/09/2026 par le
+  mainteneur ([Q67](docs/journal/questions/questions_mainteneur.md)), qui
+  rouvre la règle précédente « on jette le brut, on garde le dérivé »
+  ([Q48](docs/journal/questions/questions_mainteneur.md), précisée le 19/09).
+  La doctrine suit ici le code, pour trois raisons mesurées :
 
-  La règle est : **on ne garde jamais ce qu'on peut redemander.**
+  - **Un export est un instantané** qu'on ne peut pas re-télécharger ; le
+    jeter obligerait la personne à redéposer son archive à chaque
+    recalibration.
+  - **La calibration depuis l'écran relit les fichiers importés**
+    (`api/calibrations.py`), et **le dédoublonnage d'un import compare par
+    contenu** les fichiers déjà en cache (`activites/import_archive.py`).
+  - **Intervals reste branché** : là, le cache local n'est qu'un cache, qui
+    se remplit depuis la source et se jette sans rien perdre.
 
-  - **Intervals reste branché** : on relit quand on veut, donc rien à
-    conserver. Le cache local (`~/.cache/ourouler`) garde bien les fichiers
-    bruts, et c'est légitime — **c'est un cache, pas une archive** : il se
-    remplit tout seul depuis la source, et se jette sans rien perdre.
-  - **Un export déposé est un instantané** qu'on ne peut pas re-télécharger.
-    On en extrait le dérivé — les mailles avec leurs tags et leurs kilomètres,
-    les coefficients de calibration, quelques kilo-octets — et le brut part.
-    Quand l'algorithme change vraiment, ou quand la personne a progressé, **on
-    lui redemande une archive**. C'est le prix, et il est assumé : garder les
-    traces pour lui permettre de revoir ses sorties ferait « un Strava bis »,
-    explicitement écarté en [[Q48]].
+  Ce qui garde la promesse « pas un Strava bis » : le brut est rangé **par
+  propriétaire** (`brut/comptes/<propriétaire>/`), **aucune route ne le montre
+  à quelqu'un d'autre**, il part dans l'export de la personne (`GET /moi/export`)
+  et **il s'efface avec le compte** (`DELETE /moi`, `api/vie_privee.py`,
+  vérifié par `tests/api/test_api_vie_privee.py`). Le choix donné à chacun de
+  conserver ou d'effacer ses données, et de changer d'avis, est au backlog.
 
   **Deux conséquences qui se voient dans le produit**, et qui ne sont pas des
   détails d'implémentation :
 
   1. **Le dérivé a un âge, et il se dit.** Quelqu'un qui a déposé un export en
      mars et qui a progressé depuis roule sur un modèle périmé. Le produit doit
-     le montrer plutôt que de laisser croire qu'il est à jour — règle absolue 5.
+     le montrer plutôt que de laisser croire qu'il est à jour — « ne rien
+     affirmer sans mesure » (§1).
   2. **Ça donne sa raison d'être au branchement d'Intervals**, formulée comme
      un gain et non comme une préférence : avec Intervals le modèle se met à
      jour seul, avec un export il faut revenir.
@@ -172,8 +194,9 @@ leur sprint : pas de squelette vide « pour plus tard ».
   échelle le risque d'action est nul et ce n'est pas ce qui décide. Ce qui
   décide : des traces GPS sont des données de localisation, elles portent le
   domicile de chacun au départ de chaque sortie, et **celui à qui ça se
-  reprocherait est l'ami qui les a confiées**, pas un régulateur. Jeter ce
-  qu'on n'a pas besoin de garder est la seule façon sûre de ne pas le perdre.
+  reprocherait est l'ami qui les a confiées**, pas un régulateur. C'est pour
+  cela que le brut conservé ne sort jamais du compte de la personne, part avec
+  lui, et que le choix de l'effacer lui reviendra.
 
 ## 6. Sources externes et leurs limites, telles que connues au cadrage
 
@@ -184,7 +207,7 @@ leur sprint : pas de squelette vide « pour plus tard ».
 | BRouter | boucles, profils `fastbike-*`, GPX natif | auto-hébergé (Java ou Docker), données OSM à télécharger |
 | GraphHopper | mode boucle par distance | API hébergée gratuite à petit volume, clé |
 | Strava | **pas** de génération d'itinéraire par API ; export GPX de ses propres itinéraires | import GPX manuel |
-| Garmin Connect | envoi du parcours (S5) | pas d'API publique ; accès à cadrer avec le mainteneur (le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant, pas Garmin) |
+| Garmin Connect | envoi du parcours (S5) | pas d'API publique ; accès à cadrer avec le mainteneur ; rien n'est branché |
 
 ## 7. Ce qu'on refuse, et pourquoi
 
@@ -192,7 +215,9 @@ leur sprint : pas de squelette vide « pour plus tard ».
   le projet ne l'importe jamais et ne lit jamais sa configuration.
 - **Une base serveur, un compte, une API web** tant que la CLI ne couvre pas
   le besoin du mainteneur. On garde la porte ouverte (principe « le cœur ne
-  sait pas où il tourne », chapitre 10), on ne la franchit pas.
+  sait pas où il tourne », chapitre 10), on ne la franchit pas. *État :
+  franchie une fois la CLI suffisante — l'API, les comptes sur invitation et
+  PostgreSQL existent (chapitre 10, `CHANGELOG.md` 0.7.0 à 0.9.0).*
 - **Un secret d'authentification stocké en clair.** L'entrée se fait par
   invitation, puis le compte porte **un moyen de s'authentifier dont la
   forme est ouverte** — mot de passe, passkey, autre (§10.2, révisé le
@@ -231,6 +256,9 @@ leur sprint : pas de squelette vide « pour plus tard ».
 
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
+*Les §8 et §9 du cadrage ont été retirés ; la numérotation est conservée
+parce que le code et cette doctrine la citent ailleurs (§10, §10.2).*
+
 Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
 et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
@@ -239,8 +267,10 @@ d'abord ») a été révisé le 16/09, précisé le 17 et le 18/09 : voir §10.2
 qui fait foi — compte chez nous par invitation, puis un moyen
 d'authentification dont la forme est ouverte et le secret jamais en clair ;
 Google et Apple ensuite et en plus.
-Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
-mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
+Rien de ce chapitre ne se construisait avant que la CLI couvre le besoin du
+mainteneur ; tout ce chapitre s'applique à la manière d'écrire le cœur.
+*État : l'hébergé est construit et sert des invités ; les notes « État »
+ci-dessous disent ce qui en est appliqué.*
 
 ### 10.1 Ce qui s'applique dès aujourd'hui (coût nul, dette évitée)
 
@@ -249,12 +279,17 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   utilisateur. Toute fonction du cœur reçoit ce profil ; aucune ne suppose
   qu'il n'y en a qu'un. Quand l'hébergé arrivera, `Config` gagnera un
   identifiant d'utilisateur et sera chargée depuis la base au lieu d'un TOML :
-  le cœur ne le verra pas.
+  le cœur ne le verra pas. *État : en hébergé, la `Config` d'un
+  propriétaire se compose du socle du serveur et de son profil, rangé dans
+  son dossier (`api/depots.py`), pas en base ; le cœur ne le voit pas.*
 - **Les dépôts de données sont des interfaces.** Le cache d'activités
   (fichiers bruts + index) est aujourd'hui un dossier et un SQLite ; en
   hébergé ce sera un stockage d'objets et Postgres. Le cœur parle à une
   classe `Cache` (ajouter, contient, lister, chemin), jamais à un chemin ni
-  à une requête SQL. Le schéma de l'index local est écrit avec une colonne
+  à une requête SQL. *État : en hébergé aussi, le cache reste un dossier et
+  un SQLite sur le disque du serveur, les fichiers bruts rangés par
+  propriétaire (`activites/cache.py`) ; ni stockage d'objets, ni Postgres
+  pour l'index.* Le schéma de l'index local est écrit avec une colonne
   « propriétaire » en tête, pour que la migration soit un déplacement, pas
   une réécriture.
 
@@ -289,7 +324,9 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 - **Les clés d'API externes sont des données du profil, secrètes.** Clé
   Intervals, plus tard GraphHopper, Garmin : jamais en clair dans un log,
   une erreur, un JSON de sortie (`ourouler config --json` les masque déjà).
-  En hébergé : chiffrées au repos, une par utilisateur.
+  En hébergé : chiffrées au repos, une par utilisateur. *État : pas
+  encore — le profil d'un compte, clé comprise, est un fichier lisible du
+  seul processus (droits 0600, `api/exploitation.ecrire_toml`).*
 - **Chaque commande rend du JSON.** C'est la future réponse d'API, et donc
   le contrat du front.
 - **Les quotas externes se pensent par service, pas par utilisateur.**
@@ -328,7 +365,8 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   second avis météo pour chaque candidate. **Pas « grouper les appels »** :
   c'est déjà fait et ça ne change rien au décompte.
   Le client Open-Meteo est déjà injectable, ce qui suffit à poser le cache
-  plus tard sans toucher au cœur.
+  plus tard sans toucher au cœur. *État : le cache mutualisé existe
+  (`meteo/cache_previsions.py`), en mémoire du processus.*
 
   Ordres de grandeur (question du mainteneur, 12/09/2026) : le gratuit
   tolère environ 10 000 appels par jour et par adresse IP (5 000 par heure,
@@ -414,7 +452,7 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
     journal** — c'est une règle de code (les `__repr__` d'`Invitation` et
     `InvitationEmise` le masquent), pas une règle de schéma.
 
-  **Le cycle complet, décidé le 18/09/2026 ([[Q59]], close) :** inviter une
+  **Le cycle complet, décidé le 18/09/2026 ([Q59](docs/journal/questions/questions_mainteneur.md), close) :** inviter une
   adresse crée un compte inactif et une invitation ; ouvrir le lien ne
   consomme rien ; poser un mot de passe active le compte **et** consomme
   l'invitation, les trois dans une seule transaction — un compte actif sans
@@ -448,7 +486,7 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   — le lien à usage unique reste le filet, parce qu'une passkey se perd avec
   l'appareil ou le trousseau qui la synchronise.
 - **Compte et propriétaire sont deux choses, reliées par une table**
-  (décidé le 17/09/2026, [[Q46]]). Le `Proprietaire` de §10.1 devient la clé
+  (décidé le 17/09/2026, [Q46](docs/journal/questions/questions_mainteneur.md)). Le `Proprietaire` de §10.1 devient la clé
   **pseudonyme** sous laquelle vivent les poids de routes appris et les
   valeurs d'apprentissage ; le **compte** porte l'identité et l'accès. Une
   table de correspondance les relie, et c'est **elle** qu'on efface à la
@@ -476,7 +514,10 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 - **Fichiers bruts (FIT/GPX/TCX) : stockage d'objets**, pas la base ni le
   disque du serveur — un utilisateur actif représente vite des centaines de
   fichiers. Cible naturelle : un stockage S3-compatible (Hetzner Object
-  Storage ou équivalent), un préfixe par utilisateur.
+  Storage ou équivalent), un préfixe par utilisateur. *État : non appliqué
+  — les fichiers bruts vivent sur le disque du serveur, un dossier par
+  propriétaire ; et §5 dit qu'un export déposé ne se garde pas : l'écart
+  est ouvert en [Q67](docs/journal/questions/questions_mainteneur.md).*
 - **Isolation des données : par utilisateur, vérifiée côté serveur** à
   chaque requête, jamais seulement côté front. Aucune requête sans clause
   de propriétaire.
@@ -484,11 +525,12 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   du compte (profil, fichiers, calibrations, clés) ; pas de suivi
   d'audience ; hébergement en Europe.
 
-  **Calendrier révisé le 17/09/2026 par le mainteneur** ([[Q46]] dans
-  `docs/journal/questions/questions_mainteneur.md`) : l'export et la suppression étaient
-  promis « dès la première version hébergée » ; ils passent au **sprint 9
-  ou 10**. Motif : « je suis pas un service, c'est des potes ». Le principe
-  ne bouge pas, seul le moment change.
+  **Calendrier révisé le 17/09/2026 par le mainteneur** ([Q46](docs/journal/questions/questions_mainteneur.md)) :
+  l'export et la suppression étaient promis « dès la première version
+  hébergée » ; ils passent au **sprint 9 ou 10**. Motif : « je suis pas un
+  service, c'est des potes ». Le principe ne bouge pas, seul le moment
+  change. *État : livrés — par l'API en 0.7.0, par l'écran « Mon compte »
+  en 0.9.0 (`CHANGELOG.md`).*
 
   **Ce que ce report engage.** Le cercle restreint ne suspend pas le droit à
   l'effacement : l'exemption « activité strictement personnelle ou
@@ -510,16 +552,20 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 le front, et les comptes après. **Livré le 17/09/2026** (lot F1) : le cadre
 web est **FastAPI**, avec uvicorn pour le servir — c'est la seule dépendance
 lourde qu'ouvre l'API, et elle ouvre avec elle la porte que `§3` laissait
-entrebâillée (« pas de Pydantic tant qu'il n'y a pas d'API »). Le cœur, lui,
+alors entrebâillée (« pas de Pydantic tant qu'il n'y a pas d'API »). Le cœur, lui,
 reste en dataclasses : Pydantic ne sert qu'aux corps de requête.
 
 Ce que la livraison ajoute à ce chapitre, et qu'il faut lire avec lui : l'API
-n'implémente rien, elle appelle les mêmes fonctions que la ligne de commande
-et rend leur JSON ; l'isolation par propriétaire est écrite **dès maintenant**
+n'implémente rien, elle rend le JSON que la ligne de commande rend — par la
+commande elle-même ou, sur son nouveau chemin, par les mêmes services et le
+même rendu (`ARCHITECTURE.md` §4) ; l'isolation par propriétaire est écrite
 dans la forme des dépôts, avec un invariant qui la garde ; et l'attente d'une
 génération est semi-synchrone, avec une durée annoncée qui dit si elle est
-mesurée. Le contrat complet est dans `docs/ux/api_contrat.md`.
+mesurée. Le contrat qui fait foi est le schéma figé
+`tests/caracterisation/openapi.json` ; `docs/journal/ux/api_contrat.md` en
+garde l'histoire, en partie périmée (l'authentification y est dite non
+choisie).
 
-**Toujours pas décidé** : l'hébergement exact (Coolify sur Hetzner reste le
-candidat naturel) et la tarification éventuelle. Ces choix se prendront au
-point de repriorisation qui ouvrira l'hébergé.
+**Décidé depuis** : l'hébergement — le service tourne sur Coolify, avec une
+préproduction et une production séparées (`docs/retour_arriere.md`).
+**Toujours pas décidé** : la tarification éventuelle.

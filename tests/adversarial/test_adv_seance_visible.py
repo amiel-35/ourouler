@@ -1,38 +1,36 @@
-"""L5.2 — la séance entière visible, mise à l'épreuve **en aveugle**.
+"""La séance entière visible, mise à l'épreuve **en aveugle**.
 
-Écrit contre `docs/journal/sprints/sprint5_contrat.md` §2, Q13 et CLAUDE.md
-(voir `docs/journal/questions/questions_mainteneur.md`), à partir de la branche `essai-l5.1`, **sans avoir lu
-l'implémentation du lot** : elle s'écrit dans un autre worktree pendant que ce
-fichier se rédige. Le seul code lu est celui que le lot va modifier, tel qu'il
-était avant lui.
+Écrit contre la règle de la séance visible (Q13 de
+`docs/journal/questions/questions_mainteneur.md`), **sans avoir lu
+l'implémentation** : le seul code lu est celui du placement qui la précédait.
 
 Ce que ce fichier surveille, par ordre de gravité décroissante.
 
-1. **La continuité** (§2.2 a). Les emplacements se suivent sans trou ni
+1. **La continuité.** Les emplacements se suivent sans trou ni
    recouvrement, du départ à l'arrivée, et la somme de leurs longueurs vaut
    `distance_totale_m` **au sens du parcours réellement roulé**. C'est
    l'invariant qui prouve qu'on montre toute la séance et pas des morceaux.
-   `fabriques_l52.verifier_continuite` l'applique ; son docstring explique
+   `fabriques_seance_visible.verifier_continuite` l'applique ; son docstring explique
    pourquoi il passe par `jalons_m` et non par `debut_m` seul.
 
-2. **Les demi-tours.** La figure du sprint 4 — « bloc → moitié de récup →
+2. **Les demi-tours.** La figure du placement — « bloc → moitié de récup →
    demi-tour → moitié de récup → bloc » — roule `2b` mètres pour une empreinte
    de `b` mètres sur le tracé, et la récupération finit là où elle a commencé.
-   C'est le piège du lot : afficher `b` (la distance entre deux points du
+   C'est le piège : afficher `b` (la distance entre deux points du
    tracé) au lieu de `2b` (ce qui est roulé) est l'erreur naturelle, et elle
    laisse la continuité *presque* vraie.
 
 3. **La note des non-blocs.** Elle ne doit pas exister. Un `0.0` qui se
    glisserait dans `_note_ponderee` diviserait `note_terrain` par trois sur la
    séance d'essai sans que rien ne le signale — c'est la régression la plus
-   silencieuse possible de ce lot, et les tests du sprint 4 ne la voient pas :
-   ils ne regardent que les blocs.
+   silencieuse possible, et les tests du placement ne la voient pas : ils ne
+   regardent que les blocs.
 
-4. **La non-régression du tri et des notes.** `GOLDEN` a été relevé sur
-   `essai-l5.1` (commit `f4f0cb5`) **avant** le lot, le 16/09/2026, par
-   `placer` sur les fixtures de ce fichier. Les valeurs ne sont pas recopiées
-   d'une exécution postérieure au lot, ce qui les rendrait vides de sens. Le
-   lot est un lot d'affichage : elles ne doivent pas bouger d'un iota.
+4. **La non-régression du tri et des notes.** `GOLDEN` a été relevé
+   (commit `f4f0cb5`) **avant** la séance visible, par `placer` sur les
+   fixtures de ce fichier. Les valeurs ne sont pas recopiées d'une exécution
+   postérieure, ce qui les rendrait vides de sens. Rendre la séance visible
+   est un changement d'affichage : elles ne doivent pas bouger d'un iota.
 
 5. **Les compteurs de l'affichage.** `Proposition.blocs_bien_places`,
    `Proposition.demi_tours` et le dénominateur « x/y blocs bien placés » se
@@ -44,19 +42,20 @@ Ce que ce fichier surveille, par ordre de gravité décroissante.
 6. **La carte.** `carte._liaisons` déduit les portions non notées des *trous
    entre les blocs*. Nourrie de tous les emplacements, elle n'a plus aucun
    trou à dessiner et la carte perd d'un coup l'échauffement et le retour au
-   calme. C'est l'inverse exact du but du lot.
+   calme. C'est l'inverse exact du but recherché.
 
 Discipline appliquée à chaque test : quelle mutation du code l'attrape ? Quand
 ce n'est pas évident, c'est écrit dans le test. Les marges des comparaisons de
-flottants sont motivées (`fabriques_l52.MARGE_M`) : ni comparaison nue, qui
+flottants sont motivées (`fabriques_seance_visible.MARGE_M`) : ni comparaison nue, qui
 verdit sur du bruit à 10⁻¹² m, ni marge large, qui laisse passer une vraie
 faute.
 
-Tant que le lot n'est pas fusionné, tout ce fichier se met en `skip` sauf
-`test_sentinelle_l5_2_pas_encore_livre`, qui **échoue** : un dossier
-entièrement vert parce qu'entièrement sauté se lit « rien à signaler », ce qui
-serait faux. La sentinelle interroge la **vraie interface** — elle déroule un
-placement et compte les emplacements — et non la seule existence d'un module.
+Si l'interface disparaît, tout ce fichier se met en `skip` sauf
+`test_placer_rend_toutes_les_etapes_et_la_note_des_non_blocs_est_optionnelle`,
+qui **échoue** : un dossier entièrement vert parce qu'entièrement sauté se lit
+« rien à signaler », ce qui serait faux. Cette garde interroge la **vraie
+interface** — elle déroule un placement et compte les emplacements — et non la
+seule existence d'un module.
 """
 
 from __future__ import annotations
@@ -69,13 +68,17 @@ from types import SimpleNamespace
 from typing import Any
 
 import fabriques
-import fabriques_l52 as fab
+import fabriques_seance_visible as fab
 import pytest
 from outils import fabriquer
 
-MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
-MOTIF_SORTIE = "module du sprint 4 absent (ourouler.sortie.commande)"
-
+from ourouler.noyau.texte import nombre_fr
+from ourouler.rendu import carte as module_carte
+from ourouler.rendu import sortie as module_sortie
+from ourouler.rendu import sortie_json as rendu_json
+from ourouler.seance import placement as module_placement
+from ourouler.seance import placement_resultat
+from ourouler.services import sortie as module_commande
 
 # =============================================================================
 # Outils du fichier
@@ -100,11 +103,9 @@ class _Patch:
 
 def placer(monkeypatch: Any, seance: Any, trace: Any, **kw: Any) -> Any:
     """`placer` sur un terrain factice, avec le refus rangé dans le message d'échec."""
-    options = {
-        cle: kw.pop(cle) for cle in ("bon", "mauvais", "pente", "demi_tour") if cle in kw
-    }
+    options = {cle: kw.pop(cle) for cle in ("bon", "mauvais", "pente", "demi_tour") if cle in kw}
     appels = fab.terrain_factice(monkeypatch, **options)
-    module = fab.placement_mod()
+    module = module_placement
     resultat = module.placer(seance, trace, fab.parametres(), **kw)
     assert resultat is not None, (
         "le placement a échoué alors que la fixture est faite pour tenir : "
@@ -126,7 +127,7 @@ def _sonder() -> str:
     """
     try:
         from ourouler.seance import placement as module
-    except Exception as e:  # pragma: no cover - sprint 4 fusionné
+    except Exception as e:  # pragma: no cover - le placement s'importe
         return f"ourouler.seance.placement inimportable : {e!r}"
     patch = _Patch()
     try:
@@ -159,48 +160,32 @@ def exiger_lot() -> None:
         pytest.skip(motif)
 
 
-def carte_mod() -> Any:
-    return pytest.importorskip("ourouler.rendu.carte", reason=MOTIF_CARTE)
-
-
-def commande_mod() -> Any:
-    return pytest.importorskip("ourouler.sortie.commande", reason=MOTIF_SORTIE)
-
-
-def rendu_mod() -> Any:
-    """Le rendu de `sortie` (tableau, séance placée, JSON), sorti de la commande au lot 6."""
-    return pytest.importorskip("ourouler.rendu.sortie", reason=MOTIF_SORTIE)
-
-
 # =============================================================================
-# 0. Sentinelle
+# 0. Garde d'entrée
 # =============================================================================
 
 
-def test_sentinelle_l5_2_pas_encore_livre():
-    """Le seul test de ce fichier qui échoue quand le lot est absent.
+def test_placer_rend_toutes_les_etapes_et_la_note_des_non_blocs_est_optionnelle():
+    """Un emplacement par étape, et `Emplacement.note` admet `None`.
 
-    Sans lui, l'ensemble se lirait « n tests passés » alors qu'aucun n'aurait
-    rien vérifié. Il surveille la **vraie interface** du contrat §2.2 a), pas
-    l'existence d'un module : le lot n'en crée aucun.
+    Garde d'entrée du fichier : sans elle, l'ensemble se lirait « n tests
+    passés » alors qu'aucun n'aurait rien vérifié. Elle surveille la **vraie
+    interface** de la séance visible, pas l'existence d'un module.
 
     Trois choses, dans l'ordre où elles cassent :
 
     1. `placer` rend un emplacement par étape — la sonde ;
     2. les non-blocs n'ont pas de note — sinon huit tests de la section 3
-       vérifieraient un contrat qui n'est pas celui qu'on a écrit ;
-    3. `Emplacement.note` est déclaré optionnel — le contrat dit « `note`
+       vérifieraient une règle qui n'est pas celle qu'on a écrite ;
+    3. `Emplacement.note` est déclaré optionnel — la règle dit « `note`
        devient optionnelle plutôt que d'inventer une valeur neutre », et une
        annotation restée `NoteBloc` est le signe qu'on a mis un `0.0` ailleurs.
     """
     motif = motif_absence()
     if motif:  # pragma: no cover - chemin nominal avant fusion
-        pytest.fail(
-            f"{motif}. Tous les autres tests de ce fichier sont en skip et ne "
-            "vérifient rien."
-        )
+        pytest.fail(f"{motif}. Tous les autres tests de ce fichier sont en skip et ne vérifient rien.")
 
-    module = fab.placement_mod()
+    module = module_placement
     annotation = str(module.Emplacement.__annotations__.get("note", ""))
     assert "None" in annotation or "Optional" in annotation, (
         "contrat §2.2 a) : « les non-blocs n'ont pas de note […] `note` devient "
@@ -412,7 +397,7 @@ def test_la_recuperation_du_demi_tour_compte_l_aller_et_le_retour(monkeypatch):
 
     La récupération de 4 min se coupe en deux autour du demi-tour : 2 min à
     l'aller, 2 min au retour. Son empreinte sur le tracé vaut `b` ≈ 930 m ;
-    ce qu'elle fait rouler vaut `2b` ≈ 1 862 m. Le contrat §2.2 a) dit « au
+    ce qu'elle fait rouler vaut `2b` ≈ 1 862 m. La règle dit « au
     sens du parcours réellement roulé », donc `2b`.
 
     Mutation attrapée : `longueur_m = abs(fin − debut)` sur les positions du
@@ -446,8 +431,8 @@ def test_la_recuperation_du_demi_tour_compte_l_aller_et_le_retour(monkeypatch):
 def test_le_demi_tour_ne_se_compte_pas_deux_fois(monkeypatch):
     """`Proposition.demi_tours` doit rester à 1 sur un placement à un demi-tour.
 
-    Le contrat §2.2 a) garde `demi_tour` « pour les récupérations qui en
-    portent un ». Le compteur de `sortie/commande.py` additionne le drapeau sur
+    La règle garde `demi_tour` « pour les récupérations qui en
+    portent un ». Le compteur de `services/sortie.py` additionne le drapeau sur
     **tous** les emplacements : si la récupération le porte aussi, il passe de
     1 à 2 sans rien lever, et la colonne « demi-tours » du tableau ment.
 
@@ -455,7 +440,7 @@ def test_le_demi_tour_ne_se_compte_pas_deux_fois(monkeypatch):
     impose que le **compte affiché** reste juste.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance, resultat = _resultat_demi_tour(monkeypatch)
     proposition = _proposition(commande, resultat, fab.trace_droite(78_000.0))
     assert proposition.demi_tours == 1, (
@@ -473,7 +458,7 @@ def test_un_demi_tour_ecrete_ne_perd_pas_de_distance(monkeypatch):
     demi-tour **écrêté** par `_Terrain.dans_le_trace`. Sur une boucle de
     48,0 km, les jalons totalisent 96 000 m quand `distance_totale_m` annonce
     97 814 m : **1 814 m d'écart**. C'est une approximation assumée et
-    documentée dans `dans_le_trace`, mais le contrat §2.2 a) fait des deux des
+    documentée dans `dans_le_trace`, mais la règle fait des deux des
     autorités et elles ne peuvent pas toutes les deux avoir raison.
 
     Ce test n'arbitre pas — ce n'est pas à lui de le faire. Il vérifie la
@@ -502,9 +487,7 @@ def test_un_demi_tour_ecrete_ne_perd_pas_de_distance(monkeypatch):
         demi_tour=True,
         penalite_demi_tour=1.0,
     )
-    jalons = sum(
-        abs(b - a) for a, b in zip(resultat.jalons_m[:-1], resultat.jalons_m[1:], strict=True)
-    )
+    jalons = sum(abs(b - a) for a, b in zip(resultat.jalons_m[:-1], resultat.jalons_m[1:], strict=True))
     assert abs(resultat.distance_totale_m - jalons) > 1_000.0, (
         "cette fixture doit reproduire l'écrêtage du jalon de demi-tour, sinon elle "
         f"ne teste rien : jalons {jalons:.0f} m, distance {resultat.distance_totale_m:.0f} m"
@@ -527,10 +510,9 @@ def test_le_parcours_reconstruit_fait_la_distance_annoncee(monkeypatch):
     bougé.
     """
     exiger_lot()
-    module = fab.placement_mod()
     trace = fab.boucle_carree()
     seance, resultat = _resultat_demi_tour(monkeypatch, trace)
-    parcours = module.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
     somme = sum(e.longueur_m for e in resultat.emplacements)
     assert parcours.distance_m == pytest.approx(somme, rel=0.01), (
         f"le parcours recollé fait {parcours.distance_m / 1000:.2f} km, la somme des "
@@ -595,9 +577,7 @@ def test_la_note_de_terrain_ne_se_dilue_pas_dans_les_non_blocs(monkeypatch):
     """
     exiger_lot()
     seance = fab.seance_2x20()
-    resultat, _ = placer(
-        monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0), mauvais=10.0
-    )
+    resultat, _ = placer(monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0), mauvais=10.0)
     dilue = (10.0 * 1200.0 + 10.0 * 1200.0) / (3600.0 + 1200.0 + 240.0 + 1200.0 + 1800.0)
     assert resultat.note_terrain == pytest.approx(10.0, abs=1e-12), (
         f"note_terrain = {resultat.note_terrain!r} au lieu de 10,0. "
@@ -622,9 +602,7 @@ def test_evaluer_couloir_n_est_appele_que_sur_les_blocs(monkeypatch):
     seance = fab.seance_2x20()
     resultat, appels = placer(monkeypatch, seance, fab.trace_droite(78_000.0))
     non_blocs = {
-        round(e.longueur_m, 3)
-        for e in resultat.emplacements
-        if seance.etapes[e.etape_idx].type != "bloc"
+        round(e.longueur_m, 3) for e in resultat.emplacements if seance.etapes[e.etape_idx].type != "bloc"
     }
     evaluees = {round(longueur, 3) for _, longueur, _, _ in appels}
     communes = non_blocs & evaluees - {0.0}
@@ -657,8 +635,7 @@ def test_la_note_de_terrain_est_la_moyenne_ponderee_des_seuls_blocs(monkeypatch)
     poids = [float(seance.etapes[e.etape_idx].duree_s) for e in blocs]
     attendu = sum(fab.note_de(e) * p for e, p in zip(blocs, poids, strict=True)) / sum(poids)
     assert resultat.note_terrain == pytest.approx(attendu, abs=1e-12), (
-        f"note_terrain = {resultat.note_terrain!r}, recalculée sur les seuls blocs "
-        f"= {attendu!r}"
+        f"note_terrain = {resultat.note_terrain!r}, recalculée sur les seuls blocs = {attendu!r}"
     )
     assert len({fab.note_de(e) for e in blocs}) == 2, (
         "cette fixture doit produire deux notes différentes, sinon la pondération "
@@ -677,11 +654,18 @@ def test_la_note_d_un_bloc_reste_lisible_sans_passer_par_un_optionnel(monkeypatc
     seance = fab.seance_2x20()
     resultat, _ = placer(monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0))
     for e in fab.blocs_de(resultat, seance):
-        for champ in ("note", "motifs", "pente_moyenne", "pente_max", "carrefours",
-                      "km_batis", "descente_m", "montee_m"):
+        for champ in (
+            "note",
+            "motifs",
+            "pente_moyenne",
+            "pente_max",
+            "carrefours",
+            "km_batis",
+            "descente_m",
+            "montee_m",
+        ):
             assert hasattr(e.note, champ), (
-                f"la note du bloc {e.etape_idx} a perdu `{champ}` : l'affichage et la "
-                "carte le lisent"
+                f"la note du bloc {e.etape_idx} a perdu `{champ}` : l'affichage et la carte le lisent"
             )
         assert e.note.motifs, "un couloir hors du bon segment doit porter un motif"
 
@@ -691,7 +675,7 @@ def test_la_note_d_un_bloc_reste_lisible_sans_passer_par_un_optionnel(monkeypatc
 # =============================================================================
 
 #: Relevé le 16/09/2026 sur `essai-l5.1` (`f4f0cb5`), par `placer` sur les
-#: fixtures de `fabriques_l52`, **avant** que le lot L5.2 soit écrit. Le lot est
+#: fixtures de `fabriques_seance_visible`, **avant** que le lot L5.2 soit écrit. Le lot est
 #: un lot d'affichage : aucune de ces valeurs n'a le droit de bouger.
 #:
 #: La comparaison est **exacte**. Si un jour l'écart constaté est de l'ordre de
@@ -773,7 +757,7 @@ GOLDEN: dict[str, dict[str, Any]] = {
 
 
 @pytest.mark.parametrize("cas", sorted(GOLDEN))
-def test_le_lot_d_affichage_ne_change_aucune_note(monkeypatch, cas):
+def test_la_seance_visible_ne_change_aucune_note(monkeypatch, cas):
     """Les notes, la pénalité, le décalage retenu et les jalons, au bit près.
 
     Mutations attrapées, toutes silencieuses :
@@ -806,7 +790,7 @@ def test_le_lot_d_affichage_ne_change_aucune_note(monkeypatch, cas):
 def test_les_blocs_gardent_exactement_leur_place(monkeypatch, cas):
     """Le filtre « blocs » rend ce que `emplacements` rendait avant le lot.
 
-    C'est la garantie de compatibilité du contrat §2.2 a) : « les appelants qui
+    C'est la garantie de compatibilité de la séance visible : « les appelants qui
     ne veulent que les blocs doivent le rester simplement ». Les positions sont
     comparées à 0,1 mm, le format dans lequel elles ont été relevées.
     """
@@ -866,7 +850,7 @@ def test_l_ordre_des_candidates_ne_bouge_pas(monkeypatch):
     note, l'ordre basculerait ici avant de basculer chez le mainteneur.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     propositions = []
     for numero, cas in enumerate(("seance_amputee", "calme_allonge", "reference"), start=1):
@@ -943,21 +927,18 @@ def test_le_compte_de_blocs_bien_places_ne_compte_que_des_blocs(monkeypatch, cas
       c'est précisément la mesure que le mainteneur lit pour choisir.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     attendu = GOLDEN[cas]
     seance = fab.seance_2x20()
     trace = fab.trace_droite(attendu["trace_m"])
-    resultat, _ = placer(
-        monkeypatch, seance, trace, **attendu["options"], **attendu.get("kw", {})
-    )
+    resultat, _ = placer(monkeypatch, seance, trace, **attendu["options"], **attendu.get("kw", {}))
     proposition = _proposition(commande, resultat, trace)
     assert proposition.blocs_bien_places == attendu["n_blocs_bien_places"], (
         f"{cas} : {proposition.blocs_bien_places} blocs bien placés annoncés pour "
         f"{attendu['n_blocs_bien_places']} réels — le compteur ratisse les non-blocs"
     )
     assert proposition.demi_tours == attendu["n_demi_tours"], (
-        f"{cas} : {proposition.demi_tours} demi-tours annoncés pour "
-        f"{attendu['n_demi_tours']} réels"
+        f"{cas} : {proposition.demi_tours} demi-tours annoncés pour {attendu['n_demi_tours']} réels"
     )
 
 
@@ -973,12 +954,12 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
     que le mainteneur lit.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     proposition = _proposition(commande, resultat, trace)
-    cellules = rendu_mod()._cellules(proposition, set())
+    cellules = module_sortie._cellules(proposition, set())
     fractions = [c for c in cellules if re.fullmatch(r"\d+/\d+", c)]
     assert fractions == ["2/2"], (
         f"la cellule « blocs bien placés » vaut {fractions} ; la séance a 2 blocs "
@@ -993,11 +974,11 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
 
 def _lignes_seance(commande: Any, proposition: Any, seance: Any) -> list[str]:
     """`_seance_placee`, qui ne lit du contexte que `contexte.seance`."""
-    assert hasattr(rendu_mod(), "_seance_placee"), (
+    assert hasattr(module_sortie, "_seance_placee"), (
         "`rendu.sortie._seance_placee` a disparu : c'est la fonction que le "
         "contrat §2.2 b) fait évoluer, et six tests de ce fichier la visent"
     )
-    return rendu_mod()._seance_placee(proposition, SimpleNamespace(seance=seance))
+    return module_sortie._seance_placee(proposition, SimpleNamespace(seance=seance))
 
 
 def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
@@ -1012,7 +993,7 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
     ni le libellé : seulement que les deux nombres tombent sur la même ligne.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1020,18 +1001,16 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
 
     vues = []
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         portantes = [ligne for ligne in lignes if debut in ligne and fin in ligne]
         assert portantes, (
             f"étape {e.etape_idx} ({seance.etapes[e.etape_idx].type}) : aucune ligne ne "
-            f"porte « km {debut} » et « km {fin} ». Lignes rendues :\n"
-            + "\n".join(lignes)
+            f"porte « km {debut} » et « km {fin} ». Lignes rendues :\n" + "\n".join(lignes)
         )
         vues.append(portantes[0])
     assert len(set(vues)) == len(seance.etapes), (
-        "chaque étape doit avoir sa propre ligne ; deux étapes se partagent la même :\n"
-        + "\n".join(lignes)
+        "chaque étape doit avoir sa propre ligne ; deux étapes se partagent la même :\n" + "\n".join(lignes)
     )
 
 
@@ -1045,7 +1024,7 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
     inventée.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
@@ -1053,19 +1032,16 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
 
     lignes_etapes = []
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
-        lignes_etapes.append(
-            (e, next(ligne for ligne in lignes if debut in ligne and fin in ligne))
-        )
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        lignes_etapes.append((e, next(ligne for ligne in lignes if debut in ligne and fin in ligne)))
 
     for e, ligne in lignes_etapes:
         if seance.etapes[e.etape_idx].type == "bloc":
             assert "10,00" in ligne, f"le bloc {e.etape_idx} doit garder sa note : {ligne!r}"
         else:
             assert "note" not in ligne.casefold(), (
-                f"l'étape {e.etape_idx} n'est pas un bloc et sa ligne annonce une "
-                f"note : {ligne!r}"
+                f"l'étape {e.etape_idx} n'est pas un bloc et sa ligne annonce une note : {ligne!r}"
             )
             assert "0,00" not in ligne, (
                 f"l'étape {e.etape_idx} porte « 0,00 » : la valeur neutre a été "
@@ -1081,15 +1057,15 @@ def test_l_affichage_d_une_seance_tres_longue_reste_coherent(monkeypatch):
     pas.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_longue()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     lignes = _lignes_seance(commande, _proposition(commande, resultat, trace), seance)
     texte = "\n".join(lignes)
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         assert any(debut in ligne and fin in ligne for ligne in lignes), (
             f"étape {e.etape_idx} absente de l'affichage d'une séance à 31 étapes"
         )
@@ -1105,14 +1081,12 @@ def test_l_affichage_supporte_deux_etapes_au_meme_kilometre(monkeypatch):
     `min()`/`max()` sur une plage vide.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_etape_nulle()
     trace = fab.trace_droite(50_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     lignes = _lignes_seance(commande, _proposition(commande, resultat, trace), seance)
-    assert len(lignes) >= len(seance.etapes), (
-        f"{len(lignes)} lignes pour {len(seance.etapes)} étapes"
-    )
+    assert len(lignes) >= len(seance.etapes), f"{len(lignes)} lignes pour {len(seance.etapes)} étapes"
     assert all(isinstance(ligne, str) for ligne in lignes)
 
 
@@ -1127,11 +1101,11 @@ def test_le_json_porte_toutes_les_etapes_et_aucune_note_inventee(monkeypatch):
     supposer le chemin : le contrat ne fige pas le schéma.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
-    charge = rendu_mod()._candidate_json(_proposition(commande, resultat, trace))
+    charge = rendu_json._candidate_json(_proposition(commande, resultat, trace))
     json.dumps(charge, ensure_ascii=False)  # doit rester sérialisable tel quel
 
     emplacements = charge["placement"]["emplacements"]
@@ -1201,10 +1175,7 @@ def _distance_min(points: list[tuple[float, float]], cible: Any) -> float:
     from ourouler.noyau.trace import PointTrace, distance_m
 
     return min(
-        (
-            distance_m(PointTrace(lat=lat, lon=lon, alt_m=None, dist_m=0.0), cible)
-            for lat, lon in points
-        ),
+        (distance_m(PointTrace(lat=lat, lon=lon, alt_m=None, dist_m=0.0), cible) for lat, lon in points),
         default=math.inf,
     )
 
@@ -1231,7 +1202,7 @@ def test_la_carte_distingue_ce_qui_est_roule_de_ce_qui_ne_l_est_pas(monkeypatch)
     Les deux moitiés sont donc nécessaires.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
     trace = fab.trace_droite(78_000.0)
     seance, resultat = _resultat_demi_tour(monkeypatch, trace)
     page = carte.construire(trace, seance, resultat)
@@ -1255,10 +1226,7 @@ def test_la_carte_distingue_ce_qui_est_roule_de_ce_qui_ne_l_est_pas(monkeypatch)
     )
 
 
-HOSTILE = (
-    "</script><img src=x onerror=alert(1)> & \"guillemets\" 'simples' "
-    "<b>gras</b>   sentinelle-l52"
-)
+HOSTILE = "</script><img src=x onerror=alert(1)> & \"guillemets\" 'simples' <b>gras</b>   sentinelle-l52"
 
 
 def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
@@ -1281,7 +1249,7 @@ def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
     rouge dès que les deux tombent — vérifié.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
 
     def _seance_libellee(libelle: str) -> Any:
         return fab.seance(
@@ -1312,13 +1280,9 @@ def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
     inerte = "etape inerte"
     seance_inerte = _seance_libellee(inerte)
     temoin_placement, _ = placer(monkeypatch, seance_inerte, trace)
-    temoin = carte.construire(
-        trace, seance_inerte, temoin_placement, sous_titre=inerte, notes=[inerte]
-    )
+    temoin = carte.construire(trace, seance_inerte, temoin_placement, sous_titre=inerte, notes=[inerte])
     balises = sorted(nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", page))
-    balises_temoin = sorted(
-        nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", temoin)
-    )
+    balises_temoin = sorted(nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", temoin))
     assert balises == balises_temoin, (
         "un libellé hostile a ajouté ou retiré des balises à la page : "
         f"{sorted(set(balises) ^ set(balises_temoin))}"
@@ -1336,7 +1300,7 @@ def test_un_libelle_hostile_ne_casse_pas_l_affichage_texte(monkeypatch):
     deux et ferait mentir tous les comptes de ce fichier.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     etapes = [
         fab.etape("echauffement", 60, fab.PUISSANCE_Z2, elastique=True, libelle=HOSTILE),
         fab.etape("bloc", 20, fab.PUISSANCE_BLOC, libelle=HOSTILE),
@@ -1360,7 +1324,7 @@ def test_la_carte_accepte_une_seance_sans_aucun_bloc(monkeypatch):
     `None`.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
     seance = fab.seance_sans_bloc()
     trace = fab.trace_droite(44_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1399,12 +1363,12 @@ def test_le_placement_et_la_carte_ne_touchent_ni_disque_ni_horloge(monkeypatch):
 
     `open`, `Path.open`, `datetime.now` et `os.environ.get` sont remplacés par
     des refus le temps d'un placement complet et d'une construction de carte.
-    Le lot ajoute du code à `seance/placement.py` et à `sortie/carte.py` ; un
+    Le lot ajoute du code à `seance/placement.py` et à `rendu/carte.py` ; un
     `datetime.now()` glissé pour dater une étiquette, ou un chemin lu pour
     choisir une palette, tomberait ici.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
 
     import builtins
     import os
@@ -1419,7 +1383,7 @@ def test_le_placement_et_la_carte_ne_touchent_ni_disque_ni_horloge(monkeypatch):
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     appels = fab.terrain_factice(monkeypatch)
-    module = fab.placement_mod()
+    module = module_placement
 
     monkeypatch.setattr(builtins, "open", refuser)
     monkeypatch.setattr(pathlib.Path, "open", refuser)

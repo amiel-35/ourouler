@@ -1,17 +1,13 @@
-"""L1.3 — rattachement au vélo et inventaire, mis à l'épreuve.
+"""Rattachement au vélo et inventaire, mis à l'épreuve.
 
-Cible : contrat §2 du sprint 1, **révisé par le contrat du sprint 2 §7**
-(lot L2.7). La règle de rattachement est ordonnée ; l'ordre a changé : il
-était (1 équipement, 2 période, 3 sport intérieur, 4 premier vélo « route »),
-il est désormais (1 intérieur, 2 capteur de puissance, 3 équipement — par
-`gear_id` ou par nom, 4 période, 5 premier vélo « route »). La moitié des
-tests ici vérifie l'**ordre**, pas seulement chaque règle prise à part ; les
-trois tests d'ordre ci-dessous ont été réécrits en conséquence, la cible
-ayant bougé sous eux.
+La règle de rattachement est ordonnée : (1 intérieur, 2 capteur de
+puissance, 3 équipement — par `gear_id` ou par nom, 4 période, 5 premier vélo
+« route »). La moitié des tests ici vérifie l'**ordre**, pas seulement chaque
+règle prise à part.
 
-Les `EntreeCache` sont fabriquées directement (`outils.fabriquer`) : le
-contrat donne la liste des champs mais ni leur ordre ni leurs défauts, et il
-ne dit pas sous quelle clé de `meta` le cache range `equipement`.
+Les `EntreeCache` sont fabriquées directement (`outils.fabriquer`) : les tests
+ne supposent ni l'ordre ni les défauts des champs, ni sous quelle clé de `meta`
+le cache range `equipement`.
 """
 
 from __future__ import annotations
@@ -23,23 +19,13 @@ from pathlib import Path
 import outils
 import pytest
 
+from ourouler.activites import cache as module_cache
+from ourouler.activites import inventaire as module_inventaire
 from ourouler.config import depuis_dict
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
-MOTIF_ABSENT = "module attendu par le contrat L1.3 absent (ourouler.activites.inventaire)"
-MOTIF_CACHE = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"
-MOTIF_COMMANDE = "module attendu par le contrat L1.3 absent (ourouler.activites.commande)"
-
 HOME_TRAINER = "home-trainer"
 DEBUT_REF = datetime(2024, 3, 15, 12, 0, tzinfo=UTC)
-
-
-def _inventaire_module():
-    return pytest.importorskip("ourouler.activites.inventaire", reason=MOTIF_ABSENT)
-
-
-def _cache_module():
-    return pytest.importorskip("ourouler.activites.cache", reason=MOTIF_CACHE)
 
 
 def _config(velos: list[dict], **reste):
@@ -105,7 +91,7 @@ def _rattacher(module, config, **surcharges) -> str:
 
 @pytest.mark.parametrize("equipement", ["gear-beta", "GEAR-BETA", "Gear-Beta", "gEaR-bEtA"])
 def test_equipement_insensible_a_la_casse(equipement):
-    module = _inventaire_module()
+    module = module_inventaire
     assert _rattacher(module, _config(VELOS), equipement=equipement, debut=DEBUT_REF) == "Beta", (
         "l'équipement (règle 3) doit primer sur la période (règle 4), quelle que soit la casse"
     )
@@ -119,7 +105,7 @@ def test_equipement_vide_ou_inconnu_ne_capture_pas(equipement):
     compare deux chaînes vides, elle lui rattache tout le reste, alors que la
     règle 5 désigne le premier vélo d'usage *route*.
     """
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module, _config(VELOS), equipement=equipement, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
     )
@@ -141,12 +127,12 @@ def test_equipement_vide_ou_inconnu_ne_capture_pas(equipement):
     ],
 )
 def test_periode_rattache_le_bon_velo(jour, attendu):
-    module = _inventaire_module()
+    module = module_inventaire
     assert _rattacher(module, _config(VELOS), debut=jour) == attendu
 
 
 def test_sortie_hors_de_toute_periode_tombe_sur_le_premier_velo_route():
-    module = _inventaire_module()
+    module = module_inventaire
     assert _rattacher(module, _config(VELOS), debut=datetime(2023, 11, 30, 10, tzinfo=UTC)) == "Alpha"
 
 
@@ -157,13 +143,13 @@ def test_bascule_de_periode_a_cheval_sur_minuit_utc():
     locale. On exige seulement une réponse dans les deux candidats, pas un
     repli sur le home-trainer ni sur un troisième vélo.
     """
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(module, _config(VELOS), debut=datetime(2024, 6, 30, 22, 30, tzinfo=UTC))
     assert resultat in ("Alpha", "Beta"), f"reçu {resultat!r}"
 
 
 def test_debut_naif_ne_fait_pas_planter_le_rattachement():
-    module = _inventaire_module()
+    module = module_inventaire
     outils.robuste(
         lambda: module.rattacher_velo(_entree(module, debut=datetime(2024, 3, 15, 12)), _config(VELOS)),
         quoi="rattacher_velo(debut naïf)",
@@ -176,10 +162,8 @@ def test_debut_naif_ne_fait_pas_planter_le_rattachement():
 
 @pytest.mark.parametrize("sport", ["VirtualRide", "virtualride", "VIRTUALRIDE"])
 def test_virtual_ride_va_au_home_trainer(sport):
-    module = _inventaire_module()
-    resultat = _rattacher(
-        module, _config(VELOS), sport=sport, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
-    )
+    module = module_inventaire
+    resultat = _rattacher(module, _config(VELOS), sport=sport, debut=datetime(2023, 5, 1, 12, tzinfo=UTC))
     assert resultat == HOME_TRAINER
 
 
@@ -199,7 +183,7 @@ def test_virtual_ride_va_au_home_trainer(sport):
 def test_appareil_interieur_meme_sali_va_au_home_trainer(appareil):
     """Le nom d'appareil arrive tel que la source le donne : casse, espaces
     insécables, espaces de largeur nulle, tabulations."""
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module, _config(VELOS), appareil=appareil, sport="Ride", debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
     )
@@ -208,7 +192,7 @@ def test_appareil_interieur_meme_sali_va_au_home_trainer(appareil):
 
 @pytest.mark.parametrize("appareil", ["Garmin Edge 530", "Wahoo ELEMNT BOLT", "", None])
 def test_appareil_exterieur_ne_va_pas_au_home_trainer(appareil):
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module, _config(VELOS), appareil=appareil, sport="Ride", debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
     )
@@ -216,7 +200,7 @@ def test_appareil_exterieur_ne_va_pas_au_home_trainer(appareil):
 
 
 def test_meta_interieur_vrai_va_au_home_trainer():
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module,
         _config(VELOS),
@@ -228,7 +212,7 @@ def test_meta_interieur_vrai_va_au_home_trainer():
 
 def test_meta_interieur_faux_ne_suffit_pas():
     """`meta["interieur"] = False` : c'est la valeur qui compte, pas la présence de la clé."""
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module,
         _config(VELOS),
@@ -243,21 +227,20 @@ def test_meta_interieur_faux_ne_suffit_pas():
 
 
 def test_equipement_prime_sur_la_periode():
-    """Contrat sprint 2 §7 : « (3) gear_id / equipement ; (4) période »."""
-    module = _inventaire_module()
+    """Règle (3) `gear_id` / équipement avant (4) période."""
+    module = module_inventaire
     resultat = _rattacher(module, _config(VELOS), equipement="gear-beta", debut=DEBUT_REF)
     assert resultat == "Beta", "règle 3 avant règle 4 (la période de mars 2024 est celle d'Alpha)"
 
 
 def test_l_interieur_prime_sur_l_equipement():
-    """Contrat sprint 2 §7 : « (1) intérieur […] ; (3) gear_id / equipement ».
+    """Règle (1) intérieur avant (3) `gear_id` / équipement.
 
-    Inversion assumée par rapport au sprint 1, où l'équipement gagnait. Une
-    séance de home-trainer faite avec le capteur et l'équipement du vélo de
+    Une séance de home-trainer faite avec le capteur et l'équipement du vélo de
     route reste une séance d'intérieur : sinon elle serait comptée en sortie
     extérieure et fausserait les kilomètres du vélo.
     """
-    module = _inventaire_module()
+    module = module_inventaire
     resultat = _rattacher(
         module,
         _config(VELOS),
@@ -271,22 +254,18 @@ def test_l_interieur_prime_sur_l_equipement():
 
 
 def test_l_interieur_prime_sur_la_periode():
-    """Contrat sprint 2 §7 : « (1) intérieur […] ; (4) période »."""
-    module = _inventaire_module()
-    resultat = _rattacher(
-        module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF
-    )
+    """Règle (1) intérieur avant (4) période."""
+    module = module_inventaire
+    resultat = _rattacher(module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF)
     assert resultat == HOME_TRAINER, "règle 1 avant règle 4"
 
 
 def test_aucun_velo_de_route_configure():
     """Le contrat ne dit pas quoi faire si la règle 5 n'a pas de candidat."""
-    module = _inventaire_module()
+    module = module_inventaire
     config = _config([{"nom": "Chrono", "usage": "clm"}])
     resultat, erreur = outils.robuste(
-        lambda: module.rattacher_velo(
-            _entree(module, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)), config
-        ),
+        lambda: module.rattacher_velo(_entree(module, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)), config),
         quoi="rattacher_velo sans vélo de route",
         erreurs_acceptees=(ErreurUtilisateur,),
     )
@@ -296,7 +275,7 @@ def test_aucun_velo_de_route_configure():
 
 def test_deux_velos_pour_la_meme_periode():
     """Périodes qui se recouvrent : une réponse, laquelle qu'elle soit, jamais un plantage."""
-    module = _inventaire_module()
+    module = module_inventaire
     config = _config(
         [
             {"nom": "Alpha", "usage": "route", "periodes": [{"debut": "2024-01-01"}]},
@@ -323,7 +302,7 @@ GPX_SUR_PLACE = (
 
 
 def _cache_avec(tmp_path, contenus: dict[str, bytes]):
-    module = _cache_module()
+    module = module_cache
     source = tmp_path / "a_importer"
     source.mkdir(exist_ok=True)
     for nom, octets in contenus.items():
@@ -335,8 +314,8 @@ def _cache_avec(tmp_path, contenus: dict[str, bytes]):
 
 def test_inventaire_vide_ne_divise_pas_par_zero(tmp_path):
     """Un cache vide : « % avec puissance » sur zéro sortie ne doit pas exploser."""
-    module = _inventaire_module()
-    cache_module = _cache_module()
+    module = module_inventaire
+    cache_module = module_cache
     cache = cache_module.Cache(tmp_path / "cache")
     inv = module.inventaire(cache, _config(VELOS), date(2023, 12, 1))
     texte = module.rendre_texte(inv)
@@ -352,7 +331,7 @@ def test_velo_sans_aucune_sortie(tmp_path, hostiles):
     C'est le cas qui divise par zéro dans une implémentation qui parcourt les
     vélos de la configuration plutôt que les seules sorties trouvées.
     """
-    module = _inventaire_module()
+    module = module_inventaire
     cache = _cache_avec(tmp_path, {"a.gpx": hostiles["nominal.gpx"].read_bytes()})
     inv = module.inventaire(cache, _config(VELOS), date(2023, 12, 1))
     brut = outils.verifier_json(module.rendre_json(inv), "rendre_json(inventaire partiel)")
@@ -361,7 +340,7 @@ def test_velo_sans_aucune_sortie(tmp_path, hostiles):
 
 
 def test_inventaire_json_serialisable_et_texte_non_vide(tmp_path, hostiles):
-    module = _inventaire_module()
+    module = module_inventaire
     cache = _cache_avec(
         tmp_path,
         {
@@ -383,8 +362,8 @@ def test_le_parametre_depuis_est_respecte(tmp_path, hostiles):
     On compare au même inventaire calculé sur un cache vide : c'est la seule
     façon de le vérifier sans connaître les noms de champs d'`Inventaire`.
     """
-    module = _inventaire_module()
-    cache_module = _cache_module()
+    module = module_inventaire
+    cache_module = module_cache
     plein = _cache_avec(tmp_path, {"a.gpx": hostiles["nominal.gpx"].read_bytes()})
     vide = cache_module.Cache(tmp_path / "cache_vide")
     config = _config(VELOS)
@@ -395,7 +374,7 @@ def test_le_parametre_depuis_est_respecte(tmp_path, hostiles):
 
 def test_anomalies_detectees(tmp_path, hostiles, generateur):
     """Sortie de 5 min, sortie à distance nulle et sans puissance : au moins une anomalie."""
-    module = _inventaire_module()
+    module = module_inventaire
     cache = _cache_avec(
         tmp_path,
         {
@@ -407,12 +386,12 @@ def test_anomalies_detectees(tmp_path, hostiles, generateur):
     donnees = module.rendre_json(module.inventaire(cache, _config(VELOS), date(2023, 12, 1)))
     outils.verifier_json(donnees, "rendre_json(inventaire)")
     listes = outils.trouver_cle(donnees, "anomal")
-    assert listes, 'rendre_json doit exposer les anomalies (clé contenant « anomalies »)'
+    assert listes, "rendre_json doit exposer les anomalies (clé contenant « anomalies »)"
     assert any(liste for liste in listes), f"aucune anomalie signalée : {listes}"
 
 
 def test_pas_d_anomalie_sur_des_sorties_saines(tmp_path, hostiles):
-    module = _inventaire_module()
+    module = module_inventaire
     cache = _cache_avec(
         tmp_path,
         {
@@ -429,7 +408,6 @@ def test_pas_d_anomalie_sur_des_sorties_saines(tmp_path, hostiles):
 
 
 def _main():
-    pytest.importorskip("ourouler.activites.commande", reason=MOTIF_COMMANDE)
     from ourouler.cli import main
 
     return main

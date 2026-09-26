@@ -1,7 +1,7 @@
-"""L3.3 — calibration (`physique/calibration.py`), mise à l'épreuve.
+"""Calibration (`physique/calibration.py`), mise à l'épreuve.
 
-Cible : contrat du sprint 3 §3 et §4. C'est **le** livrable du sprint : le CdA
-et le Crr sortis d'ici servent ensuite à toutes les estimations de temps.
+C'est la mesure dont tout dépend : le CdA et le Crr sortis d'ici servent
+ensuite à toutes les estimations de temps.
 
 Ce qui est traqué :
 
@@ -31,20 +31,20 @@ from datetime import date, timedelta
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import outils
 import pytest
 from outils import robuste, sans_accents
 
 from ourouler import config as module_config
 from ourouler.activites.cache import Cache
+from ourouler.connecteurs import openmeteo_archive as module_openmeteo_archive
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.physique import calibration as module_calibration
+from ourouler.physique import modele as module_modele
+from ourouler.services import calibrer as module_calibrer
 
-MOTIF_ABSENT = "module attendu par le contrat L3.3 absent (ourouler.physique.calibration)"
-MOTIF_MODELE = "ourouler.physique.modele absent : la calibration ne se vérifie pas seule"
-MOTIF_ARCHIVE = "ourouler.connecteurs.openmeteo_archive absent : pas de HeureArchive à fournir"
-
-#: Bornes du contrat §3, réécrites ici plutôt que lues dans le module testé.
+#: Bornes de la calibration, réécrites ici plutôt que lues dans le module testé.
 CDA_MIN, CDA_MAX = 0.18, 0.6
 CRR_MIN, CRR_MAX = 0.002, 0.012
 MASSE_TOTALE_KG = 85.0
@@ -55,23 +55,6 @@ CHAMPS_ECHANTILLON = {"v_ms", "puissance_w", "pente", "vent_face_ms", "temp_c", 
 JETONS_BORNE = ("borne", "satur", "avert", "plafond", "limite", "contraint", "butee")
 
 ERREURS = (ErreurUtilisateur, ValueError)
-
-
-def _module():
-    return pytest.importorskip("ourouler.physique.calibration", reason=MOTIF_ABSENT)
-
-
-def _selection():
-    """Le choix des sorties : sorti de `physique.calibration` au lot 8 (cas d'usage)."""
-    return pytest.importorskip("ourouler.services.calibrer", reason=MOTIF_ABSENT)
-
-
-def _modele():
-    return pytest.importorskip("ourouler.physique.modele", reason=MOTIF_MODELE)
-
-
-def _archive():
-    return pytest.importorskip("ourouler.connecteurs.openmeteo_archive", reason=MOTIF_ARCHIVE)
 
 
 # --- lecture tolérante des résultats ------------------------------------------
@@ -107,7 +90,7 @@ def _nombre_nomme(objet: Any, jeton: str, quoi: str) -> float:
 
 
 def _verifier_ajustement(ajustement: Any, quoi: str) -> tuple[float, float]:
-    fabriques3.tout_fini(ajustement, quoi)
+    fabriques_physique.tout_fini(ajustement, quoi)
     cda = _nombre_nomme(ajustement, "cda", quoi)
     crr = _nombre_nomme(ajustement, "crr", quoi)
     assert CDA_MIN <= cda <= CDA_MAX, (
@@ -168,9 +151,7 @@ def _echantillons_coherents(module, modele, p, *, n_max: int = 60):
             for vent in (-3.0, 0.0, 4.0):
                 puissance = modele.puissance_requise(v, pente, vent, p)
                 echantillons.append(
-                    _echantillon(
-                        module, v_ms=v, puissance_w=puissance, pente=pente, vent_face_ms=vent
-                    )
+                    _echantillon(module, v_ms=v, puissance_w=puissance, pente=pente, vent_face_ms=vent)
                 )
     return echantillons[:n_max]
 
@@ -179,7 +160,7 @@ def _vent_constant(module_archive, *, vent_kmh: float = 0.0, depuis_deg: float =
     outils.exiger_champs(
         module_archive.HeureArchive, {"t", "vent_kmh", "vent_depuis_deg", "temp_c", "pression_hpa"}
     )
-    base = fabriques3.DEBUT_ACTIVITE.replace(hour=0, minute=0)
+    base = fabriques_physique.DEBUT_ACTIVITE.replace(hour=0, minute=0)
     return [
         outils.fabriquer(
             module_archive.HeureArchive,
@@ -200,8 +181,8 @@ def _vent_constant(module_archive, *, vent_kmh: float = 0.0, depuis_deg: float =
 
 @pytest.mark.parametrize("nb", [0, 1, 2])
 def test_calibrer_avec_trop_peu_d_echantillons(nb):
-    """Contrat §4 : « calibration avec 0/1/2 échantillons » — le système est sous-déterminé."""
-    module = _module()
+    """Avec 0, 1 ou 2 échantillons, le système est sous-déterminé."""
+    module = module_calibration
     echantillons = [_echantillon(module, v_ms=6.0 + i) for i in range(nb)]
     resultat, _ = robuste(
         lambda: module.calibrer(echantillons, masse_totale_kg=MASSE_TOTALE_KG),
@@ -213,8 +194,8 @@ def test_calibrer_avec_trop_peu_d_echantillons(nb):
 
 
 def test_calibrer_avec_des_echantillons_tous_identiques():
-    """Contrat §4 : « échantillons tous identiques ». Deux inconnues, une seule équation."""
-    module = _module()
+    """Des échantillons tous identiques : deux inconnues, une seule équation."""
+    module = module_calibration
     echantillons = [_echantillon(module) for _ in range(40)]
     resultat, _ = robuste(
         lambda: module.calibrer(echantillons, masse_totale_kg=MASSE_TOTALE_KG),
@@ -227,9 +208,9 @@ def test_calibrer_avec_des_echantillons_tous_identiques():
 
 def test_calibrer_retrouve_les_parametres_qui_ont_servi_a_fabriquer_les_echantillons():
     """La seule vérification qui distingue un ajustement d'une recopie des valeurs initiales."""
-    module = _module()
-    modele = _modele()
-    vrais = fabriques3.parametres(modele, cda_m2=0.28, crr=0.0042)
+    module = module_calibration
+    modele = module_modele
+    vrais = fabriques_physique.parametres(modele, cda_m2=0.28, crr=0.0042)
     echantillons = _echantillons_coherents(module, modele, vrais)
     with fabriques.limite_temps(60.0, "calibrer(échantillons cohérents)"):
         ajustement = module.calibrer(
@@ -247,9 +228,9 @@ def test_calibrer_retrouve_les_parametres_qui_ont_servi_a_fabriquer_les_echantil
 
 def test_calibrer_ignore_les_echantillons_non_retenus():
     """`Echantillon.retenu` existe pour être lu : un échantillon écarté ne doit rien peser."""
-    module = _module()
-    modele = _modele()
-    vrais = fabriques3.parametres(modele, cda_m2=0.28, crr=0.0042)
+    module = module_calibration
+    modele = module_modele
+    vrais = fabriques_physique.parametres(modele, cda_m2=0.28, crr=0.0042)
     bons = _echantillons_coherents(module, modele, vrais)
     pollues = bons + [
         _echantillon(
@@ -276,14 +257,14 @@ def test_calibrer_ignore_les_echantillons_non_retenus():
 
 
 def test_une_borne_atteinte_se_dit():
-    """Contrat §4 : « bornes atteintes ». Une valeur bornée n'est pas une mesure.
+    """Une valeur bornée n'est pas une mesure : la borne atteinte se dit.
 
     Les échantillons demandent ici un CdA largement supérieur au plafond : le
     résultat doit rester dans les bornes **et** signaler qu'il y est collé.
     """
-    module = _module()
-    modele = _modele()
-    enorme = fabriques3.parametres(modele, cda_m2=0.95, crr=0.02)
+    module = module_calibration
+    modele = module_modele
+    enorme = fabriques_physique.parametres(modele, cda_m2=0.95, crr=0.02)
     echantillons = _echantillons_coherents(module, modele, enorme)
     with fabriques.limite_temps(60.0, "calibrer(borne atteinte)"):
         ajustement = module.calibrer(echantillons, masse_totale_kg=MASSE_TOTALE_KG)
@@ -301,7 +282,7 @@ def test_une_borne_atteinte_se_dit():
 
 @pytest.mark.parametrize("masse", [0.0, -20.0])
 def test_calibrer_avec_une_masse_absurde(masse):
-    module = _module()
+    module = module_calibration
     echantillons = [_echantillon(module, v_ms=5.0 + i * 0.5) for i in range(20)]
     resultat, _ = robuste(
         lambda: module.calibrer(echantillons, masse_totale_kg=masse),
@@ -314,9 +295,9 @@ def test_calibrer_avec_une_masse_absurde(masse):
 
 def test_calibrer_avec_des_echantillons_pollues_de_nan():
     """Un point de FIT sans capteur donne un `nan` : il ne doit pas contaminer la somme."""
-    module = _module()
-    modele = _modele()
-    vrais = fabriques3.parametres(modele)
+    module = module_calibration
+    modele = module_modele
+    vrais = fabriques_physique.parametres(modele)
     echantillons = _echantillons_coherents(module, modele, vrais)
     echantillons.append(_echantillon(module, v_ms=float("nan"), puissance_w=float("nan")))
     with fabriques.limite_temps(60.0, "calibrer(NaN)"):
@@ -360,10 +341,10 @@ def _verifier_echantillons(echantillons: Any, quoi: str) -> list[Any]:
 
 
 def test_echantillonner_ecarte_les_deux_premiers_kilometres():
-    """Contrat §3 : « pas dans les 2 premiers km » (échauffement, GPS qui se cale)."""
-    module = _module()
-    archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=8.0)
+    """Pas d'échantillon dans les 2 premiers km (échauffement, GPS qui se cale)."""
+    module = module_calibration
+    archive = module_openmeteo_archive
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=8.0)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(plat)"
     )
@@ -379,24 +360,22 @@ def test_echantillonner_ecarte_les_deux_premiers_kilometres():
 
 
 def test_echantillonner_ecarte_les_pentes_hors_bornes():
-    """Contrat §3 : « pente entre −3 % et +8 % » — au-delà, la mesure ne dit plus rien du CdA."""
-    module = _module()
-    archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=5.0, pente=0.14)
+    """Pente entre −3 % et +8 % seulement : au-delà, la mesure ne dit plus rien du CdA."""
+    module = module_calibration
+    archive = module_openmeteo_archive
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=5.0, pente=0.14)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(14 %)"
     )
     retenus = [e for e in echantillons if e.retenu]
-    assert not retenus, (
-        f"{len(retenus)} échantillon(s) retenus sur une sortie à 14 % de pente constante"
-    )
+    assert not retenus, f"{len(retenus)} échantillon(s) retenus sur une sortie à 14 % de pente constante"
 
 
 def test_echantillonner_sur_une_sortie_sans_puissance():
     """Sans capteur, il n'y a rien à calibrer : une liste vide ou des motifs, pas une trace."""
-    module = _module()
-    archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, puissance_w=None)
+    module = module_calibration
+    archive = module_openmeteo_archive
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, puissance_w=None)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(sans puissance)"
     )
@@ -405,9 +384,9 @@ def test_echantillonner_sur_une_sortie_sans_puissance():
 
 
 def test_echantillonner_sans_archive_de_vent():
-    """Contrat §4 : « archive météo vide ». Le vent inconnu n'est pas un vent nul mesuré."""
-    module = _module()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0)
+    """Archive météo vide : le vent inconnu n'est pas un vent nul mesuré."""
+    module = module_calibration
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, []),
         quoi="echantillonner(vent=[])",
@@ -419,9 +398,9 @@ def test_echantillonner_sans_archive_de_vent():
 
 def test_echantillonner_sur_une_sortie_sans_gps():
     """Sans coordonnées, pas de cap, donc pas de vent de face : ni pente ni `TypeError`."""
-    module = _module()
-    archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=60, pas_m=200.0, avec_gps=False)
+    module = module_calibration
+    archive = module_openmeteo_archive
+    activite = fabriques_physique.activite_fictive(n_points=60, pas_m=200.0, avec_gps=False)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, _vent_constant(archive)),
         quoi="echantillonner(sans GPS)",
@@ -433,9 +412,9 @@ def test_echantillonner_sur_une_sortie_sans_gps():
 
 @pytest.mark.parametrize("nb", [1, 2])
 def test_echantillonner_sur_une_sortie_minuscule(nb):
-    module = _module()
-    archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=nb, pas_m=200.0)
+    module = module_calibration
+    archive = module_openmeteo_archive
+    activite = fabriques_physique.activite_fictive(n_points=nb, pas_m=200.0)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, _vent_constant(archive)),
         quoi=f"echantillonner(sortie de {nb} point(s))",
@@ -467,17 +446,17 @@ def _sortie_conforme(modele, p, *, facteur: float = 1.0, n_points: int = 200):
     puissance = 200.0
     v = modele.vitesse_regime(puissance, 0.0, 0.0, p)
     assert v > 1.0, "le montage suppose une vitesse d'équilibre exploitable"
-    return fabriques3.activite_fictive(
+    return fabriques_physique.activite_fictive(
         n_points=n_points, pas_m=200.0, vitesses_ms=v * facteur, puissance_w=puissance
     )
 
 
 def test_detecter_groupe_sur_une_sortie_parfaitement_conforme():
-    """Contrat §4 : « sortie parfaitement conforme (faux) »."""
-    module = _module()
-    modele = _modele()
-    archive = _archive()
-    p = fabriques3.parametres(modele)
+    """Une sortie parfaitement conforme au modèle n'est pas une sortie de groupe."""
+    module = module_calibration
+    modele = module_modele
+    archive = module_openmeteo_archive
+    p = fabriques_physique.parametres(modele)
     activite = _sortie_conforme(modele, p)
     with fabriques.limite_temps(60.0, "detecter_groupe(conforme)"):
         groupe, residu = _verifier_verdict(
@@ -490,11 +469,11 @@ def test_detecter_groupe_sur_une_sortie_parfaitement_conforme():
 
 
 def test_detecter_groupe_sur_une_sortie_vingt_pour_cent_trop_rapide():
-    """Contrat §4 : « sortie 20 % trop rapide (vrai) » — le seuil du contrat est +8 %."""
-    module = _module()
-    modele = _modele()
-    archive = _archive()
-    p = fabriques3.parametres(modele)
+    """Une sortie 20 % trop rapide est une sortie de groupe : le seuil est +8 %."""
+    module = module_calibration
+    modele = module_modele
+    archive = module_openmeteo_archive
+    p = fabriques_physique.parametres(modele)
     activite = _sortie_conforme(modele, p, facteur=1.20)
     with fabriques.limite_temps(60.0, "detecter_groupe(20 % trop rapide)"):
         groupe, residu = _verifier_verdict(
@@ -508,11 +487,11 @@ def test_detecter_groupe_sur_une_sortie_vingt_pour_cent_trop_rapide():
 
 
 def test_detecter_groupe_sur_une_sortie_vide():
-    module = _module()
-    modele = _modele()
-    archive = _archive()
-    p = fabriques3.parametres(modele)
-    activite = fabriques3.activite_fictive(n_points=1)
+    module = module_calibration
+    modele = module_modele
+    archive = module_openmeteo_archive
+    p = fabriques_physique.parametres(modele)
+    activite = fabriques_physique.activite_fictive(n_points=1)
     resultat, _ = robuste(
         lambda: module.detecter_groupe(activite, p, _vent_constant(archive)),
         quoi="detecter_groupe(sortie d'un point)",
@@ -526,8 +505,8 @@ def test_detecter_groupe_sur_une_sortie_vide():
 
 
 def _verifier_validation(validation: Any, quoi: str) -> None:
-    fabriques3.tout_fini(validation, quoi)
-    for nom, valeur in fabriques3.valeurs_numeriques(validation).items():
+    fabriques_physique.tout_fini(validation, quoi)
+    for nom, valeur in fabriques_physique.valeurs_numeriques(validation).items():
         reduit = sans_accents(nom).casefold()
         if "mae" in reduit or "median" in reduit or "erreur" in reduit:
             assert valeur >= 0, f"{quoi} : {nom} = {valeur}, une erreur en valeur absolue est positive"
@@ -547,22 +526,20 @@ def _verifier_validation(validation: Any, quoi: str) -> None:
 
 def test_valider_sans_aucune_sortie_de_test():
     """Angle obligatoire : zéro sortie de test. MAE sur zéro sortie, c'est `0/0`."""
-    module = _module()
-    modele = _modele()
-    p = fabriques3.parametres(modele)
-    resultat, _ = robuste(
-        lambda: module.valider([], p), quoi="valider([])", erreurs_acceptees=ERREURS
-    )
+    module = module_calibration
+    modele = module_modele
+    p = fabriques_physique.parametres(modele)
+    resultat, _ = robuste(lambda: module.valider([], p), quoi="valider([])", erreurs_acceptees=ERREURS)
     if resultat is not None:
         _verifier_validation(resultat, "valider([])")
 
 
 def test_valider_sur_une_seule_sortie():
     """Une sortie : la médiane et la MAE existent, et valent la même chose."""
-    module = _module()
-    modele = _modele()
-    archive = _archive()
-    p = fabriques3.parametres(modele)
+    module = module_calibration
+    modele = module_modele
+    archive = module_openmeteo_archive
+    p = fabriques_physique.parametres(modele)
     sortie = (_sortie_conforme(modele, p), _vent_constant(archive))
     with fabriques.limite_temps(60.0, "valider(une sortie)"):
         resultat, _ = robuste(
@@ -573,7 +550,7 @@ def test_valider_sur_une_seule_sortie():
     _verifier_validation(resultat, "valider(une sortie)")
     erreurs = {
         nom: valeur
-        for nom, valeur in fabriques3.valeurs_numeriques(resultat).items()
+        for nom, valeur in fabriques_physique.valeurs_numeriques(resultat).items()
         if "mae" in sans_accents(nom).casefold()
     }
     assert erreurs, f"aucune MAE dans la validation : {[n for n in dir(resultat) if not n.startswith('_')]}"
@@ -587,11 +564,11 @@ def test_valider_sur_une_seule_sortie():
 
 def test_valider_sur_une_sortie_immobile():
     """Une sortie de durée nulle : division par le temps réel."""
-    module = _module()
-    modele = _modele()
-    archive = _archive()
-    p = fabriques3.parametres(modele)
-    activite = fabriques3.activite_fictive(n_points=2, pas_m=0.0, vitesses_ms=0.1)
+    module = module_calibration
+    modele = module_modele
+    archive = module_openmeteo_archive
+    p = fabriques_physique.parametres(modele)
+    activite = fabriques_physique.activite_fictive(n_points=2, pas_m=0.0, vitesses_ms=0.1)
     resultat, _ = robuste(
         lambda: module.valider([(activite, _vent_constant(archive))], p),
         quoi="valider(sortie immobile)",
@@ -621,7 +598,7 @@ def _cache(tmp_path):
 
 
 def test_sorties_calibrables_sur_un_cache_vide(tmp_path):
-    module = _selection()
+    module = module_calibrer
     config = _config(tmp_path)
     resultat, _ = robuste(
         lambda: module.sorties_calibrables(_cache(tmp_path), config, config.velos[0]),
@@ -632,8 +609,8 @@ def test_sorties_calibrables_sur_un_cache_vide(tmp_path):
 
 
 def test_sorties_calibrables_ecarte_le_home_trainer_et_les_sorties_de_groupe(tmp_path, generateur):
-    """Contrat §3 : « extérieur, puissance présente, ≥ 20 km, hors mots_groupe »."""
-    module = _selection()
+    """Calibrable : extérieur, puissance présente, ≥ 20 km, hors `mots_groupe`."""
+    module = module_calibrer
     config = _config(tmp_path)
     cache = _cache(tmp_path)
     # Des longueurs toutes différentes : le cache range un fichier brut par
@@ -691,7 +668,7 @@ def test_sorties_calibrables_ecarte_le_home_trainer_et_les_sorties_de_groupe(tmp
 
 def test_sorties_calibrables_respecte_les_mots_de_groupe_configures(tmp_path, generateur):
     """`mots_groupe` est un paramètre de configuration, pas une constante du code."""
-    module = _selection()
+    module = module_calibrer
     config = _config(tmp_path, mots_groupe=("cyclosportive",))
     cache = _cache(tmp_path)
     cache.ajouter(
@@ -727,7 +704,7 @@ def test_sorties_calibrables_respecte_les_mots_de_groupe_configures(tmp_path, ge
 
 def test_sorties_calibrables_respecte_la_date_de_depart(tmp_path, generateur):
     """`depuis` : un historique tronqué ne doit pas ramener des sorties antérieures."""
-    module = _selection()
+    module = module_calibrer
     if "depuis" not in inspect.signature(module.sorties_calibrables).parameters:
         pytest.skip("sorties_calibrables ne prend pas de date de départ (contrat §3 muet)")
     config = _config(tmp_path)
@@ -747,10 +724,7 @@ def test_sorties_calibrables_respecte_la_date_de_depart(tmp_path, generateur):
     assert retenues == [], f"{retenues!r} rendues pour un « depuis » postérieur à toute sortie"
 
 
-# --- socle du sprint 3 déjà livré : [calibration] et Velo.crr ------------------
-#
-# Contrairement au reste de ce fichier, cette section ne saute pas : le
-# superviseur a livré `ParametresCalibration` et `Velo.crr` avec le contrat.
+# --- la section [calibration] et Velo.crr --------------------------------------
 
 
 def _charger(corps: str):
@@ -764,7 +738,7 @@ def _charger(corps: str):
 
 
 def test_les_defauts_de_la_section_calibration():
-    """Contrat §0 : `mots_groupe`, `part_validation = 0,25`, `vitesse_min_kmh = 8`."""
+    """Défauts : `mots_groupe`, `part_validation = 0,25`, `vitesse_min_kmh = 8`."""
     config = _charger("{}")
     assert config.calibration.part_validation == 0.25
     assert config.calibration.vitesse_min_kmh == 8.0
@@ -791,14 +765,12 @@ def test_les_defauts_de_la_section_calibration():
     ],
 )
 def test_une_valeur_de_calibration_hors_bornes_nomme_le_champ(champ, valeur):
-    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ fautif, pas une trace."""
+    """`ErreurConfig` nomme le champ fautif, pas une pile d'appels."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:
         _charger(json.dumps({"calibration": {champ: valeur}}))
-    assert champ in str(capture.value), (
-        f"le message ne nomme pas le champ fautif : « {capture.value} »"
-    )
+    assert champ in str(capture.value), f"le message ne nomme pas le champ fautif : « {capture.value} »"
 
 
 def test_mots_groupe_donne_comme_une_chaine():
@@ -826,7 +798,7 @@ def test_mots_groupe_donne_comme_une_chaine():
 
 @pytest.mark.parametrize("crr", [0.0, 0.5, -0.004, "leger", True])
 def test_un_crr_de_velo_invalide_nomme_le_champ(crr):
-    """Contrat §0 : `Velo.crr` est un coefficient de roulement, pas un nombre libre."""
+    """`Velo.crr` est un coefficient de roulement, pas un nombre libre."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:

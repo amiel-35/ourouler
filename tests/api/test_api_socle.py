@@ -32,14 +32,6 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Les dix sous-commandes de `discovery_donnees.md` §1. F1 en expose une route
 #: chacune. `routes` et `calibrer` ne sont pas dans la liste dure : elles
 #: n'apparaissent sur aucun des vingt écrans.
@@ -52,7 +44,6 @@ SOUS_COMMANDES_DES_ECRANS = (
     ("inventaire", ("inventaire", "activites")),
     ("geocodage", ("geocod", "adresse")),
 )
-
 
 
 # Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
@@ -218,7 +209,7 @@ def test_aucune_route_n_ouvre_de_connexion_reelle():
 def test_l_api_ne_lit_pas_l_environnement_hors_de_sa_bordure():
     """Protège la règle absolue 2 : « le cœur ne sait pas où il tourne ».
 
-    `CLAUDE.md` n'autorise que `cli.py` et `config.py` à lire un TOML, une
+    `CLAUDE.md` n'autorise que `cli/` et `config.py` à lire un TOML, une
     variable d'environnement ou un chemin utilisateur. Une API a besoin d'une
     bordure équivalente (port, URL de base, secrets d'hébergement) : ce test
     exige qu'elle soit **unique et nommée** — un seul fichier de composition —
@@ -311,9 +302,7 @@ def test_le_verificateur_de_refus_attrape_ce_qu_il_doit_attraper():
     with pytest.raises(AssertionError, match="français"):
         verifier_refus_exploitable(reponse({"code": "x", "message": "bad request"}), "anglais")
     with pytest.raises(AssertionError, match="trace Python"):
-        verifier_refus_exploitable(
-            reponse({"code": "x", "message": 'La durée.\nFile "boucle.py"'}), "trace"
-        )
+        verifier_refus_exploitable(reponse({"code": "x", "message": 'La durée.\nFile "boucle.py"'}), "trace")
     with pytest.raises(AssertionError, match="secret"):
         verifier_refus_exploitable(
             reponse({"code": "x", "message": f"La clé {CLE_INTERVALS_SENTINELLE} est refusée"}),
@@ -361,16 +350,12 @@ def test_les_outils_de_decouverte_du_schema_fonctionnent():
                 "post": {
                     "parameters": [{"name": "proprietaire", "in": "query"}],
                     "requestBody": {
-                        "content": {
-                            "application/json": {"schema": {"$ref": "#/components/schemas/Demande"}}
-                        }
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Demande"}}}
                     },
                 }
             }
         },
-        "components": {
-            "schemas": {"Demande": {"properties": {"duree_min": {}, "heure_depart": {}}}}
-        },
+        "components": {"schemas": {"Demande": {"properties": {"duree_min": {}, "heure_depart": {}}}}},
     }
     chemin, methode, operation = route_pour(schema, "sortie")
     assert (chemin, methode) == ("/api/sortie", "POST")

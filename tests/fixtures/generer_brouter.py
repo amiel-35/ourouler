@@ -95,10 +95,7 @@ def reponse_boucle(points: list[tuple[float, float, float]] | None = None) -> di
     longueurs: list[int] = []
     for numero, fin in enumerate(FINS_DE_TRONCON):
         longueur = round(
-            sum(
-                distance_m(points[i][:2], points[i + 1][:2])
-                for i in range(debut, min(fin, len(points) - 1))
-            )
+            sum(distance_m(points[i][:2], points[i + 1][:2]) for i in range(debut, min(fin, len(points) - 1)))
         )
         longueurs.append(longueur)
         lat, lon, alt = points[fin]

@@ -1,0 +1,190 @@
+/**
+ * Jetons « suisse vivante » — synthèse des huit directions du sprint 8,
+ * composée à partir de ce que le mainteneur a gardé de chacune (voir le
+ * journal de bord dans `suisse-vivante.html`). **Ce fichier ne touche à
+ * rien d'existant** : `front/src/style.css` reste la source des écrans
+ * réels ; celui-ci n'est chargé que par `docs/journal/ux/directions/suisse-vivante.html`,
+ * la page de démonstration qui l'accompagne. L'adopter pour de vrai est une
+ * décision du mainteneur, pas un fait accompli.
+ *
+ * Le parti pris tient en une phrase du mainteneur : « l'interface en noir
+ * et blanc, les données en couleur ». Tout ce qui est structure — grille,
+ * filets, boutons, la marque « recommandée » — reste en encre, jamais en
+ * couleur : une décision n'est pas une donnée mesurée, elle n'a pas à
+ * emprunter une teinte. Seules les données mesurées (pluie, vent, trafic)
+ * portent une couleur, et cette couleur est pâle mais franche — un bleu qui
+ * est vraiment bleu, pas un gris bleuté — parce qu'elle est la seule tache
+ * de couleur d'un écran par ailleurs entièrement en noir et blanc.
+ *
+ * Discipline reprise de la proposition asiatique : une teinte, une seule
+ * catégorie, jamais deux. Quatre familles de teinte existent dans ce
+ * système et couvrent tout le produit :
+ *   - pluie      (bleu)   — ce qui tombe
+ *   - vent-dos   (vert)   — ce qui pousse, favorable
+ *   - vent-face  (orange) — ce qui freine, défavorable
+ *   - trafic     (violet) — la route qui compte, la circulation
+ * Le vent traversier n'a délibérément AUCUNE teinte : ni gênant ni
+ * favorable, il reste en encre. Une cinquième couleur pour lui aurait
+ * dilué la règle « une teinte, un métier » pour un cas qui ne coûte rien.
+ *
+ * Chaque teinte a trois paliers (100 pâle, 300 moyen, 600 soutenu) et TROIS
+ * usages fixes, jamais improvisés :
+ *   - 100 : fond d'un bloc porteur de texte (l'encre s'y pose dessus)
+ *   - 300 : remplissage d'un tracé, d'une aire de profil, d'une jauge —
+ *     porte aussi du texte en encre à l'occasion (le calcul le permet,
+ *     voir plus bas), mais son usage premier est la surface, pas le mot
+ *   - 600 : trait, icône, bordure — jamais un fond de texte : c'est le
+ *     seul palier où l'encre dessus retombe sous une marge confortable
+ * Cette règle n'est pas esthétique, elle est la raison pour laquelle
+ * l'accessibilité tient : voir la note « contrastes vérifiés » plus bas.
+ *
+ * CONTRASTES VÉRIFIÉS PAR LE CALCUL (WCAG 2.1, luminance relative) —
+ * mesurés avec un script, pas à l'œil, rejoués pour chaque teinte :
+ *   clair — encre #14181c sur papier #ffffff ................ 17.8:1
+ *   clair — encre-att #545c64 sur papier ...................... 6.8:1
+ *   clair — encre sur les quatre teintes-100 ............. 14.5–15.0:1
+ *   clair — encre sur les quatre teintes-300 .............. 9.5–11.4:1
+ *   clair — chaque teinte-600 sur papier (non-texte) ....... 3.5–5.0:1
+ *   clair — encre sur chaque teinte-600 (si jamais posé) ... 3.6–6.0:1
+ *   sombre — encre #f0f2f4 sur papier #0b0d10 ................ 17.3:1
+ *   sombre — encre-att #9fb3c8 sur papier ..................... 9.0:1
+ *   sombre — chaque teinte-600 sur papier (non-texte) ...... 8.1–10.5:1
+ * Le seuil retenu : AA texte normal (4.5:1) pour tout texte, AA objet
+ * graphique (3:1) pour un trait, une icône ou une bordure. `encre-faible`
+ * (3.46:1 clair) ne sert donc jamais à du texte fin — uniquement au rail
+ * décoratif (numéros de colonne), en corps large. `trafic-600` est le
+ * seul palier où l'encre posée dessus (3.58:1) n'atteint pas 4.5:1 : la
+ * règle « 600 = jamais de texte » n'est donc pas une prudence en trop,
+ * elle est ce qui évite ce cas précis en pratique.
+ */
+
+:root {
+  /* ---------- encre et papier ---------- */
+
+  --sv-papier: #ffffff;
+  --sv-encre: #14181c;
+  --sv-encre-att: #545c64; /* 6.8:1 — texte secondaire, notes d'honnêteté */
+  --sv-encre-faible: #838b92; /* 3.5:1 — rail décoratif seulement, jamais texte fin */
+
+  --sv-filet: #e2e5e8;
+  --sv-filet-fort: var(--sv-encre);
+
+  --sv-ombre: none; /* explicite : ce système n'a pas d'ombre */
+  --sv-rayon: 0px; /* explicite : rien n'est arrondi */
+
+  /* ---------- les quatre teintes de données, et elles seules ---------- */
+
+  --sv-pluie-100: #dcebfa;
+  --sv-pluie-300: #a8cdf2;
+  --sv-pluie-600: #3f86d6;
+
+  --sv-dos-100: #d9f1e3;
+  --sv-dos-300: #9ddcb9;
+  --sv-dos-600: #2f9068;
+
+  --sv-face-100: #fbe6d8;
+  --sv-face-300: #f0b98e;
+  --sv-face-600: #cf6f27;
+
+  --sv-trafic-100: #ece4f8;
+  --sv-trafic-300: #c2b6ea;
+  --sv-trafic-600: #7c5ec0;
+
+  /* ---------- grille ---------- */
+
+  --sv-unite: 8px;
+  --sv-marge: clamp(20px, 5vw, 64px);
+  --sv-colonnes: 12;
+  --sv-gouttiere: clamp(12px, 2vw, 24px);
+  --sv-rail: 88px;
+
+  /* ---------- typographie : pile système, aucune police distante ---------- */
+
+  --sv-police: -apple-system, "SF Pro Text", "Segoe UI", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  --sv-police-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
+    monospace;
+
+  --sv-taille-oeil: 0.6875rem; /* 11px — œilleton en capitales */
+  --sv-suivi-oeil: 0.14em;
+  --sv-taille-petite: 0.8125rem; /* 13px */
+  --sv-taille-corps: 1rem; /* 16px */
+  --sv-taille-titre-3: 1.0625rem; /* 17px */
+  --sv-taille-titre-2: clamp(1.25rem, 2.6vw, 1.625rem);
+  --sv-taille-titre-1: clamp(1.875rem, 5vw, 2.75rem);
+  --sv-taille-geante: clamp(2.75rem, 11vw, 4.75rem);
+
+  --sv-interligne-serre: 1.05;
+  --sv-interligne-titre: 1.15;
+  --sv-interligne: 1.5;
+
+  --sv-graisse-normale: 400;
+  --sv-graisse-medium: 500;
+  --sv-graisse-gras: 700;
+
+  --sv-duree: 120ms;
+  --sv-focus: 3px solid var(--sv-encre);
+  --sv-focus-decalage: 2px;
+
+  color-scheme: light dark;
+}
+
+/* Sombre par défaut système, sauf choix explicite (data-theme). Ce produit
+   se lit à l'aube comme en plein soleil (mandat) : les deux jeux visent le
+   même contraste, pas seulement l'inversion des teintes. Les teintes-600
+   sont remontées en sombre — même geste que la suisse éditoriale sur son
+   accent unique — parce qu'une teinte qui tenait 5:1 sur blanc ne tient
+   plus rien sur #0b0d10 sans être éclaircie. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sv-papier: #0b0d10;
+    --sv-encre: #f0f2f4;
+    --sv-encre-att: #9fb3c8; /* 9.0:1 */
+    --sv-encre-faible: #7c8894; /* 5.4:1 */
+    --sv-filet: #262b30;
+    --sv-filet-fort: var(--sv-encre);
+
+    --sv-pluie-100: #14273b;
+    --sv-pluie-300: #2f5480;
+    --sv-pluie-600: #6fb0f2;
+
+    --sv-dos-100: #12291f;
+    --sv-dos-300: #276b4c;
+    --sv-dos-600: #5fd39c;
+
+    --sv-face-100: #2c2013;
+    --sv-face-300: #7a4f24;
+    --sv-face-600: #f0a25c;
+
+    --sv-trafic-100: #211a30;
+    --sv-trafic-300: #4a3872;
+    --sv-trafic-600: #b79ae8;
+  }
+}
+
+/* Bascule manuelle : les mêmes valeurs, retenues même si le système
+   préfère le clair. */
+:root[data-theme="dark"] {
+  --sv-papier: #0b0d10;
+  --sv-encre: #f0f2f4;
+  --sv-encre-att: #9fb3c8;
+  --sv-encre-faible: #7c8894;
+  --sv-filet: #262b30;
+  --sv-filet-fort: var(--sv-encre);
+
+  --sv-pluie-100: #14273b;
+  --sv-pluie-300: #2f5480;
+  --sv-pluie-600: #6fb0f2;
+
+  --sv-dos-100: #12291f;
+  --sv-dos-300: #276b4c;
+  --sv-dos-600: #5fd39c;
+
+  --sv-face-100: #2c2013;
+  --sv-face-300: #7a4f24;
+  --sv-face-600: #f0a25c;
+
+  --sv-trafic-100: #211a30;
+  --sv-trafic-300: #4a3872;
+  --sv-trafic-600: #b79ae8;
+}

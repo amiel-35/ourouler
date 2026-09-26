@@ -2,14 +2,15 @@
 
 Sans le vent réel, calibrer un CdA revient à attribuer au cycliste ce qui
 appartenait à la brise : trois mètres par seconde de face sur une sortie
-plate, c'est 20 % de puissance aérodynamique en plus. C'est le seul point sur
-lequel le mainteneur a demandé de ne pas transiger (« l'effort va dans ce qui
-compte : CdA par vélo, vent réel, exclusion des sorties en groupe »).
+plate, c'est 20 % de puissance aérodynamique en plus. C'est un point sur
+lequel on ne transige pas : l'effort va dans ce qui compte — CdA par vélo,
+vent réel, exclusion des sorties en groupe.
 
 L'archive d'un jour **clos** ne change plus : ces réponses-là sont mémoïsées
 dans un SQLite dont le chemin est passé au constructeur (le cœur ne connaît
-aucun chemin, règle absolue 2). Une deuxième calibration ne les rappelle donc
-pas. Le jour courant, lui, change encore — la réponse est souvent tronquée ou
+aucun chemin : le cœur ne lit ni configuration ni environnement). Une deuxième
+calibration ne les rappelle donc pas. Le jour courant, lui, change encore — la
+réponse est souvent tronquée ou
 partiellement `null` — et une réponse vide peut aussi bien être un point hors
 grille qu'un hoquet du service : ni l'un ni l'autre n'est écrit sur disque,
 seulement gardé le temps du processus.
@@ -35,12 +36,14 @@ from typing import Any
 
 import httpx
 
+from ourouler.meteo.openmeteo import motif_api
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
-# Le type d'une heure d'archive est au noyau depuis le lot 8 (le calcul de
-# calibration le lit sans importer ce connecteur) ; réexporté ici.
+# Le type d'une heure d'archive est au noyau : le calcul de calibration le
+# lit sans importer ce connecteur.
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
+from ourouler.noyau.sqlite import colonne_existe, table_existe
 
 BASE_URL_DEFAUT = "https://archive-api.open-meteo.com"
 CHEMIN_ARCHIVE = "/v1/archive"
@@ -49,7 +52,7 @@ CHEMIN_ARCHIVE = "/v1/archive"
 #: Pas d'arrondi du point interrogé, en degrés (0,05° ≈ 5,5 km en latitude).
 ARRONDI_DEG = 0.05
 
-#: Variables horaires demandées (contrat de sprint §3).
+#: Variables horaires demandées.
 VARIABLES_HORAIRES = (
     "wind_speed_10m",
     "wind_direction_10m",
@@ -160,8 +163,7 @@ class ClientArchive:
         aujourd_hui = aujourd_hui if aujourd_hui is not None else datetime.now(UTC).date()
         if jour > aujourd_hui:
             raise ErreurUtilisateur(
-                f"archive : le {jour.isoformat()} est dans le futur — "
-                "l'archive météo ne connaît que le passé"
+                f"archive : le {jour.isoformat()} est dans le futur — l'archive météo ne connaît que le passé"
             )
         lat_a, lon_a = arrondir(lat), arrondir(lon)
         cle = (lat_a, lon_a, jour.isoformat())
@@ -207,7 +209,7 @@ class ClientArchive:
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
                 f"archive Open-Meteo : HTTP {reponse.status_code} sur {self.url_archive}"
-                f"{_motif(reponse)} (jour {jour.isoformat()})"
+                f"{motif_api(reponse)} (jour {jour.isoformat()})"
             )
         try:
             charge = reponse.json()
@@ -262,7 +264,7 @@ class ClientArchive:
         l'incompatibilité se manifester à la lecture, qui rend `None` et
         rappelle le service.
         """
-        if not _table_existe(cx, "archive") or _colonne_existe(cx, "archive", "proprietaire"):
+        if not table_existe(cx, "archive") or colonne_existe(cx, "archive", "proprietaire"):
             return
         cx.executescript(
             f"""
@@ -285,9 +287,7 @@ class ClientArchive:
         try:
             cx = sqlite3.connect(self.chemin_cache)
         except sqlite3.Error as e:
-            raise ErreurUtilisateur(
-                f"archive : cache {self.chemin_cache} inutilisable ({e})"
-            ) from e
+            raise ErreurUtilisateur(f"archive : cache {self.chemin_cache} inutilisable ({e})") from e
         try:
             yield cx
             cx.commit()
@@ -300,8 +300,7 @@ class ClientArchive:
         try:
             with self._connexion() as cx:
                 ligne = cx.execute(
-                    "SELECT heures FROM archive "
-                    "WHERE proprietaire = ? AND lat = ? AND lon = ? AND jour = ?",
+                    "SELECT heures FROM archive WHERE proprietaire = ? AND lat = ? AND lon = ? AND jour = ?",
                     (self.proprietaire, lat, lon, jour.isoformat()),
                 ).fetchone()
         except sqlite3.Error:
@@ -344,20 +343,6 @@ class ClientArchive:
 # --- structure du cache -------------------------------------------------------
 
 
-def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
-    return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
-        ).fetchone()
-        is not None
-    )
-
-
-def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
-    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
-    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
-
-
 def _proprietaire_valide(valeur: str) -> str:
     """Un propriétaire est une chaîne non vide — voir `activites.cache` pour le pourquoi."""
     if not isinstance(valeur, str) or not valeur.strip():
@@ -375,9 +360,7 @@ def _heures(charge: Any, url: str) -> list[HeureArchive]:
         motif = charge.get("reason") or "sans motif"
         raise ErreurConnecteur(f"archive Open-Meteo a refusé la requête sur {url} : {motif}")
     if not isinstance(charge, dict):
-        raise ErreurConnecteur(
-            f"archive Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}"
-        )
+        raise ErreurConnecteur(f"archive Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}")
     horaire = charge.get("hourly")
     if horaire is None:
         return []
@@ -438,16 +421,6 @@ def _instant(brut: Any) -> datetime | None:
     except (TypeError, ValueError):
         return None
     return t.replace(tzinfo=UTC) if t.tzinfo is None else t.astimezone(UTC)
-
-
-def _motif(reponse: httpx.Response) -> str:
-    try:
-        charge = reponse.json()
-    except ValueError:
-        return ""
-    if isinstance(charge, dict) and charge.get("reason"):
-        return f" — {charge['reason']}"
-    return ""
 
 
 def _heure_en_json(h: HeureArchive) -> dict:

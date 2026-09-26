@@ -163,7 +163,6 @@ def test_la_longueur_du_segment_de_sortie_est_haversine_pas_recopiee():
     assert segment.longueur_m == pytest.approx(1113.0, rel=0.01)
 
 
-
 def test_un_point_isole_sans_tag_devient_un_segment_a_tags_vides():
     reroutee = _ligne_reroutee(6)
     points = [_point(0.00001, i * 0.0005, i * 0.0005 * METRES_PAR_DEGRE) for i in range(6)]
@@ -220,7 +219,7 @@ def test_une_trace_greffee_sort_couts_evaluer_de_l_etat_partiel():
 
     greffage = greffer(gpx, reroutee)
     assert greffage.exploitable
-    # C'est l'appelant (boucle.commande) qui pose les segments et lève le
+    # C'est l'appelant (services.boucle) qui pose les segments et lève le
     # drapeau — `evaluer` ne le fait pas lui-même, il ne fait que le lire.
     gpx.segments = greffage.segments
     gpx.meta["couts_partiels"] = False
@@ -270,6 +269,6 @@ def test_le_plus_proche_avec_grille_donne_le_meme_resultat_que_le_calcul_naif():
 
 
 def test_greffage_est_un_dataclass_simple():
-    """Vérifie juste la forme publique, pour que les appelants (boucle.commande) s'y fient."""
+    """Vérifie juste la forme publique, pour que les appelants (services.boucle) s'y fient."""
     g = Greffage(segments=[], km_sans_tag=0.0, seuil_m=25.0)
     assert g.exploitable is False

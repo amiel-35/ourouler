@@ -163,8 +163,12 @@ def test_les_caps_sont_calcules_sur_des_points_espaces():
         cap = 90.0 if i % 2 else 270.0  # zigzag pur bruit
         points.append(avance(points[-1], cap, 3.0))
     bruite = Trace(
-        nom="bruit", points=points, segments=[], distance_m=120.0,
-        denivele_m=None, temps_moteur_s=None,
+        nom="bruit",
+        points=points,
+        segments=[],
+        distance_m=120.0,
+        denivele_m=None,
+        temps_moteur_s=None,
     )
     ecarts = [distance_m(a, b) for a, b in zip(points[:-1], points[1:], strict=True)]
     assert max(ecarts) < ESPACEMENT_CAP_M, "ce zigzag doit rester sous le seuil d'espacement"
@@ -322,8 +326,12 @@ def test_tous_les_troncons_ecartes_donnent_des_couts_partiels():
 
 def test_trace_vide():
     vide = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0,
-        denivele_m=None, temps_moteur_s=None,
+        nom="vide",
+        points=[],
+        segments=[],
+        distance_m=0.0,
+        denivele_m=None,
+        temps_moteur_s=None,
     )
     couts = evaluer(vide)
     assert (couts.virages_gauche, couts.virages_droite) == (0, 0)
@@ -402,11 +410,12 @@ def test_une_mesure_d_antennes_illisible_est_refaite():
 def test_un_trace_sans_antenne_rend_zero_metre():
     assert evaluer(trace_de_caps([0, 90, 180, 270])).antennes_m == 0.0
 
-# --- poids injectés (L3.2) ----------------------------------------------------
+
+# --- poids injectés -------------------------------------------------------------
 #
-# Le score du sprint 2 était figé : trois kilomètres équivalents par kilomètre
-# de « trafic », zéro pour tout le reste. Le sprint 3 le rend paramétrable par
-# classe `highway`, les constantes restant le cas par défaut.
+# Sans poids, le score vaut trois kilomètres équivalents par kilomètre de
+# « trafic » et zéro pour tout le reste. Des poids appris le rendent
+# paramétrable par classe `highway`, les constantes restant le cas par défaut.
 
 
 def _droite_taggee(tags: list[dict[str, str]], pas_m: float = 1000.0) -> Trace:
@@ -424,7 +433,7 @@ def _score_routes(couts) -> float:
     return couts.score - PENALITE_MAUVAIS_SENS
 
 
-def test_sans_poids_le_score_est_exactement_celui_du_sprint_2():
+def test_sans_poids_le_score_est_celui_des_constantes_par_defaut():
     trace = _droite_taggee([{"highway": "secondary"}, {"highway": "tertiary"}])
     assert _score_routes(evaluer(trace)) == pytest.approx(POIDS_KM_TRAFIC, rel=0.02)
 
@@ -456,9 +465,7 @@ def test_un_bareme_vide_annule_le_cout_des_routes_mais_pas_le_reste():
 
 
 def test_les_kilometres_par_classe_sont_rendus():
-    trace = _droite_taggee(
-        [{"highway": "tertiary"}, {"highway": "tertiary"}, {"highway": "secondary"}]
-    )
+    trace = _droite_taggee([{"highway": "tertiary"}, {"highway": "tertiary"}, {"highway": "secondary"}])
     couts = evaluer(trace)
     assert couts.km_par_highway["tertiary"] == pytest.approx(2.0)
     assert couts.km_par_highway["secondary"] == pytest.approx(1.0)

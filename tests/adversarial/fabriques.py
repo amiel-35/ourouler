@@ -1,14 +1,13 @@
-"""Fabriques d'entrées hostiles pour le sprint 2 (tracé, BRouter, GPX, météo le long).
+"""Fabriques d'entrées hostiles pour le tracé, BRouter, le GPX et la météo le long.
 
-Complète `outils.py` (socle du sprint 1) avec ce dont les lots L2.1 à L2.5 ont
-besoin :
+Complète `outils.py` (le socle commun) avec ce dont ces tests ont besoin :
 
 * de la **géométrie** synthétique : lignes droites, coudes, cercles — toujours
   au large du golfe de Guinée, jamais une coordonnée française (règle absolue 1
   de CLAUDE.md, vérifiée par `test_adv_invariants`) ;
 * des **réponses BRouter fabriquées** : le serveur réel n'est pas joignable
-  depuis les tests (règle absolue 3) et le contrat §1 laisse une question
-  ouverte — les coordonnées des `messages` sont-elles en microdegrés ou en
+  depuis les tests (règle absolue 3), et une question reste ouverte côté
+  serveur — les coordonnées des `messages` sont-elles en microdegrés ou en
   degrés ? Les deux formes se fabriquent ici ;
 * des **réponses Open-Meteo fabriquées**, construites à partir de la requête
   reçue (un bloc par point demandé, les heures de la fenêtre demandée) ;
@@ -197,10 +196,10 @@ def trace_fictive(
 def verifier_trace(trace: Any, *, quoi: str, distance_max_km: float = 1000.0) -> None:
     """Invariants d'un `Trace`, quelle que soit sa provenance.
 
-    Le garde-fou principal est l'**aberration** : le contrat §1 laisse ouverte
-    la question des microdegrés, et une lecture qui se trompe d'unité fabrique
-    une trace de plusieurs milliers de kilomètres — ou des points hors du
-    globe — sans rien signaler.
+    Le garde-fou principal est l'**aberration** : BRouter ne dit pas toujours
+    si ses coordonnées sont en microdegrés, et une lecture qui se trompe
+    d'unité fabrique une trace de plusieurs milliers de kilomètres — ou des
+    points hors du globe — sans rien signaler.
     """
     assert isinstance(trace.points, list), f"{quoi} : points doit être une liste"
     assert isinstance(trace.segments, list), f"{quoi} : segments doit être une liste"
@@ -250,8 +249,7 @@ def verifier_trace(trace: Any, *, quoi: str, distance_max_km: float = 1000.0) ->
         assert isinstance(s.tags, dict), f"{quoi} : segments[{i}].tags doit être un dict"
         for cle, valeur in s.tags.items():
             assert isinstance(cle, str) and isinstance(valeur, str), (
-                f"{quoi} : segments[{i}].tags contient {cle!r}: {valeur!r}, "
-                "des chaînes OSM étaient attendues"
+                f"{quoi} : segments[{i}].tags contient {cle!r}: {valeur!r}, des chaînes OSM étaient attendues"
             )
 
 
@@ -291,7 +289,7 @@ def geojson_brouter(
     ascend: float | None = 120.0,
     nom: str = "brouter_test_0",
 ) -> dict:
-    """Une réponse GeoJSON BRouter fabriquée, au format du contrat §1.
+    """Une réponse GeoJSON BRouter fabriquée, au format que le serveur rend.
 
     `coords` est en (lat, lon, alt) côté Python ; la géométrie sort bien en
     `[lon, lat, alt]`. Les `messages` décrivent chacun le tronçon **se

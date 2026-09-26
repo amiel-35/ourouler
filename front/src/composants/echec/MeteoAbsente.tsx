@@ -8,17 +8,14 @@ import type { Avertissement } from "../../api/types";
  * `avertissements`. On ne retire alors que les affirmations qu'on ne peut
  * plus soutenir — la pluie, le vent, la tenue —, jamais le parcours.
  *
- * **Sur le code, jamais sur la phrase** (corrigé le 17/09/2026). Cette
- * fonction cherchait `/m[ée]t[ée]o/i` dans le message, alors que
- * `docs/ux/api_contrat.md` pose l'inverse en toutes lettres : « le code prime
- * sur le message […] qui peut être reformulé ». Le jour où quelqu'un écrivait
- * « Open-Meteo injoignable », le bandeau disparaissait sans bruit et il
- * restait un parcours servi sans pluie, sans vent, **et sans la phrase qui
- * dit pourquoi** — pire qu'un bloc vide, que E14 interdit déjà.
- *
- * Le front n'avait alors aucun autre levier : `avertissements` ne portait pas
- * de code. C'était un trou du contrat F1, il a été bouché côté API
- * (`api/erreurs.CODES_AVERTISSEMENT`) plutôt que contourné ici.
+ * **Sur le code, jamais sur la phrase.** Chercher `/m[ée]t[ée]o/i` dans le
+ * message irait contre `docs/journal/ux/api_contrat.md`, qui pose l'inverse en
+ * toutes lettres : « le code prime sur le message […] qui peut être
+ * reformulé ». Le jour où quelqu'un écrirait « Open-Meteo injoignable », le
+ * bandeau disparaîtrait sans bruit et il resterait un parcours servi sans
+ * pluie, sans vent, **et sans la phrase qui dit pourquoi** — pire qu'un bloc
+ * vide, que E14 interdit déjà. Le code vient de l'API
+ * (`api/erreurs.CODES_AVERTISSEMENT`).
  */
 export function meteoManquante(avertissements: Avertissement[]): string | null {
   const trouve = avertissements.find((a) => a.code === "meteo_indisponible");

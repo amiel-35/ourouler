@@ -1,11 +1,9 @@
 /**
  * La pluie d'un parcours, dessinée plutôt qu'un seul nombre.
  *
- * Avant ce lot, `Boucles.tsx` et `Propositions.tsx` écrivaient « 0,0 mm de
- * pluie » — un chiffre nu, alors que le vent, lui, colore déjà le tracé
- * entier (`Proposition.tsx`, lot du 20/09/2026). La pluie a sa teinte dans
- * le système depuis toujours (`--couleur-pluie-*`) ; elle ne se dessinait
- * simplement pas encore ici.
+ * Pas « 0,0 mm de pluie » en chiffre nu : le vent, lui, colore déjà le tracé
+ * entier (`Proposition.tsx`), et la pluie a sa teinte dans le système
+ * (`--couleur-pluie-*`).
  *
  * Une jauge courte, à l'échelle des quatre paliers d'affichage de la rose
  * (`api/meteoRose.niveauPluie` — sec/faible/modéré/fort, 0 à 3 mm et
@@ -53,8 +51,8 @@ export function JaugePluie({
   minutesPluie?: number | null;
 }) {
   if (!visibleEnMm(mm)) {
-    // Pas de jauge vide : le mot suffit, et il porte la même information
-    // qu'avant ce lot (« 0,0 mm de pluie »), simplement plus court à lire.
+    // Pas de jauge vide : le mot suffit, et il porte la même information que
+    // « 0,0 mm de pluie », simplement plus court à lire.
     return (
       <span className="jauge-pluie">
         <b>Sec</b> — 0,0 mm de pluie
@@ -68,8 +66,7 @@ export function JaugePluie({
     // Un seul bloc de texte qui s'enroule normalement (jamais un flex sur
     // toute la phrase) : posé en `inline-flex` sur l'ensemble, une phrase
     // longue — « (35 min sous la pluie) » — s'enroulait sur elle-même en
-    // laissant le chiffre seul, centré à côté, un défaut trouvé à l'écran le
-    // 20/09/2026. Seuls la jauge et son chiffre restent solidaires
+    // laissant le chiffre seul, centré à côté. Seuls la jauge et son chiffre restent solidaires
     // (`.jauge-pluie-valeur`, `white-space: nowrap`) ; le reste de la phrase
     // est un flux normal, qui s'enroule comme n'importe quel texte.
     <span className="jauge-pluie">

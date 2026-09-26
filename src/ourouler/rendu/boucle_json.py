@@ -1,6 +1,6 @@
 """Le JSON de `ourouler boucle` et les mesures qu'il partage avec le tableau texte.
 
-Sorti de `rendu/boucle.py`, qui réexporte `rendre_json` et `porte_a_porte` :
+Sorti de `rendu/boucle.py`, qui importe `porte_a_porte` :
 la fourchette porte à porte, la durée des pauses et le modèle météo
 réellement utilisé servent aux deux rendus, et vivent ici pour que
 `rendu/boucle.py` les importe sans cycle. Aucun fichier, aucune configuration,
@@ -9,18 +9,17 @@ aucune horloge ; la forme est figée par `tests/caracterisation`.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ourouler.boucle.commande import Demande, Evaluation, ModeleTemps
 from ourouler.boucle.geometrie import geometrie_json
-from ourouler.boucle.horaire import Pause
+from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.marqueurs import Marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.meteo import portee
 from ourouler.physique.modele import FourchettePorteAPorte, PorteAPorte, temps_ecoule
+from ourouler.services.boucle import Demande, Evaluation, ModeleTemps
 
 if TYPE_CHECKING:
     # Même règle que `rendu/boucle.py` : la `Config` est lue, jamais importée
@@ -46,9 +45,7 @@ def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
     return {
         "utilise": meteo.modele_utilise,
         "repli": meteo.repli,
-        "bascule_km": (
-            round(meteo.bascule_dist_m / 1000.0, 3) if meteo.bascule_dist_m is not None else None
-        ),
+        "bascule_km": (round(meteo.bascule_dist_m / 1000.0, 3) if meteo.bascule_dist_m is not None else None),
     }
 
 
@@ -62,7 +59,7 @@ def _litterature_json(modele: ModeleTemps) -> dict | None:
 def porte_a_porte(mouvement_s: float, compteur_info: dict) -> PorteAPorte:
     """`temps_ecoule(mouvement_s, fourchette du vélo)` — la fourchette lue dans le bloc compteur.
 
-    **Publique** : `sortie.commande` chronomètre ses propositions de la même
+    **Publique** : `services.sortie` chronomètre ses propositions de la même
     façon, sans réécrire la lecture du bloc.
     """
     brut = compteur_info["porte_a_porte"]
@@ -74,10 +71,6 @@ def porte_a_porte(mouvement_s: float, compteur_info: dict) -> PorteAPorte:
         n=brut.get("n", 0),
     )
     return temps_ecoule(mouvement_s, fourchette)
-
-
-def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
-    return sum(p.duree_s for p in pauses)
 
 
 # --- rendu JSON ----------------------------------------------------------------
@@ -94,7 +87,7 @@ def rendre_json(
     meteo_absente: portee.MeteoAbsente | None = None,
     compteur_info: dict | None = None,
 ) -> dict:
-    """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
+    """Toutes les mesures, plus le chemin du GPX écrit."""
     return {
         "depart": {
             "nom": config.depart.nom,
@@ -115,10 +108,7 @@ def rendre_json(
         # candidate plus courte que la cible n'y a simplement aucun effet,
         # voir `boucle.horaire`) — ce que l'utilisateur a demandé, pas une
         # réinterprétation par tracé.
-        "pauses": [
-            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)}
-            for p in demande.pauses
-        ],
+        "pauses": [{"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in demande.pauses],
         # La troisième valeur de l'écran de FTP (`ecran_ftp.info_compteur`),
         # publiée ici pour que `temps_ecoule_s` de chaque candidate se
         # vérifie de tête : `null` sans vélo dans la configuration — pas de
@@ -129,11 +119,11 @@ def rendre_json(
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
         # Ce qui a **répondu**, à côté de ce qui est configuré. Même forme que
-        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de Q19
-        # de la même façon sur les deux routes de parcours. `null` quand
+        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de
+        # modèle de la même façon sur les deux routes de parcours. `null` quand
         # aucune candidate n'a de météo.
         "modele_meteo": _modele_meteo_json(evaluations),
-        # Q40 (a) : l'état « pas de météo », dit une fois. `null` quand la
+        # L'état « pas de météo », dit une fois. `null` quand la
         # météo a répondu. Voir `meteo.portee`.
         "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
         "gpx": str(chemin) if chemin is not None else None,
@@ -149,14 +139,12 @@ def rendre_json(
             "masse_totale_kg": modele.parametres.masse_totale_kg,
             # Le même fait qu'en texte, en un booléen et un bloc : un client
             # qui ne lit que `provenance` afficherait un temps de littérature
-            # comme un temps mesuré (règle absolue 5).
+            # comme un temps mesuré (on ne présente jamais une estimation comme une mesure).
             "mesure": modele.calibre,
             "litterature": _litterature_json(modele),
             "alerte": modele.alerte or None,
         },
-        "candidates": [
-            _candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations
-        ],
+        "candidates": [_candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations],
     }
 
 
@@ -194,7 +182,7 @@ def _candidate_json(
     # seconde avant d'ajouter les pauses (`temps_ecoule_s`, arrondi pour
     # l'affichage de cette seule valeur) décalait l'heure affichée d'une
     # minute entière une fois sur deux, une fois formatée à la minute près.
-    pauses_s = _duree_pauses_s(demande.pauses)
+    pauses_s = duree_pauses_s(demande.pauses)
     heure_arrivee = demande.depart + timedelta(seconds=ecoule_base_s + pauses_s)
     return {
         "numero": evaluation.numero,
@@ -206,8 +194,7 @@ def _candidate_json(
         "temps_estime_s": round(mouvement_s),
         "temps_source": "modele" if evaluation.temps_s is not None else "vitesse_moyenne",
         # Le porte à porte, arrêts compris (`physique.modele.temps_ecoule`) —
-        # jamais à la place de `temps_estime_s`, à côté (décision du
-        # mainteneur, 18/09/2026). Depuis L9.1, une fourchette :
+        # jamais à la place de `temps_estime_s`, à côté. Une fourchette :
         # `temps_ecoule_s` en est la médiane (gardé pour compatibilité),
         # `_bas_s`/`_haut_s` les bornes (centiles 25 et 75), et la source dit
         # « mesure » (sorties du vélo) ou « defaut » (convention). `null` avec
@@ -220,16 +207,14 @@ def _candidate_json(
         # au-dessus du calcul de `heure_arrivee`.
         "heure_arrivee": heure_arrivee.isoformat(),
         "vitesse_meteo_kmh": (
-            None
-            if evaluation.vitesse_meteo_kmh is None
-            else round(evaluation.vitesse_meteo_kmh, 2)
+            None if evaluation.vitesse_meteo_kmh is None else round(evaluation.vitesse_meteo_kmh, 2)
         ),
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,
         "ecart_relatif": evaluation.ecart_relatif,
         # L'écart cesse d'être tu : trois champs, pas un commentaire. Un
         # client qui n'affiche que `distance_km` continue de marcher, un
-        # client qui veut expliquer a de quoi le faire (Q41 d).
+        # client qui veut expliquer a de quoi le faire.
         "hors_tolerance": bool(evaluation.elargissement),
         "elargissement": evaluation.elargissement,
         "tolerance_distance": evaluation.tolerance_distance,
@@ -261,8 +246,8 @@ def _candidate_json(
         },
         "meteo": _meteo_json(meteo),
         "meta": trace.meta,
-        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
-        # le GPX écrit sur disque (`docs/journal/ux/discovery_donnees.md` §2). Voir
+        # La géométrie, pour que le front n'ait pas à relire le GPX écrit sur
+        # disque. Voir
         # `boucle.geometrie` pour la forme et la simplification appliquée.
         "trace": geometrie_json(trace),
     }

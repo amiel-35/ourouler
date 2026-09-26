@@ -1,6 +1,6 @@
 """La détection des sorties en groupe : rouler durablement plus vite que la puissance ne le justifie.
 
-Sorti de physique/calibration.py, qui réexporte ces noms. Physique pure
+Sorti de physique/calibration.py. Physique pure
 comme lui ; mêmes calculs, dans le même ordre, avant et après le déplacement.
 """
 
@@ -12,7 +12,7 @@ from ourouler.physique.echantillonnage import echantillonner
 from ourouler.physique.modele import Parametres, vitesse_regime
 
 #: Une sortie est dite « en groupe » si le résidu de vitesse dépasse ce seuil
-#: sur plus de `PART_DISTANCE_GROUPE` de la distance retenue (contrat §3).
+#: sur plus de `PART_DISTANCE_GROUPE` de la distance retenue.
 SEUIL_RESIDU_GROUPE = 0.08
 PART_DISTANCE_GROUPE = 0.50
 
@@ -36,14 +36,12 @@ def detecter_groupe(
     fait gagner 20 à 30 % de traînée, et un tel gain attribué au vélo
     fausserait son CdA pour toutes les autres sorties.
 
-    Le seuil est celui du contrat : résidu > +8 % sur plus de la moitié de la
+    Le seuil : résidu > +8 % sur plus de la moitié de la
     distance **retenue** (les tronçons écartés — arrêts, accélérations — ne
     disent rien d'un équilibre).
     """
     echantillons = [
-        e
-        for e in echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
-        if e.retenu
+        e for e in echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh) if e.retenu
     ]
     distance = sum(e.longueur_m for e in echantillons)
     if distance <= 0:

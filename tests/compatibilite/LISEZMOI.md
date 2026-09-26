@@ -1,17 +1,16 @@
 # Formats persistés (filet 0d)
 
 Ce dossier fige **ce que le code écrit sur disque ou en base et relit plus
-tard**, tel que la version d'aujourd'hui l'écrit. Il répond au défaut D5 du
-plan d'ouverture (`docs/ouverture_plan.md`, §1) : « un retour arrière peut
-casser sur les données ».
+tard**, tel que la version d'aujourd'hui l'écrit, parce qu'« un retour
+arrière peut casser sur les données ».
 
 ## Les règles
 
-1. **Un lot de restructuration ne touche ni un format persisté, ni une
-   constante de version, ni une migration** (plan §4, 0d). Un test rouge ici
-   n'est pas une référence à régénérer : c'est le lot qui a débordé.
+1. **Une restructuration ne touche ni un format persisté, ni une constante
+   de version, ni une migration.** Un test rouge ici n'est pas une référence
+   à régénérer : c'est la restructuration qui a débordé.
 2. **Postgres : on ajoute d'abord, on retire plus tard.** Jamais de `DROP` ni
-   de `RENAME` dans un lot de restructuration. Une colonne qui doit
+   de `RENAME` dans une restructuration. Une colonne qui doit
    disparaître reste en place jusqu'à ce qu'aucune version déployable ne la
    lise plus ; son retrait est une migration à part, décidée par le
    mainteneur (et inscrite dans `MIGRATIONS_DESTRUCTIVES_ADMISES` de
@@ -50,9 +49,9 @@ du mot de passe et les identifiants de fichier sont fixés pour que la
 fabrication soit reproductible. `calibration.json` se compare à 6 chiffres
 significatifs (numpy), les autres flottants à 1e-9 près en relatif.
 
-Un lot qui **déplace** un module d'écriture ou de lecture met à jour les
-imports de `fabrique_echantillons.py` et `test_compatibilite.py` (ou garde un
-réexport, lot 3) et les noms qualifiés de `CONSTANTES_DE_VERSION` ; il ne
+Un changement qui **déplace** un module d'écriture ou de lecture met à jour
+les imports de `fabrique_echantillons.py` et `test_compatibilite.py` (ou garde
+un réexport) et les noms qualifiés de `CONSTANTES_DE_VERSION` ; il ne
 touche jamais `echantillons/`.
 
 ## Inventaire des formats
@@ -66,7 +65,7 @@ données du service ; `<prop>` un identifiant de propriétaire.
 | index des activités (SQLite) | `<cache>/index.sqlite` ; fichiers bruts `<cache>/brut/<sha256>.<ext>`, `<cache>/brut/comptes/<prop>/…` | `activites/cache.Cache.ajouter`, `mettre_a_jour_meta` (inventaire, synchronisation Intervals, import de l'API) | `Cache.lister`, `chemin`, `relire`, `contient` (inventaire, calibrer, comparer, routes, API) | `activites.cache.VERSION_SCHEMA` = 3 (`PRAGMA user_version`) | **refusé** (`ErreurUtilisateur` : « supprimer index.sqlite le reconstruira ») — testé | migré sur place 1→3, 2→3 (`tests/test_cache.py`) | `donnees/index.sqlite` (deux propriétaires) |
 | archive météo (SQLite) | `<cache>/archive_meteo.sqlite` | `connecteurs/openmeteo_archive.ClientArchive` (calibrer, tâche de fond de l'API) | `ClientArchive.horaires` | `openmeteo_archive.VERSION_SCHEMA` = 2 | **relu quand même**, et `user_version` ramené à 2 à l'ouverture — testé | migré 1→2 (`tests/test_openmeteo_archive.py`) | `donnees/archive_meteo.sqlite` |
 | routes connues (SQLite) | `<cache>/routes_connues.sqlite` | `apprentissage/routes.BaseRoutes.ajouter_trace` (`routes apprendre`, API) | `BaseRoutes` (boucle, sortie, `routes stats`/`poids`, export RGPD) | `apprentissage.routes.VERSION_SCHEMA` = 3 | **refusé** (`ErreurUtilisateur`) — testé | migré 1→2→3 (`tests/test_apprentissage_routes.py`) | `donnees/routes_connues.sqlite` (deux propriétaires) |
-| calibration (JSON) | `<cache>/calibration.json` ; en hébergé `<api>/<prop>/calibration.json` | `stockage/calibrations.ecrire_calibration` + `contenu_calibration` (calibrer, `api/calibrations` ; réexportés par `physique/commande` depuis le lot 7) | `stockage/calibrations.lire_calibration` (boucle, sortie, simuler, écran FTP, `/calibrations`) | `physique.commande.VERSION_CALIBRATION` = 1 (champ `version` ; défini dans `stockage.calibrations`, réexporté) | **ignorée** (`None` : le temps retombe sur la configuration ou la littérature) — testé. Attention : `ecrire_calibration` garde les vélos d'un fichier d'une autre version et le réécrit en version 1 | champs récents absents tolérés (`porte_a_porte`, `crr_source`, `biais`…) | `donnees/calibration.json` (deux vélos, dont un avec `porte_a_porte`) |
+| calibration (JSON) | `<cache>/calibration.json` ; en hébergé `<api>/<prop>/calibration.json` | `stockage/calibrations.ecrire_calibration` + `contenu_calibration` (calibrer, `api/calibrations`) | `stockage/calibrations.lire_calibration` (boucle, sortie, simuler, écran FTP, `/calibrations`) | `stockage.calibrations.VERSION_CALIBRATION` = 1 (champ `version`) | **ignorée** (`None` : le temps retombe sur la configuration ou la littérature) — testé. Attention : `ecrire_calibration` garde les vélos d'un fichier d'une autre version et le réécrit en version 1 | champs récents absents tolérés (`porte_a_porte`, `crr_source`, `biais`…) | `donnees/calibration.json` (deux vélos, dont un avec `porte_a_porte`) |
 | poids des routes (JSON) | `<cache>/poids_routes.json` | `apprentissage/routes.ecrire_poids` (`routes poids --appliquer`) | `lire_poids` (boucle, sortie) | littéral `"version": 1`, **jamais lu** | relu quand même (seul `poids` compte) — testé | — | `donnees/poids_routes.json` |
 | profil d'un compte (JSON) | `<api>/<prop>/profil.json` (droits 0600, écriture atomique) | `api/depots.DepotProfils.enregistrer` (`PATCH /profil`) | `DepotProfils.surcharge`, `config` ; export RGPD | aucune : c'est la surcharge du TOML, bornée par `CHAMPS_MODIFIABLES` | un champ inconnu est ignoré par `config.depuis_dict` ; une valeur d'énumération inconnue (ex. `pneu`) fait refuser le profil (`ErreurConfig`) | champs absents : défauts de `Config` (profil d'avant `prenom`/`nom` compris) | `donnees/api/compte-synthetique/profil.json` |
 | journal des services (JSON) | `<api>/<prop>/services.json` | `api/depots.JournalServices.noter_succes` | `dernier_succes`, `tout` (écrans d'échec, export) | aucune | illisible ou d'une autre forme → `{}` | — | `donnees/api/compte-synthetique/services.json` |

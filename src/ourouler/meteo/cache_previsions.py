@@ -1,4 +1,4 @@
-"""Cache mutualisé des prévisions Open-Meteo, pour le service hébergé (lot L9.3).
+"""Cache mutualisé des prévisions Open-Meteo, pour le service hébergé.
 
 Doctrine §10.1 : Open-Meteo gratuit tolère ~10 000 appels par jour et par
 **adresse IP** — et un service hébergé, où tous les comptes appellent depuis
@@ -92,8 +92,8 @@ class ClientOpenMeteoCache:
 
     Une requête à plusieurs points est coupée en deux : les points déjà en
     cache sont servis directement, les autres partent en **un seul** appel
-    groupé au client enrobé — exactement la mutualisation « un seul appel
-    pour tous » du contrat de sprint, y compris quand certains points d'une
+    groupé au client enrobé — la mutualisation « un seul appel pour tous »,
+    y compris quand certains points d'une
     même requête sont déjà connus et d'autres non.
     """
 
@@ -170,7 +170,7 @@ class ClientOpenMeteoCache:
                 while len(self._entrees) > self._taille_max:
                     self._entrees.popitem(last=False)  # le plus ancien (LRU)
 
-        return resultat  # type: ignore[return-value]  # entièrement rempli à ce point
+        return resultat  # entièrement rempli à ce point
 
     def stats(self) -> dict:
         """Pour `/systeme` : ce que ce processus a réellement demandé au réseau."""
@@ -181,9 +181,7 @@ class ClientOpenMeteoCache:
                 "entrees": len(self._entrees),
             }
 
-    def _cle(
-        self, point: tuple[float, float], modele: str, debut: datetime, horizon_h: int
-    ) -> tuple:
+    def _cle(self, point: tuple[float, float], modele: str, debut: datetime, horizon_h: int) -> tuple:
         lat, lon = point
         return (
             modele,

@@ -1,4 +1,4 @@
-"""Socle des tests adversariaux du sprint 1.
+"""Socle des tests adversariaux.
 
 Deux garanties données à tous les tests de ce dossier :
 
@@ -12,31 +12,22 @@ Deux garanties données à tous les tests de ce dossier :
    `fixtures/generer_hostiles.py` dans un dossier temporaire (rien de
    binaire n'est versionné, voir le docstring du générateur).
 
-Les tests des modules encore absents (L1.2 à L1.5) utilisent
-`pytest.importorskip` : la suite reste exécutable pendant que le code
-arrive, et devient exigeante dès que le module existe.
+Les modules testés s'importent normalement : un module absent ou renommé
+fait échouer la collecte au lieu de sauter des tests en silence
+(`tests/sauts_autorises.py` dit quels sauts sont admis).
 """
 
 from __future__ import annotations
 
 import importlib.util
 import socket
-import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+from outils import ReseauInterdit
 
 DOSSIER = Path(__file__).resolve().parent
-RACINE = DOSSIER.parent.parent
-
-# Rend `outils.py` importable depuis les modules de test de ce dossier.
-if str(DOSSIER) not in sys.path:
-    sys.path.insert(0, str(DOSSIER))
-
-
-class ReseauInterdit(BaseException):
-    """Un test a tenté d'ouvrir une connexion. Règle absolue 3 de CLAUDE.md."""
 
 
 @pytest.fixture(autouse=True)

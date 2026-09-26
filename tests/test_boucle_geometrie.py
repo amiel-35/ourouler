@@ -23,9 +23,7 @@ RAYON_TERRE_M = 6_371_000.0
 
 
 def _trace(points: list[PointTrace]) -> Trace:
-    return Trace(
-        nom="t", points=points, segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    return Trace(nom="t", points=points, segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
 
 
 def _cercle_bruite(n: int = 2000, rayon_deg: float = 0.05, bruit_deg: float = 0.00001) -> list[PointTrace]:
@@ -118,8 +116,7 @@ def test_distance_au_segment_pour_un_point_en_arriere_du_depart():
         attendu = distance_m(a, p)
         obtenu = _distance_segment_m(p, a, b)
         assert abs(obtenu - attendu) < 1.0, (
-            f"point à {recul_m:.0f} m derrière le départ : {obtenu:.2f} m rendu "
-            f"pour {attendu:.1f} m réels"
+            f"point à {recul_m:.0f} m derrière le départ : {obtenu:.2f} m rendu pour {attendu:.1f} m réels"
         )
 
 
@@ -193,7 +190,7 @@ def test_altitude_absente_rend_null_partout():
 
 
 def test_dist_m_croissant_permet_une_recherche_dichotomique_sans_ambiguite():
-    """Contrat §4 : les repères kilométriques des blocs se raccordent à `profil`.
+    """Les repères kilométriques des blocs se raccordent à `profil`.
 
     `debut_m` d'un `Emplacement` est une distance en mètres sur le tracé
     d'origine (`seance/placement.py`) : un front la retrouve par `bisect` sur

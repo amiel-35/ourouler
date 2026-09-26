@@ -3,8 +3,7 @@
 Du domaine pur : ce module **reçoit** la calibration déjà lue (une
 `Calibration`, ou `None` quand le vélo n'en a pas) et ne connaît aucun
 chemin. C'est `stockage.calibrations` qui lit et écrit le fichier de calibration,
-et la couche commande (`physique.commande`) qui fait le lien entre les deux
-(`docs/ouverture_plan.md` §6, lot 7).
+et la couche commande (`services.physique`) qui fait le lien entre les deux.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ CRR_DEFAUT = 0.005
 #: Ce que dit l'écran quand le pneu (ou le Crr écrit à la main) du vélo n'est
 #: plus celui avec lequel la calibration a été faite. La calibration est
 #: gardée — elle reste la meilleure mesure disponible —, mais le cycliste doit
-#: savoir qu'elle ne suit plus son vélo (décision du mainteneur, 25/09/2026).
+#: savoir qu'elle ne suit plus son vélo.
 ALERTE_PNEU_CHANGE = "pneu changé depuis la calibration, relancez-la"
 
 
@@ -42,8 +41,8 @@ class Calibration:
     date: str = ""
     n_sorties: int = 0
     mae: float | None = None
-    #: La fourchette du porte à porte mesurée sur ce vélo (L9.1), ou `None`
-    #: pour une calibration d'avant le 25/09/2026 ou faite sur trop peu de
+    #: La fourchette du porte à porte mesurée sur ce vélo, ou `None` pour une
+    #: calibration ancienne qui ne la porte pas ou faite sur trop peu de
     #: sorties roulées seul : l'appelant retombe alors sur la convention.
     porte_a_porte: FourchettePorteAPorte | None = None
     #: D'où vient le Crr : « pneu », « configuration » ou « ajuste » (cherché
@@ -52,7 +51,7 @@ class Calibration:
     #: Le pneu déclaré au moment de la calibration (`crr_source` « pneu »).
     pneu: str | None = None
     #: Le biais de validation (temps simulé sur réel − 1, signé) et le nombre
-    #: de sorties de validation — ce que l'écran montre à côté de la MAE (L9.4).
+    #: de sorties de validation — ce que l'écran montre à côté de la MAE.
     biais: float | None = None
     n_validation: int = 0
 
@@ -89,12 +88,12 @@ def parametres_du_velo(
     Provenance vaut « calibration », « configuration », « littérature » ou
     « défaut ». Elle est affichée telle quelle : un CdA de littérature n'est
     pas une mesure, et la commande ne doit jamais laisser croire le contraire
-    (règle absolue 5).
+    (on ne présente jamais une estimation comme une mesure).
 
     **L'ordre ne change pas** : une calibration mesurée prime toujours sur ce
     que la table générique propose. La littérature ne sert qu'à celui qui n'a
-    encore rien mesuré — et c'est tout l'objet de l'arbitrage du 17/09/2026,
-    « la littérature plutôt que la précision ».
+    encore rien mesuré — la littérature plutôt que la précision (décision
+    Q52).
 
     Comme avant, une valeur donnée en configuration est **gardée** même quand
     l'autre manque : la provenance nomme alors d'où vient la moitié complétée.
@@ -107,7 +106,7 @@ def parametres_du_velo(
     masse = masse_totale_kg
     if velo.cda_m2 is not None and velo.crr is not None:
         return (Parametres(masse, velo.cda_m2, velo.crr), "configuration")
-    # Le Crr du pneu déclaré (L9.1) passe avant celui du jeu de l'usage, mais
+    # Le Crr du pneu déclaré passe avant celui du jeu de l'usage, mais
     # jamais avant une valeur écrite à la main dans la configuration.
     connu = crr_du_velo(velo)
     crr = connu[0] if connu is not None else None
@@ -151,7 +150,7 @@ def alerte_calibration(velo: Velo, calibration: Calibration | None) -> str | Non
 
     Compare ce que le vélo déclare aujourd'hui (`crr_du_velo`) à ce que
     la calibration a noté (`crr_source`, `pneu`, `crr`). Une calibration
-    d'avant L9.1 (sans `crr_source`) sur un vélo sans pneu ni Crr déclaré ne
+    ancienne (sans `crr_source`) sur un vélo sans pneu ni Crr déclaré ne
     dit rien : rien n'a changé. Pas de calibration : `None`.
     """
     if calibration is None:
@@ -175,7 +174,7 @@ def fourchette_du_velo(calibration: Calibration | None) -> FourchettePorteAPorte
 
     Mesurée : écrite par `ourouler calibrer` dans le fichier de calibration
     (provenance « mesure »). Sinon — vélo jamais calibré, calibration
-    antérieure au 25/09/2026, ou trop peu de sorties roulées seul —
+    ancienne qui ne la porte pas, ou trop peu de sorties roulées seul —
     `litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT` (provenance « defaut »),
     une convention mesurée sur un seul cycliste, et dite comme telle.
     """

@@ -23,8 +23,6 @@ from outils_api import (
     corps_json,
 )
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Le vent des fixtures du dépôt vient de 45° (nord-est) à 14 km/h — au-dessus
 #: du seuil de 8 km/h, donc la question se pose.
 VENT_DEPUIS_DEG = 45.0
@@ -107,9 +105,7 @@ def test_au_dela_de_l_horizon_la_question_ne_se_pose_pas():
     """Trois jours inclus, quatre non : on ne promet pas ce qu'on ne prévoit pas."""
     client = client_api(config=config_d_essai(), client_meteo=client_meteo_ordinaire())
     lointain = date.today() + timedelta(days=donnees_du_vent()["horizon_jours"] + 3)
-    donnees = corps_json(
-        demander_le_vent(client, jour=lointain.isoformat())
-    )["donnees"]
+    donnees = corps_json(demander_le_vent(client, jour=lointain.isoformat()))["donnees"]
     assert donnees["posee"] is False
     assert donnees["motif"]
 

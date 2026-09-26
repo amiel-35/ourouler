@@ -33,17 +33,9 @@ from __future__ import annotations
 
 import logging
 import socket
-import sys
-from pathlib import Path
 from typing import Any
 
 import pytest
-
-DOSSIER = Path(__file__).resolve().parent
-
-# Rend `outils_api.py` importable depuis les modules de test de ce dossier.
-if str(DOSSIER) not in sys.path:
-    sys.path.insert(0, str(DOSSIER))
 
 
 class ReseauInterdit(BaseException):
@@ -96,7 +88,7 @@ def reseau_interdit(monkeypatch: pytest.MonkeyPatch) -> None:
 def chemin_api_de_l_environnement(monkeypatch: pytest.MonkeyPatch, request):
     """`OUROULER_API_CHEMIN=nouveau uv run pytest tests/api` rejoue tout ce dossier sur ce chemin.
 
-    Lot 11 : `creer_application` ne lit pas l'environnement ; une application
+    `creer_application` ne lit pas l'environnement ; une application
     construite sans `chemin_api` prend `double_chemin.CHEMIN_DEFAUT`. Poser la
     variable change ce défaut le temps du test, par la même lecture que le
     service (`exploitation.chemin_api`). Sans la variable, rien ne change.
@@ -128,7 +120,5 @@ def chemin_api_de_l_environnement(monkeypatch: pytest.MonkeyPatch, request):
         yield
     finally:
         double_chemin.journal.removeHandler(recueil)
-    if chemin == double_chemin.CHEMIN_DOUBLE and not request.node.get_closest_marker(
-        "ecart_attendu"
-    ):
+    if chemin == double_chemin.CHEMIN_DOUBLE and not request.node.get_closest_marker("ecart_attendu"):
         assert not lignes, f"écarts entre l'ancien et le nouveau chemin : {lignes}"

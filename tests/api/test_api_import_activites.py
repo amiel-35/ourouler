@@ -15,12 +15,9 @@ import time
 import zipfile
 from pathlib import Path
 
-import pytest
 from outils_api import client_api, config_d_essai
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import imports_fond  # noqa: E402
+from ourouler.api import taches_fond
 
 PREFIXE = "/api/v1"
 
@@ -33,7 +30,7 @@ def _gpx() -> bytes:
     return (
         b"<?xml version='1.0'?>\n"
         b'<gpx version="1.1" creator="essai">\n'
-        b'<trk><name>essai</name><trkseg>\n'
+        b"<trk><name>essai</name><trkseg>\n"
         b'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T08:00:00Z</time></trkpt>\n'
         b'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T08:01:00Z</time></trkpt>\n'
         b"</trkseg></trk>\n</gpx>\n"
@@ -121,9 +118,7 @@ def test_une_archive_hostile_est_ignoree_pas_une_panne(tmp_path: Path):
 
 def test_un_gz_depose_est_decompresse(tmp_path: Path):
     client = client_api(config=_config_avec_cache(tmp_path))
-    fini = _deposer_et_attendre(
-        client, ("sortie.gpx.gz", gzip.compress(_gpx()), "application/gzip")
-    )
+    fini = _deposer_et_attendre(client, ("sortie.gpx.gz", gzip.compress(_gpx()), "application/gzip"))
     assert fini["rapport"]["importees"] == 1
 
 
@@ -179,7 +174,7 @@ def test_un_second_import_pendant_le_premier_est_refuse_lisiblement(tmp_path: Pa
     directement, sans dépendre du minutage réel d'un import (trop rapide sur un
     petit fichier pour être observé de façon fiable autrement)."""
     client = client_api(config=_config_avec_cache(tmp_path))
-    assert imports_fond.VERROU.acquire(blocking=False), "verrou déjà tenu avant le test"
+    assert taches_fond.VERROU.acquire(blocking=False), "verrou déjà tenu avant le test"
     try:
         reponse = client.post(
             f"{PREFIXE}/activites/import",
@@ -188,7 +183,7 @@ def test_un_second_import_pendant_le_premier_est_refuse_lisiblement(tmp_path: Pa
         assert reponse.status_code == 409, reponse.text
         assert reponse.json()["erreur"]["code"] == "import_deja_en_cours"
     finally:
-        imports_fond.VERROU.release()
+        taches_fond.VERROU.release()
 
     # Le verrou relâché, un import suivant fonctionne normalement.
     fini = _deposer_et_attendre(client, ("sortie.gpx", _gpx(), "application/gpx+xml"))

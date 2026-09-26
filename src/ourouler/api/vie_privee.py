@@ -1,13 +1,10 @@
 """Ce qu'un propriétaire peut récupérer de ses données, et en demander l'effacement.
 
-Lot L7.B du sprint 7 (`docs/journal/sprints/sprint7_contrat.md`). Doctrine §10.2 : « RGPD par
-construction : export de toutes ses données et suppression du compte (profil,
-fichiers, calibrations, clés) […] » — calendrier révisé le 17/09/2026 (le
-principe ne bouge pas, seul le moment où il devient obligatoire change), mais
-rien n'empêche de l'écrire dès que le sprint le demande.
+Doctrine §10.2 : « RGPD par construction : export de toutes ses données et
+suppression du compte (profil, fichiers, calibrations, clés) […] ».
 
-**La frontière, posée par le mainteneur le 17/09/2026 et non renégociable
-ici** ([[Q46]] dans `docs/journal/questions/questions_mainteneur.md`, doctrine §10.2) : le
+**La frontière, non renégociable ici** (décision Q46, `docs/journal/questions/questions_mainteneur.md`,
+doctrine §10.2) : le
 **tracé** — la géographie d'une route, ses tags, son coût — est collectif ;
 le **lien** — qui l'a roulée, quand, sur quelle sortie — est personnel. Et une
 chose est déjà tranchée dans la doctrine, en toutes lettres : « les poids de
@@ -17,12 +14,10 @@ contribution du propriétaire aux routes apprises (c'est encore « à lui », au
 sens où ce sont ses sorties qui l'ont produit), mais **n'efface jamais**
 `apprentissage.routes.BaseRoutes` — ni les tronçons, ni les sorties.
 
-**Mise à jour du lot RGPD-compte, qui ferme [[Q46]] côté effacement** : la
-table de correspondance compte/propriétaire existe désormais
-(`comptes_proprietaires`, `migrations/0001_comptes.sql`, lot L7.2-A du
-18/09/2026), et c'est justement ce lot-ci qui la branche à `effacer_donnees`
-— « c'est **elle** qu'on efface à la suppression d'un compte » (doctrine
-§10.2) est maintenant vrai en code, pas seulement en intention. Quand un
+**La correspondance compte/propriétaire, côté effacement** : la table
+`comptes_proprietaires` (`migrations/0001_comptes.sql`) est branchée à
+`effacer_donnees` — « c'est **elle** qu'on efface à la suppression d'un
+compte » (doctrine §10.2). Quand un
 `DepotComptes` est fourni, `effacer_donnees` retrouve le compte lié à ce
 propriétaire et l'efface ; la cascade du schéma (`ON DELETE CASCADE` sur
 `invitations.compte`, `sessions.compte` et `comptes_proprietaires.compte`)
@@ -30,10 +25,10 @@ emporte avec lui l'invitation, les sessions ouvertes et la correspondance
 elle-même — un compte « supprimé » ne peut donc plus s'authentifier ni
 rouvrir de session. Rien ne change pour un déploiement sans base de comptes
 (mode personnel, ou hébergé sans `SessionParCookie`) : `comptes` reste
-facultatif, et son absence laisse le comportement d'avant ce lot.
+facultatif, et son absence n'efface que les données.
 
 Ce qui part dans l'export : le profil (la surcharge JSON, jamais le socle du
-serveur), sa calibration (L9.4), le journal des services, les fichiers déposés
+serveur), sa calibration, le journal des services, les fichiers déposés
 et générés, l'index et les fichiers bruts du cache d'activités, et un résumé
 de la part du propriétaire dans les routes apprises. Ce que la suppression efface : tout ce
 qui précède, sauf justement ce résumé des routes apprises, qui reste.
@@ -64,13 +59,13 @@ from ourouler.api import taches_fond
 from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.physique.commande import NOM_CALIBRATION
+from ourouler.services.apprentissage import NOM_BASE
+from ourouler.services.physique import NOM_CALIBRATION
 
 #: Le fichier qui dit ce que chaque entrée de l'archive est — sans lui, un
-#: export RGPD n'est lisible que par qui a écrit le code (contrat §L7.B :
-#: « un export que personne ne sait ouvrir ne remplit pas son office »).
+#: export RGPD n'est lisible que par qui a écrit le code, et un export que
+#: personne ne sait ouvrir ne remplit pas son office.
 GABARIT_LISEZ_MOI = """Export ourouler — {proprietaire}
 Généré le {quand}
 
@@ -117,9 +112,8 @@ def construire_export(
 ) -> bytes:
     """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module.
 
-    **`dossier_cache`, pas une `Config` entière** (changé le 21/09/2026,
-    avec la fermeture de la fuite du tiers 3 de Q35) : ce module ne s'est
-    jamais servi que du dossier de cache, un réglage **serveur** qui ne
+    **`dossier_cache`, pas une `Config` entière** : ce module ne se sert que
+    du dossier de cache, un réglage **serveur** qui ne
     dépend d'aucun profil de cycliste. Exiger une `Config` complète aurait
     fait échouer l'export d'un propriétaire qui n'a pas encore écrit son
     départ ou son cycliste — exactement le cas RGPD le plus élémentaire,
@@ -152,7 +146,7 @@ def construire_export(
     return tampon.getvalue()
 
 
-class TacheNonArretee(Exception):  # noqa: N818 — un état, pas une faute
+class TacheNonArretee(Exception):  # un état, pas une faute
     """Une tâche de fond du compte n'a pas rendu la main à temps : rien n'a été effacé.
 
     Une exception ordinaire, traduite en `ErreurApi` par la route **hors** de
@@ -180,12 +174,11 @@ def effacer_donnees(
 ) -> dict:
     """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste.
 
-    **`dossier_cache`, pas une `Config`** (changé le 21/09/2026, avec la
-    fermeture de la fuite du tiers 3 de Q35) : même raison que
+    **`dossier_cache`, pas une `Config`** : même raison que
     `construire_export` — la suppression doit rester idempotente pour un
-    propriétaire qui n'a jamais complété son profil (contrat sprint 7
-    §L7.B), ce qu'exiger une `Config` entière aurait cassé depuis que le
-    socle partagé ne fournit plus le tiers 3 de Q35.
+    propriétaire qui n'a jamais complété son profil, ce qu'exiger une
+    `Config` entière casserait, puisque le socle partagé ne fournit pas les
+    sections personnelles.
 
     `comptes` est **facultatif** : un déploiement sans base de comptes (mode
     personnel, ou hébergé sans `SessionParCookie`) n'a aucun compte à fermer,
@@ -194,7 +187,7 @@ def effacer_donnees(
     ferme le compte lié (mot de passe compris) et révoque du même coup ses
     sessions ouvertes, par la cascade du schéma (voir cette méthode).
     """
-    # **Une seule suppression à la fois, par compte** (25/09/2026) : sans ce
+    # **Une seule suppression à la fois, par compte** : sans ce
     # verrou, un second `DELETE /moi` du même compte pendant que le premier
     # attend `annuler_et_attendre` (jusqu'à 120 s) attendrait lui aussi, sur
     # un second fil du serveur, pour un travail que le premier fait déjà —
@@ -202,9 +195,8 @@ def effacer_donnees(
     proprietaire = str(qui)
     taches_fond.debuter_effacement(proprietaire)
     try:
-        # **Les tâches de fond ensuite** (contre-lecture Fable du 25/09/2026) :
-        # un import en cours réécrivait ses lignes et ses fichiers bruts
-        # après l'effacement. On les annule, on attend qu'elles aient rendu
+        # **Les tâches de fond ensuite** : un import en cours réécrirait sinon
+        # ses lignes et ses fichiers bruts après l'effacement. On les annule, on attend qu'elles aient rendu
         # la main, et rien ne se relance pour ce compte tant que
         # l'effacement dure.
         with taches_fond.suspendre(proprietaire):
@@ -265,10 +257,10 @@ def _effacer(
 
 
 def _supprimer_calibration(profils: DepotProfils, qui: Proprietaire) -> bool:
-    """Efface la calibration de ce compte (L9.4), rangée dans son dossier. Vrai si elle existait.
+    """Efface la calibration de ce compte, rangée dans son dossier. Vrai si elle existait.
 
     En mode personnel, ce fichier n'existe pas : la calibration du
-    mainteneur vit dans le dossier de cache, écrite par la ligne de commande,
+    cycliste local vit dans le dossier de cache, écrite par la ligne de commande,
     et n'appartient à aucun compte du service.
     """
     chemin = profils.dossier(qui) / NOM_CALIBRATION
@@ -281,9 +273,7 @@ def _ajouter_fichiers(archive: zipfile.ZipFile, qui: Proprietaire, fichiers: Dep
     manifeste = []
     for fichier in fichiers.lister(qui):
         archive.write(fichier.chemin, f"fichiers/{fichier.identifiant}_{fichier.nom}")
-        manifeste.append(
-            {"id": fichier.identifiant, "nom": fichier.nom, "type": fichier.type_contenu}
-        )
+        manifeste.append({"id": fichier.identifiant, "nom": fichier.nom, "type": fichier.type_contenu})
     archive.writestr("fichiers/manifest.json", json.dumps(manifeste, ensure_ascii=False, indent=2))
 
 
@@ -325,12 +315,8 @@ def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossie
         "km_par_surface": stats.km_par_surface,
         "cout_km_moyen": stats.cout_km_moyen,
     }
-    archive.writestr(
-        "routes_apprises/statistiques.json", json.dumps(resume, ensure_ascii=False, indent=2)
-    )
-    archive.writestr(
-        "routes_apprises/sorties.json", json.dumps(base.sorties(), ensure_ascii=False, indent=2)
-    )
+    archive.writestr("routes_apprises/statistiques.json", json.dumps(resume, ensure_ascii=False, indent=2))
+    archive.writestr("routes_apprises/sorties.json", json.dumps(base.sorties(), ensure_ascii=False, indent=2))
 
 
 __all__ = ["TacheNonArretee", "construire_export", "effacer_donnees"]

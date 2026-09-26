@@ -251,9 +251,7 @@ def test_activites_refuse_les_elements_non_dictionnaires():
 def un_par_mois(requete: httpx.Request) -> httpx.Response:
     """Une activité par fenêtre mensuelle, identifiée par le mois demandé."""
     oldest = requete.url.params.get("oldest")
-    return httpx.Response(
-        200, json=[{"id": f"m{oldest[:7]}", "start_date_local": f"{oldest}T09:00:00"}]
-    )
+    return httpx.Response(200, json=[{"id": f"m{oldest[:7]}", "start_date_local": f"{oldest}T09:00:00"}])
 
 
 def test_une_requete_par_mois_civil_sur_une_fenetre_de_trois_mois():
@@ -291,9 +289,7 @@ def test_la_decoupe_ne_depend_pas_de_la_taille_des_reponses():
         (date(2023, 12, 1), date(2025, 12, 31), 25),  # deux ans d'historique
     ],
 )
-def test_nombre_d_appels_egal_au_nombre_de_mois_civils(
-    depuis: date, jusqua: date, appels_attendus: int
-):
+def test_nombre_d_appels_egal_au_nombre_de_mois_civils(depuis: date, jusqua: date, appels_attendus: int):
     c, espion = client(un_par_mois)
     c.activites(depuis, jusqua)
     assert len(espion.fenetres("activities")) == appels_attendus
@@ -329,9 +325,7 @@ def test_le_dedoublonnage_garde_toutes_les_activites_distinctes():
         mois = oldest[:7]
         return httpx.Response(
             200,
-            json=[
-                {"id": f"{mois}-{k}", "start_date_local": f"{oldest}T0{k}:00:00"} for k in (1, 2, 3)
-            ],
+            json=[{"id": f"{mois}-{k}", "start_date_local": f"{oldest}T0{k}:00:00"} for k in (1, 2, 3)],
         )
 
     c, _ = client(trois_par_mois)
@@ -360,9 +354,7 @@ def test_telecharger_fichier_endpoint_et_contenu(activites: Path):
 
 
 def test_extension_depuis_content_disposition(activites: Path):
-    c, _ = client(
-        fichier(b"peu importe", {"content-disposition": 'attachment; filename="12345.tcx"'})
-    )
+    c, _ = client(fichier(b"peu importe", {"content-disposition": 'attachment; filename="12345.tcx"'}))
     assert c.telecharger_fichier("a111")[1] == "tcx"
 
 
@@ -506,16 +498,14 @@ def test_synchroniser_ne_retelecharge_pas_ce_qui_est_en_cache(cache: Cache, acti
     assert espion.chemins.count("/api/v1/activity/a111/file") == telechargements
 
 
-def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(
-    cache: Cache, activites: Path
-):
+def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(cache: Cache, activites: Path):
     """Deux activités, un seul fichier d'origine (le cas du triathlon).
 
-    Point 2 de la relecture du sprint 2 : le cache était indexé par le sha256
-    du contenu, donc les deux segments d'un triathlon (natation et vélo dans
-    le même FIT) n'avaient qu'une ligne, celle de la dernière. `contient()`
-    devenait faux pour la première, qui était retéléchargée à chaque passe en
-    faisant disparaître la seconde : la synchronisation n'a jamais convergé.
+    Un cache indexé par le sha256 du contenu n'aurait qu'une ligne pour les
+    deux segments d'un triathlon (natation et vélo dans le même FIT), celle de
+    la dernière. `contient()` deviendrait faux pour la première, retéléchargée
+    à chaque passe en faisant disparaître la seconde : la synchronisation ne
+    convergerait jamais.
     """
     premiere = {**ACTIVITE_1, "id": "t1", "name": "Segment invente 1"}
     seconde = {**ACTIVITE_1, "id": "t2", "name": "Segment invente 2"}
@@ -534,9 +524,9 @@ def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(
 
     rapport = synchroniser(c, cache, date(2024, 3, 1))
     assert (rapport.vues, rapport.ajoutees, rapport.ignorees) == (2, 0, 2), "seconde passe : 0 ajout"
-    assert [
-        chemin for chemin in espion.chemins if chemin.endswith("/file")
-    ] == telechargements, "seconde passe : aucun appel /file"
+    assert [chemin for chemin in espion.chemins if chemin.endswith("/file")] == telechargements, (
+        "seconde passe : aucun appel /file"
+    )
     assert {e.id_externe for e in cache.lister()} == {"t1", "t2"}, "aucune des deux ne disparaît"
 
 
@@ -622,8 +612,8 @@ def test_equipements_erreur_http_ne_laisse_pas_fuir_la_cle():
 
 
 def test_metadonnees_recopie_les_champs_de_rattachement():
-    """Contrat §7 : power_meter, power_meter_serial, bilateral, gear_id, trainer,
-    device_name."""
+    """Champs recopiés pour le rattachement : power_meter, power_meter_serial,
+    bilateral, gear_id, trainer, device_name."""
     m = metadonnees(ACTIVITE_1)
     assert m["power_meter"] == "CAPTEUR 0001"
     assert m["power_meter_serial"] == "SN-0001"
@@ -695,9 +685,7 @@ def test_les_deux_filtres_de_sport_sont_le_meme(cache: Cache, activites: Path):
 @pytest.mark.parametrize(
     "libelle", [None, "", "Ride", "VirtualRide", "GravelRide", "Run", "Swim", "Triathlon"]
 )
-def test_le_connecteur_rapatrie_exactement_ce_que_l_inventaire_compte(
-    cache: Cache, activites: Path, libelle
-):
+def test_le_connecteur_rapatrie_exactement_ce_que_l_inventaire_compte(cache: Cache, activites: Path, libelle):
     """Point 7 : un seul filtre, donc la même réponse des deux côtés, libellé par libellé."""
     activite = {**ACTIVITE_1, "id": "u1"}
     if libelle is None:

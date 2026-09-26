@@ -643,18 +643,14 @@ def test_m1_plus_d_un_sprint_en_cours(tmp_path):
 
 def test_m2_plus_de_deux_sprints_esquisses(tmp_path):
     racine = _preparer_depot(tmp_path)
-    blocs = "".join(
-        f'\n[[sprint]]\nnumero = {n}\nstatut = "esquisse"\ntitre = "S{n}"\n' for n in (1, 2, 3)
-    )
+    blocs = "".join(f'\n[[sprint]]\nnumero = {n}\nstatut = "esquisse"\ntitre = "S{n}"\n' for n in (1, 2, 3))
     donnees = _ecrire_toml(racine, blocs)
     assert _viole(violations_statiques(donnees, racine), "plus de 2 sprints esquissés")
 
 
 def test_m3_titre_avec_saut_de_ligne(tmp_path):
     racine = _preparer_depot(tmp_path)
-    donnees = _ecrire_toml(
-        racine, '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "Ligne\\nautre"\n'
-    )
+    donnees = _ecrire_toml(racine, '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "Ligne\\nautre"\n')
     assert _viole(violations_statiques(donnees, racine), "'titre' contient un caractère non imprimable")
 
 
@@ -763,18 +759,14 @@ def test_m8_deux_derogations_nouvelles_pour_un_changement():
 
 def test_m8_derogation_nouvelle_sans_changement():
     base = _fichier([_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}])])
-    courant = _fichier(
-        [_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}], derogations=[DEROGATION_OK])]
-    )
+    courant = _fichier([_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}], derogations=[DEROGATION_OK])])
     assert _viole(violations_contre_base(base, courant), "dérogation nouvelle sans changement")
 
 
 def test_m8_derogation_retiree_puis_reintroduite_n_est_pas_nouvelle():
     """Scénario c10 : la base a une dérogation, le diff la retire ; puis un
     diff la réintroduit pour couvrir un remaniement : refusé (append-only)."""
-    base = _fichier(
-        [_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}], derogations=[DEROGATION_OK])]
-    )
+    base = _fichier([_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}], derogations=[DEROGATION_OK])])
     sans = _fichier([_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}])])
     assert _viole(violations_contre_base(base, sans), "dérogations modifiées")
 
@@ -874,9 +866,7 @@ def test_m14_mutation_neutraliser_la_regle_du_nouveau_sprint(monkeypatch):
     # supprimerait le corps de la vérification) et on vérifie que la
     # violation disparaît bien — preuve que le test ci-dessus tuerait ce
     # mutant s'il apparaissait dans le code.
-    monkeypatch.setattr(
-        verifier_backlog, "_regle_g_nouveau_sprint_esquisse", lambda ctx, sprint_courant: []
-    )
+    monkeypatch.setattr(verifier_backlog, "_regle_g_nouveau_sprint_esquisse", lambda ctx, sprint_courant: [])
     assert not _viole(
         violations_contre_base(base, courant),
         "sprint nouveau (absent de la base) doit être 'esquisse'",
@@ -886,8 +876,17 @@ def test_m14_mutation_neutraliser_la_regle_du_nouveau_sprint(monkeypatch):
 # --- B1 et M12 : la comparaison à la base n'est jamais sautée en silence ----
 
 
-GIT = ["git", "-c", "user.name=test", "-c", "user.email=test@exemple.invalid",
-       "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+GIT = [
+    "git",
+    "-c",
+    "user.name=test",
+    "-c",
+    "user.email=test@exemple.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    "-c",
+    "core.hooksPath=/dev/null",
+]
 
 TOML_BASE = """
 [[sprint]]
@@ -911,9 +910,7 @@ def _git(racine: Path, *arguments: str) -> None:
 
 def _depot_git(tmp_path: Path, contenu_base: str | None = TOML_BASE) -> Path:
     """Dépôt git réel : premier commit = la base (avec ou sans sprints.toml)."""
-    racine = _preparer_depot(
-        tmp_path, {"fiche-a": "feature", "fiche-b": "feature", "fiche-c": "bug"}
-    )
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature", "fiche-b": "feature", "fiche-c": "bug"})
     _git(racine, "init", "-q")
     if contenu_base is not None:
         (racine / "docs" / "backlog" / "sprints.toml").write_text(contenu_base, encoding="utf-8")
@@ -1018,9 +1015,7 @@ def test_b2_element_livre_deplace_dans_un_autre_sprint():
 
 
 def test_b2_raison_d_abandon_modifiee():
-    base = _fichier(
-        [_sprint(1, "en_cours", [{"fiche": "a", "statut": "abandonne", "raison": "hors sujet"}])]
-    )
+    base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": "abandonne", "raison": "hors sujet"}])])
     courant = _fichier(
         [_sprint(1, "en_cours", [{"fiche": "a", "statut": "abandonne", "raison": "autre motif"}])]
     )
@@ -1168,10 +1163,20 @@ def test_c5_clos_directement_depuis_fige():
 
 
 def test_c5_une_etape_a_la_fois_acceptee():
-    base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": "en_cours"}]),
-                     _sprint(2, "fige", []), _sprint(3, "esquisse", [])])
-    courant = _fichier([_sprint(1, "clos", [{"fiche": "a", "statut": "livre", "pr": 3}]),
-                        _sprint(2, "en_cours", []), _sprint(3, "fige", [])])
+    base = _fichier(
+        [
+            _sprint(1, "en_cours", [{"fiche": "a", "statut": "en_cours"}]),
+            _sprint(2, "fige", []),
+            _sprint(3, "esquisse", []),
+        ]
+    )
+    courant = _fichier(
+        [
+            _sprint(1, "clos", [{"fiche": "a", "statut": "livre", "pr": 3}]),
+            _sprint(2, "en_cours", []),
+            _sprint(3, "fige", []),
+        ]
+    )
     assert violations_contre_base(base, courant) == []
 
 
@@ -1232,16 +1237,12 @@ def test_regles_e_une_par_une():
     assert ve.regle_e_pr_reservee_au_livre(
         _sprint(1, "en_cours", [{"fiche": "a", "statut": "prevu", "pr": 1}])
     )
-    assert ve.regle_e_abandonne_exige_raison(
-        _sprint(1, "fige", [{"fiche": "a", "statut": "abandonne"}])
-    )
+    assert ve.regle_e_abandonne_exige_raison(_sprint(1, "fige", [{"fiche": "a", "statut": "abandonne"}]))
     assert ve.regle_e_raison_reservee_a_abandonne(
         _sprint(1, "fige", [{"fiche": "a", "statut": "prevu", "raison": "x"}])
     )
     assert ve.regle_e_sprint_clos_termine(_sprint(1, "clos", [{"fiche": "a", "statut": "prevu"}]))
-    assert ve.regle_e_sprint_non_commence(
-        _sprint(1, "esquisse", [{"fiche": "a", "statut": "en_cours"}])
-    )
+    assert ve.regle_e_sprint_non_commence(_sprint(1, "esquisse", [{"fiche": "a", "statut": "en_cours"}]))
     assert not ve.regle_e_sprint_non_commence(
         _sprint(1, "esquisse", [{"fiche": "a", "statut": "abandonne", "raison": "x"}])
     )
@@ -1260,8 +1261,7 @@ def test_m1_derogations_interdites_sur_sprint_esquisse(tmp_path):
     racine = _preparer_depot(tmp_path)
     donnees = _ecrire_toml(
         racine,
-        f'[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n'
-        f'derogations = ["{DEROGATION_OK}"]\n',
+        f'[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\nderogations = ["{DEROGATION_OK}"]\n',
     )
     assert _viole(violations_statiques(donnees, racine), "'derogations' interdite sur un sprint esquisse")
     # la même clé sur un sprint figé n'est pas interdite par cette règle
@@ -1287,9 +1287,7 @@ def test_m1_derogation_sans_changement_refusee_quel_que_soit_le_statut():
 
 def test_m1_derogation_qui_couvre_un_changement_admise_depuis_esquisse():
     base = _fichier([_sprint(1, "esquisse", [{"fiche": "a", "statut": "prevu"}])])
-    courant = _fichier(
-        [_sprint(1, "fige", [{"fiche": "b", "statut": "prevu"}], derogations=[DEROGATION_OK])]
-    )
+    courant = _fichier([_sprint(1, "fige", [{"fiche": "b", "statut": "prevu"}], derogations=[DEROGATION_OK])])
     assert violations_contre_base(base, courant) == []
 
 
@@ -1298,22 +1296,28 @@ def test_m1_derogation_qui_couvre_un_changement_admise_depuis_esquisse():
 
 def test_m2_transitions_d_element_interdites():
     interdites = [
-        ("livre", "prevu"), ("en_cours", "prevu"), ("abandonne", "prevu"),
-        ("abandonne", "en_cours"), ("livre", "abandonne"), ("livre", "en_cours"),
+        ("livre", "prevu"),
+        ("en_cours", "prevu"),
+        ("abandonne", "prevu"),
+        ("abandonne", "en_cours"),
+        ("livre", "abandonne"),
+        ("livre", "en_cours"),
     ]
     for avant, apres in interdites:
         base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": avant}])])
         courant = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": apres}])])
         violations = verifier_backlog.regle_g_transition_elements(base, courant)
-        assert _viole(violations, f"transition d'élément interdite : {avant!r} -> {apres!r}"), (
-            avant, apres
-        )
+        assert _viole(violations, f"transition d'élément interdite : {avant!r} -> {apres!r}"), (avant, apres)
 
 
 def test_m2_transitions_d_element_admises():
     admises = [
-        ("prevu", "prevu"), ("prevu", "en_cours"), ("en_cours", "livre"),
-        ("prevu", "abandonne"), ("en_cours", "abandonne"), ("prevu", "livre"),
+        ("prevu", "prevu"),
+        ("prevu", "en_cours"),
+        ("en_cours", "livre"),
+        ("prevu", "abandonne"),
+        ("en_cours", "abandonne"),
+        ("prevu", "livre"),
     ]
     for avant, apres in admises:
         base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": avant}])])
@@ -1323,12 +1327,8 @@ def test_m2_transitions_d_element_admises():
 
 def test_m2_recul_par_deplacement_dans_un_autre_sprint():
     """Déplacer un élément en_cours dans un autre sprint en prevu est un recul."""
-    base = _fichier(
-        [_sprint(1, "en_cours", [{"fiche": "a", "statut": "en_cours"}]), _sprint(2, "fige", [])]
-    )
-    courant = _fichier(
-        [_sprint(1, "en_cours", []), _sprint(2, "fige", [{"fiche": "a", "statut": "prevu"}])]
-    )
+    base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": "en_cours"}]), _sprint(2, "fige", [])])
+    courant = _fichier([_sprint(1, "en_cours", []), _sprint(2, "fige", [{"fiche": "a", "statut": "prevu"}])])
     assert _viole(violations_contre_base(base, courant), "'en_cours' -> 'prevu'")
 
 
@@ -1346,9 +1346,7 @@ def test_m3_bornes_des_dates_de_derogation():
 
 def test_m3_date_en_chiffres_non_ascii_refusee():
     # « ٢٦ » : chiffres arabo-indiens, que int() accepterait
-    assert "mal formée" in verifier_backlog.valider_entree_derogation(
-        "٢٦/09/2026 : chiffres non ASCII"
-    )
+    assert "mal formée" in verifier_backlog.valider_entree_derogation("٢٦/09/2026 : chiffres non ASCII")
 
 
 def test_m3_raison_de_derogation_non_imprimable_refusee_avant_strip():
@@ -1539,9 +1537,7 @@ def test_commits_fusion_qui_retouche_le_fichier_est_controlee(tmp_path, capsys):
     parent (en_cours), où fiche-b devient fiche-c sans dérogation."""
     racine = _depot_git(tmp_path)
     _deux_branches(racine)
-    _fusion_resolue_a_la_main(
-        racine, "cote", TOML_EN_COURS.replace('fiche = "fiche-b"', 'fiche = "fiche-c"')
-    )
+    _fusion_resolue_a_la_main(racine, "cote", TOML_EN_COURS.replace('fiche = "fiche-b"', 'fiche = "fiche-c"'))
     fusion = _sha(racine)
     assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
     assert f"[{fusion[:7]}] [sprint 1] était 'en_cours' et a changé sans dérogation" in (
@@ -1594,9 +1590,7 @@ def test_commits_toml_invalide_dans_un_commit_intermediaire(tmp_path, capsys):
     fautif = _sha(racine)
     _commit_toml(racine, TOML_EN_COURS)
     assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
-    assert f"[{fautif[:7]}] docs/backlog/sprints.toml n'est pas un TOML valide" in (
-        capsys.readouterr().out
-    )
+    assert f"[{fautif[:7]}] docs/backlog/sprints.toml n'est pas un TOML valide" in (capsys.readouterr().out)
 
 
 def test_commits_creation_toleree_et_dite(tmp_path, capsys):
@@ -1617,7 +1611,10 @@ def test_commits_creation_au_commit_racine(tmp_path, capsys):
     # commit sans parent, sans lien avec l'historique de HEAD
     orphelin = subprocess.run(
         [*GIT, "commit-tree", "HEAD^{tree}", "-m", "sans lien"],
-        cwd=racine, capture_output=True, text=True, check=True,
+        cwd=racine,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     assert main(["--racine", str(racine), "--commits", orphelin]) == 0
     sortie = capsys.readouterr().out
@@ -1691,9 +1688,7 @@ def test_commits_git_show_en_echec_est_une_violation(tmp_path, capsys, monkeypat
     commit = _sha(racine)
     _git_show_en_echec(monkeypatch)
     assert main(["--racine", str(racine), "--commits", "HEAD~1"]) == 1
-    assert f"[{commit[:7]}] docs/backlog/sprints.toml illisible : objet manquant" in (
-        capsys.readouterr().out
-    )
+    assert f"[{commit[:7]}] docs/backlog/sprints.toml illisible : objet manquant" in (capsys.readouterr().out)
 
 
 def test_commits_premier_parent_illisible_est_une_violation(tmp_path, capsys):

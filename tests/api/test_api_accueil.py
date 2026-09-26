@@ -1,6 +1,6 @@
 """L'accueil : `assistant_recommande`, la lecture du profil Intervals, la FTP par vitesse+terrain.
 
-Trois pièces neuves du 19/09/2026 (`docs/ux/parcours_accueil.md`) :
+Trois pièces neuves du 19/09/2026 (`docs/journal/ux/parcours_accueil.md`) :
 
 - `GET /profil` porte `donnees.assistant_recommande`, le signal qui doit
   faire atterrir un compte neuf dans l'assistant plutôt que sur l'écran du
@@ -16,7 +16,6 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-import pytest
 from outils_api import (
     CLE_INTERVALS_SENTINELLE,
     DEPART_SYNTHETIQUE,
@@ -25,8 +24,6 @@ from outils_api import (
     config_d_essai,
 )
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Un TOML d'essai minimal, écrit sur `tmp_path` — jamais de coordonnée réelle
 #: (règle absolue 1). Sert les tests qui écrivent (`PATCH /profil`) : `config=`
 #: donne un socle **en lecture seule** (`SocleFixe`), voir
@@ -34,8 +31,8 @@ pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-
 #: constat. `chemin_config=` reste modifiable.
 _TOML_ESSAI = (
     f'[depart]\nnom = "{DEPART_SYNTHETIQUE["nom"]}"\n'
-    f'latitude = {DEPART_SYNTHETIQUE["latitude"]}\n'
-    f'longitude = {DEPART_SYNTHETIQUE["longitude"]}\n'
+    f"latitude = {DEPART_SYNTHETIQUE['latitude']}\n"
+    f"longitude = {DEPART_SYNTHETIQUE['longitude']}\n"
     "\n[cycliste]\nmasse_kg = 70.0\n"
     '\n[[velos]]\nnom = "Essai"\nusage = "route"\nmasse_kg = 9.0\n'
 )
@@ -74,9 +71,7 @@ def test_assistant_recommande_faux_apres_le_premier_patch(tmp_path: Path):
 
 def test_profil_intervals_refuse_sans_cle_posee():
     """Ni panne ni faute : un compte qui n'a pas encore posé sa clé Intervals."""
-    client = client_api(
-        config=config_d_essai(intervals={"athlete_id": "", "api_key": ""})
-    )
+    client = client_api(config=config_d_essai(intervals={"athlete_id": "", "api_key": ""}))
     reponse = client.get("/api/v1/profil/intervals")
     assert reponse.status_code == 409
     assert reponse.json()["erreur"]["code"] == "intervals_absent"
@@ -235,7 +230,7 @@ def test_apercu_ftp_depuis_terrain_ne_stocke_rien():
 
 
 def test_apercu_ftp_terrain_plus_raide_demande_plus_de_puissance():
-    """Le levier du §6 de `docs/ux/parcours_accueil.md` : à vitesse compteur
+    """Le levier du §6 de `docs/journal/ux/parcours_accueil.md` : à vitesse compteur
     égale, un terrain plus raide implique une FTP plus haute."""
     client = client_api(config=config_d_essai())
     plat = client.post(

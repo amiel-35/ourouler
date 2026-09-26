@@ -125,9 +125,7 @@ def charger_toml(chemin: Path) -> dict[str, Any]:
 
 
 def _git(racine: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *arguments], cwd=racine, capture_output=True, text=True
-    )
+    return subprocess.run(["git", *arguments], cwd=racine, capture_output=True, text=True)
 
 
 def _violations_acces_git(racine: Path, ref: str, etiquette: str) -> list[str]:
@@ -168,9 +166,7 @@ def _toml_au_commit(racine: Path, rev: str) -> tuple[dict[str, Any] | None, str 
         return None, f"n'est pas un TOML valide : {exc}"
 
 
-def charger_toml_depuis_git(
-    racine: Path, base: str
-) -> tuple[dict[str, Any] | None, list[str], str | None]:
+def charger_toml_depuis_git(racine: Path, base: str) -> tuple[dict[str, Any] | None, list[str], str | None]:
     """Lit sprints.toml dans la référence git `base`.
 
     Retourne (structure, violations, message_creation) :
@@ -233,10 +229,7 @@ def valider_entree_derogation(entree: str) -> str | None:
     except ValueError:
         return "date inexistante au calendrier"
     if not DATE_MIN_DEROGATION <= date <= DATE_MAX_DEROGATION:
-        return (
-            f"date hors bornes ({DATE_MIN_DEROGATION:%d/%m/%Y} à "
-            f"{DATE_MAX_DEROGATION:%d/%m/%Y})"
-        )
+        return f"date hors bornes ({DATE_MIN_DEROGATION:%d/%m/%Y} à {DATE_MAX_DEROGATION:%d/%m/%Y})"
     # Avant tout strip() : un caractère de contrôle en bordure ne doit pas
     # disparaître avant d'être vu.
     if not _est_imprimable_tolerant(raison):
@@ -287,8 +280,7 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     else:
         if not _est_imprimable_tolerant(titre):
             violations.append(
-                f"{ctx} 'titre' contient un caractère non imprimable "
-                "(saut de ligne, tabulation, contrôle…)"
+                f"{ctx} 'titre' contient un caractère non imprimable (saut de ligne, tabulation, contrôle…)"
             )
         if not titre.strip():
             violations.append(f"{ctx} 'titre' vide")
@@ -298,8 +290,7 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     if "derogations" in sprint:
         if statut == "esquisse":
             violations.append(
-                f"{ctx} clé 'derogations' interdite sur un sprint esquisse "
-                "(rien n'y est encore engagé)"
+                f"{ctx} clé 'derogations' interdite sur un sprint esquisse (rien n'y est encore engagé)"
             )
         violations.extend(_valider_derogations(sprint["derogations"], ctx))
 
@@ -335,8 +326,7 @@ def _valider_cles_et_types_element(element: dict[str, Any], ctx: str) -> list[st
             violations.append(f"{ctx} 'raison' doit être une chaîne")
         elif not _est_imprimable_tolerant(raison):
             violations.append(
-                f"{ctx} 'raison' contient un caractère non imprimable "
-                "(saut de ligne, tabulation, contrôle…)"
+                f"{ctx} 'raison' contient un caractère non imprimable (saut de ligne, tabulation, contrôle…)"
             )
         elif not raison.strip():
             violations.append(f"{ctx} 'raison' vide")
@@ -374,9 +364,7 @@ def _noms_fichiers_backlog(racine: Path) -> set[str]:
     return {entree.name for entree in dossier.iterdir() if entree.is_file()}
 
 
-def _valider_reference_fiche(
-    fiche: Any, racine: Path, noms_fichiers: set[str], ctx: str
-) -> list[str]:
+def _valider_reference_fiche(fiche: Any, racine: Path, noms_fichiers: set[str], ctx: str) -> list[str]:
     if not isinstance(fiche, str):
         return [f"{ctx} 'fiche' doit être une chaîne"]
     if not MOTIF_FICHE.match(fiche):
@@ -633,9 +621,7 @@ def _index_sprints(donnees: dict[str, Any]) -> dict[int, dict[str, Any]]:
     sprints = donnees.get("sprint", [])
     if not isinstance(sprints, list):
         return {}
-    return {
-        s["numero"]: s for s in sprints if isinstance(s, dict) and _est_entier(s.get("numero"))
-    }
+    return {s["numero"]: s for s in sprints if isinstance(s, dict) and _est_entier(s.get("numero"))}
 
 
 def _cle_element(element: dict[str, Any]) -> str:
@@ -655,9 +641,7 @@ def _derogations(sprint: dict[str, Any]) -> list[Any]:
     return valeur if isinstance(valeur, list) else []
 
 
-def _regle_g_transition_sprint(
-    ctx: str, statut_base: Any, statut_courant: Any
-) -> list[str]:
+def _regle_g_transition_sprint(ctx: str, statut_base: Any, statut_courant: Any) -> list[str]:
     """Pas de recul, au plus une étape. « clos seulement depuis en_cours » en
     découle : la progression étant linéaire, arriver à clos depuis autre
     chose que en_cours ou clos est forcément un saut de plus d'une étape."""
@@ -673,10 +657,7 @@ def _regle_g_transition_sprint(
         return [f"{ctx} statut revenu en arrière : {statut_base!r} -> {statut_courant!r}"]
     if ecart <= 1:
         return []
-    message = (
-        f"{ctx} statut avancé de plus d'une étape en un diff : "
-        f"{statut_base!r} -> {statut_courant!r}"
-    )
+    message = f"{ctx} statut avancé de plus d'une étape en un diff : {statut_base!r} -> {statut_courant!r}"
     if statut_courant == "clos":
         message += f" (clos alors qu'il n'était pas en_cours dans la base ({statut_base!r}))"
     return [message]
@@ -737,9 +718,7 @@ def _regle_f_derogations_append_only(
     return []
 
 
-def _changements_de_composition(
-    sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
-) -> list[str]:
+def _changements_de_composition(sprint_base: dict[str, Any], sprint_courant: dict[str, Any]) -> list[str]:
     """Les changements réels qu'une dérogation peut couvrir : l'ensemble des
     éléments, le titre."""
     ids_base = set(_index_elements(sprint_base))
@@ -748,15 +727,11 @@ def _changements_de_composition(
     if ids_base != ids_courant:
         changements.append(f"éléments base={sorted(ids_base)} courant={sorted(ids_courant)}")
     if sprint_base.get("titre") != sprint_courant.get("titre"):
-        changements.append(
-            f"titre {sprint_base.get('titre')!r} -> {sprint_courant.get('titre')!r}"
-        )
+        changements.append(f"titre {sprint_base.get('titre')!r} -> {sprint_courant.get('titre')!r}")
     return changements
 
 
-def _nb_derogations_nouvelles(
-    sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
-) -> int | None:
+def _nb_derogations_nouvelles(sprint_base: dict[str, Any], sprint_courant: dict[str, Any]) -> int | None:
     """Nombre de dérogations ajoutées en fin de liste ; None si la liste de la
     base n'est pas un préfixe exact (déjà signalé par
     _regle_f_derogations_append_only)."""
@@ -797,8 +772,7 @@ def _regle_f_composition_figee(
 
     if changements and nb_nouvelles == 0:
         return [
-            f"{ctx} était {statut_base!r} et a changé sans dérogation nouvelle : "
-            + " ; ".join(changements)
+            f"{ctx} était {statut_base!r} et a changé sans dérogation nouvelle : " + " ; ".join(changements)
         ]
     if changements and nb_nouvelles > 1:
         return [
@@ -815,9 +789,7 @@ def _regle_g_nouveau_sprint_esquisse(ctx: str, sprint_courant: dict[str, Any]) -
     statut = sprint_courant.get("statut")
     if statut == "esquisse":
         return []
-    return [
-        f"{ctx} sprint nouveau (absent de la base) doit être 'esquisse', trouvé {statut!r}"
-    ]
+    return [f"{ctx} sprint nouveau (absent de la base) doit être 'esquisse', trouvé {statut!r}"]
 
 
 def _statuts_elements(donnees: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
@@ -878,9 +850,7 @@ def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> lis
 
     for numero, sprint_courant in sprints_courant.items():
         if numero not in sprints_base:
-            violations.extend(
-                _regle_g_nouveau_sprint_esquisse(f"[sprint {numero}]", sprint_courant)
-            )
+            violations.extend(_regle_g_nouveau_sprint_esquisse(f"[sprint {numero}]", sprint_courant))
 
     violations.extend(regle_g_transition_elements(base, courant))
     return violations
@@ -931,15 +901,12 @@ def _violations_d_un_commit(racine: Path, sha: str) -> tuple[list[str], list[str
                 f"{premier_parent[:7]} mais déjà présent plus tôt dans l'historique"
             ], []
         return [], [
-            f"{court} création : {CHEMIN_RELATIF_TOML} absent du premier parent, "
-            "règles F et G sans objet"
+            f"{court} création : {CHEMIN_RELATIF_TOML} absent du premier parent, règles F et G sans objet"
         ]
 
     base, erreur = _toml_au_commit(racine, premier_parent)
     if base is None:
-        return [
-            f"{court} {CHEMIN_RELATIF_TOML} au premier parent {premier_parent[:7]} {erreur}"
-        ], []
+        return [f"{court} {CHEMIN_RELATIF_TOML} au premier parent {premier_parent[:7]} {erreur}"], []
     return [f"{court} {v}" for v in violations_contre_base(base, courant)], []
 
 
@@ -954,16 +921,19 @@ def violations_par_commit(racine: Path, base: str) -> tuple[list[str], list[str]
         return violations, []
 
     liste = _git(
-        racine, "rev-list", "--reverse", "--full-history", f"{base}..HEAD",
-        "--", CHEMIN_RELATIF_TOML,
+        racine,
+        "rev-list",
+        "--reverse",
+        "--full-history",
+        f"{base}..HEAD",
+        "--",
+        CHEMIN_RELATIF_TOML,
     )
     if liste.returncode != 0:
         return [f"[commits] liste des commits de {base}..HEAD impossible : {liste.stderr.strip()}"], []
 
     shas = liste.stdout.split()
-    informations = [
-        f"[commits] {len(shas)} commit(s) de {base}..HEAD touchent {CHEMIN_RELATIF_TOML}"
-    ]
+    informations = [f"[commits] {len(shas)} commit(s) de {base}..HEAD touchent {CHEMIN_RELATIF_TOML}"]
     for sha in shas:
         violations_commit, informations_commit = _violations_d_un_commit(racine, sha)
         violations.extend(violations_commit)
@@ -1086,9 +1056,7 @@ def main(argv: list[str] | None = None) -> int:
 
     informations: list[str] = []
     if args.base:
-        base_donnees, violations_base, message_creation = charger_toml_depuis_git(
-            racine, args.base
-        )
+        base_donnees, violations_base, message_creation = charger_toml_depuis_git(racine, args.base)
         violations.extend(violations_base)
         if message_creation:
             informations.append(message_creation)

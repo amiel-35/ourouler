@@ -1,9 +1,9 @@
-/** Lot F2.4 — **toutes** les candidates, avec leur sort et sa raison.
+/** **Toutes** les candidates, avec leur sort et sa raison.
  *
- * Le défaut que ce panneau corrige, dans les mots du mainteneur : « je veux
- * visuellement voir le souci ». Le produit montrait ce qu'il retenait, jamais
- * ce qu'il avait jeté ni pourquoi — et c'est au **contraste** que ses
- * candidates disparaissaient, l'étape dont rien ne sortait à l'écran.
+ * Il faut pouvoir voir le souci. Sans ce panneau, le produit montrerait ce
+ * qu'il retient, jamais ce qu'il jette ni pourquoi — et c'est au
+ * **contraste** que la plupart des candidates disparaissent, l'étape dont
+ * rien ne sortirait à l'écran.
  *
  * Deux formes étaient possibles : court-circuiter l'arbitrage pour voir les
  * rejets bruts, ou tout montrer avec la décision. C'est la seconde — voir les
@@ -18,7 +18,7 @@
  *
  * **Aucun chiffre n'est calculé ici.** Les pourcentages, les verdicts, les
  * phrases et le compte des groupes essayés viennent tous de
- * `sortie/contraste.py` (doctrine §10.2, règle absolue 5). Ce fichier met en
+ * `sortie/contraste.py` (doctrine §10.2 ; on n'affirme rien sans mesure). Ce fichier met en
  * page, il ne mesure pas.
  */
 
@@ -55,7 +55,7 @@ export function titreArbitrage(arbitrage: Arbitrage): string {
   if (jetees === 0) {
     return `Pourquoi ces parcours — les ${nombre(total)} candidates ont toutes été retenues`;
   }
-  // « 1 candidates écartées » se lisait à l'écran le 17/09/2026. Une vue de
+  // Pas de « 1 candidates écartées ». Une vue de
   // diagnostic qui écorche le français se lit moins bien, et rien n'oblige
   // à écrire « candidate(s) » quand on connaît le nombre.
   if (jetees === 1) return "Voir la candidate écartée, et pourquoi";

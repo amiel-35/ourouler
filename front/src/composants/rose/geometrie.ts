@@ -8,9 +8,8 @@ import {
 } from "../../api/formats";
 
 // `LARGEUR` porte une marge généreuse au-delà de `R_ETIQUETTE` (32px, deux
-// lignes de texte — direction et mm) : posée trop juste (4px) à la première
-// vérification à l'écran (20/09/2026), elle rognait le haut de « N », rendu
-// visible seulement comme deux tirets. Un SVG racine clippe par défaut tout
+// lignes de texte — direction et mm) : posée trop juste (4px), elle rogne le
+// haut de « N », rendu visible seulement comme deux tirets. Un SVG racine clippe par défaut tout
 // ce qui déborde de son `viewBox` — ce n'est pas un bug d'affichage isolé,
 // c'est une marge insuffisante, corrigée ici plutôt que par un `overflow:
 // visible` qui aurait juste déplacé le rognage sur le conteneur parent.

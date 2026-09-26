@@ -1,7 +1,7 @@
 """Où tombent les blocs de la séance sur un tracé donné.
 
 La séance est une prescription : les durées des blocs et de **toutes** les
-récupérations ne se touchent pas (décision du mainteneur, 13/09). Le seul
+récupérations ne se touchent pas (décision Q14, `docs/journal/questions/questions_mainteneur.md`). Le seul
 levier de placement est le **décalage de la Z2 d'ouverture** : l'allonger
 repousse toute la partie contrainte plus loin sur le tracé, et c'est ainsi
 qu'on fait coulisser les blocs jusqu'à un bon couloir. La Z2 de fin, elle,
@@ -17,8 +17,7 @@ Le vent n'entre pas dans ce calcul : le placement se fait sur la géométrie
 du tracé, la météo est jugée ailleurs (`boucle.meteo_trace`).
 
 Pour chaque bloc précédé d'une récupération et d'un autre bloc, on essaie en
-plus la variante **demi-tour**, dans la forme exacte donnée par le
-mainteneur :
+plus la variante **demi-tour**, dans cette forme exacte :
 
     bloc (aller) → moitié de la récup → demi-tour → moitié de la récup
     → bloc (sens inverse)
@@ -32,8 +31,7 @@ ni revêtement — elle absorbe le point dur, c'est son rôle.
 Chaque bloc est noté **à son intensité** : `evaluer_couloir` reçoit la
 puissance cible du bloc et la FTP de la séance (`ftp_de`), parce qu'une
 descente sous un bloc à 110 % de FTP n'est pas le même défaut qu'une descente
-sous un bloc à 70 % (décision du mainteneur du 13/09,
-`terrain.FACTEURS_ZONE_DESCENTE`). La puissance d'une **récupération** n'est
+sous un bloc à 70 % (`terrain.FACTEURS_ZONE_DESCENTE`). La puissance d'une **récupération** n'est
 donnée à personne : une récup n'est pas évaluée du tout.
 
 La note de la configuration est la **moyenne des notes de couloir pondérée
@@ -41,8 +39,7 @@ par la durée de chaque bloc** :
 
     note_totale = Σ (note_i × duree_i) / Σ duree_i
 
-Décision du superviseur du 13/09 (Q12) : un bloc de 20 min pèse trente fois
-une activation de 40 s. Voir `_note_ponderee` pour le motif.
+Un bloc de 20 min pèse trente fois une activation de 40 s (décision Q12). Voir `_note_ponderee` pour le motif.
 
 S'y ajoute la **pénalité de séance** : le terrain sous les blocs ne dit rien
 de ce qui arrive aux extrémités élastiques, et un placement qui fait
@@ -50,7 +47,7 @@ demi-tour, revient au km 0 et laisse le retour au calme à 0 min au lieu des
 20 prescrites était jusqu'ici le mieux noté de tous — il ne traversait aucun
 village, et pour cause : il ne roulait presque plus.
 
-Les deux sens ne se paient pas pareil (Q14, close le 13/09/2026) :
+Les deux sens ne se paient pas pareil (décision Q14) :
 
 * **Raccourcir** ampute la séance. Une étape élastique tombée sous sa fenêtre
   coûte cher, au prorata de ce qui l'en sépare — `PENALITE_SEANCE_NON_TENUE`.
@@ -78,6 +75,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
 from ourouler.noyau.seance import Etape, Seance
+from ourouler.noyau.texte import minutes_signees
 from ourouler.noyau.trace import (
     Trace,
 )
@@ -85,24 +83,17 @@ from ourouler.physique.modele import (
     Parametres,
 )
 from ourouler.seance.pas_trace import (
-    PAS_VENT_MS,  # noqa: F401 — réexporté
-    _arrondir_vent,  # noqa: F401 — réexporté (tests)
     _distances_cumulees,
-    _point_a,  # noqa: F401 — réexporté (tests)
     _Terrain,
 )
 from ourouler.seance.placement_note import (
-    PENALITE_CALME_ALLONGE_KM_PAR_H,  # noqa: F401 — réexporté
-    PENALITE_SEANCE_NON_TENUE,  # noqa: F401 — réexporté
     _EcartElastique,
     _note_ponderee,
     _penalite_seance,
 )
 from ourouler.seance.placement_resultat import (
-    DOUBLON_PARCOURS_M,  # noqa: F401 — réexporté
     Emplacement,
     Placement,
-    trace_parcourue,  # noqa: F401 — réexporté
 )
 from ourouler.seance.terrain import demi_tour_faisable, evaluer_couloir, route_au_dela
 from ourouler.seance.vent import ChampVent
@@ -128,12 +119,12 @@ PENTE_DEMI_TOUR_MAX = 0.015
 MAX_DECALAGES = 2000
 
 #: Ce qu'un avertissement de placement dit quand la séance est **amputée** :
-#: une étape élastique est tombée **sous** sa fenêtre, celle que le mainteneur
-#: a fixée lui-même (`elasticite_calme_min`, −5 % par défaut). C'est le seul
+#: une étape élastique est tombée **sous** sa fenêtre, celle que le profil
+#: fixe (`elasticite_calme_min`, −5 % par défaut). C'est le seul
 #: verdict exact sur « la séance est-elle roulée en entier ? », et il est rendu
 #: ici, au seul endroit qui connaît les fenêtres.
 #:
-#: Nommé au lot L5.3 pour que `sortie.contraste` le lise plutôt que de
+#: Nommé pour que `sortie.contraste` le lise plutôt que de
 #: redériver l'amputation d'une comparaison de durées : une sortie 49 s plus
 #: courte que la prescription est un arrondi, une sortie dont le retour au
 #: calme perd 60 % est une séance non tenue, et aucun seuil sur la durée
@@ -165,7 +156,7 @@ def placer(
 
     `elasticite_calme` est la fenêtre du **retour au calme** (−5 % à +150 % par
     défaut), qui ne place rien et absorbe : elle est largement ouverte vers le
-    haut parce qu'une boucle ne tombe jamais juste (Q14). Sortir de cette
+    haut parce qu'une boucle ne tombe jamais juste. Sortir de cette
     fenêtre par le haut se dit ; dépasser tout court se paie, au prorata et
     sans seuil.
 
@@ -197,13 +188,11 @@ def placer(
     prealables: list[str] = []
     if idx_ouverture is None:
         prealables.append(
-            "aucune Z2 d'ouverture élastique : la séance est posée telle quelle, "
-            "sans levier de placement"
+            "aucune Z2 d'ouverture élastique : la séance est posée telle quelle, sans levier de placement"
         )
     if idx_fermeture is None:
         prealables.append(
-            "aucun retour au calme élastique : rien n'absorbe la distance restante "
-            "après le dernier bloc"
+            "aucun retour au calme élastique : rien n'absorbe la distance restante après le dernier bloc"
         )
 
     duree_ouverture = seance.etapes[idx_ouverture].duree_s if idx_ouverture is not None else 0.0
@@ -253,7 +242,7 @@ def _motif_global(
 ) -> str:
     """Un motif d'échec exploitable : ce qui a été essayé, et ce qui a coincé."""
     essaye = (
-        f"décalages essayés : de {_minutes(decalages[0])} à {_minutes(decalages[-1])} "
+        f"décalages essayés : de {minutes_signees(decalages[0])} à {minutes_signees(decalages[-1])} "
         f"({len(decalages)} valeurs)"
     )
     detail = motifs[0] if motifs else "aucun décalage n'a pu être déroulé"
@@ -373,8 +362,8 @@ def _essayer(
     _avertir_fin(terrain, etat, avertissements, fermee=idx_fermeture is not None)
 
     penalite = _penalite_seance(ecarts, elasticite, elasticite_calme)
-    # Seuls les blocs portent une note : une récupération n'est jamais évaluée
-    # (règle du sprint 4). `_note_ponderee` suppose que chaque emplacement
+    # Seuls les blocs portent une note : une récupération n'est jamais évaluée.
+    # `_note_ponderee` suppose que chaque emplacement
     # qu'on lui passe a un `note` non `None` — un filtre, jamais un `or 0.0`,
     # qui ferait entrer une note neutre inventée dans la moyenne.
     terrain_note = _note_ponderee([e for e in emplacements if e.note is not None], etapes)
@@ -413,10 +402,9 @@ def _derouler_etapes(
     """
     i = 0
     # `True` dès qu'un bloc a été placé : condition exacte de la variante
-    # demi-tour, « précédé d'une récupération et d'un autre bloc ». Avant le
-    # lot L5.2, `emplacements` ne contenait que des blocs et servait de proxy
-    # à cette question ; il contient maintenant l'échauffement et les
-    # récupérations aussi, donc le proxy ne suffit plus — il faut le dire
+    # demi-tour, « précédé d'une récupération et d'un autre bloc ». `emplacements`
+    # ne peut pas servir de proxy à cette question : il contient aussi
+    # l'échauffement et les récupérations, donc le proxy ne suffit pas — il faut le dire
     # explicitement.
     un_bloc_precedent = False
     while i < fin:
@@ -424,7 +412,7 @@ def _derouler_etapes(
         duree = etape.duree_s + (decalage_s if i == idx_ouverture else 0.0)
         if duree < 0:
             return (
-                f"un décalage de {_minutes(decalage_s)} raccourcit la Z2 d'ouverture "
+                f"un décalage de {minutes_signees(decalage_s)} raccourcit la Z2 d'ouverture "
                 "au-delà de sa durée"
             )
         if i == idx_ouverture and etape.duree_s > 0:
@@ -493,7 +481,7 @@ def _etape_libre(
 
     Avant le premier bloc, ou en queue sans bloc pour l'absorber. Elle roule
     quand même, et sa position se mémorise comme celle de n'importe quelle
-    autre étape (Q13) — sans note, aucun terrain n'est évalué ici.
+    autre étape — sans note, aucun terrain n'est évalué ici.
     """
     depart = etat.position_m
     parcouru = etat.distance_m
@@ -514,8 +502,7 @@ def _avertir_fin(terrain: _Terrain, etat: _Etat, avertissements: list[str], *, f
     """Ce qu'il faut dire de la fin de séance : tracé restant, retour à l'envers."""
     if not fermee and etat.sens > 0 and terrain.total - etat.position_m > 0:
         avertissements.append(
-            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé "
-            "après la dernière étape"
+            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé après la dernière étape"
         )
     if etat.sens < 0:
         avertissements.append(
@@ -585,7 +572,7 @@ def _recup_puis_bloc(
     part, sans quoi l'intensité d'une récup pèserait sur une note de terrain.
 
     Rend une **liste** de deux `Emplacement` (récup, bloc), pas un seul : la
-    récupération obtient désormais sa propre position (Q13, lot L5.2). Le
+    récupération obtient sa propre position. Le
     second élément est toujours le bloc — c'est lui qui porte la note qui
     arbitre.
 
@@ -595,8 +582,8 @@ def _recup_puis_bloc(
     départager deux **décalages**, jamais deux variantes d'une même paire : si
     le demi-tour gagne localement de 0,1 km équivalent, il est retenu même
     s'il fera payer 19 en bout de course, et tous les décalages en héritent.
-    C'est exactement la cause (1) décrite dans Q14 — « un demi-tour ajoute de
-    la distance que le dimensionnement ignore » — et sa piste (a). Le lecteur
+    C'est exactement la cause (1) décrite dans la décision Q14 — « un
+    demi-tour ajoute de la distance que le dimensionnement ignore ». Le lecteur
     qui croit que la pénalité arbitre tout se trompe : elle n'arbitre que ce
     qui vient après.
     """
@@ -696,20 +683,20 @@ def _variante_demi_tour(
     """Le bloc repris en sens inverse, la récup coupée en deux autour du demi-tour.
 
     `None` dès qu'une des trois conditions manque. Le besoin de route au-delà
-    du segment est estimé comme le mainteneur le fait de tête — une demi-récup
+    du segment est estimé comme un cycliste le fait de tête — une demi-récup
     à la vitesse du moment, « 4 min à 25 km/h ≈ 800 m » — et c'est
     `route_au_dela` qui dit si cette route existe, y compris sur une boucle
     fermée où le tracé continue au-delà de sa fin.
 
     **La récupération reste une seule étape, donc un seul `Emplacement`**
-    (Q13, lot L5.2) — elle ne se coupe pas en deux : son `debut_m` est le
+    — elle ne se coupe pas en deux : son `debut_m` est le
     début du couloir entre le point de départ et le point de demi-tour, et sa
     `longueur_m` vaut **`2 × besoin_m`**, l'aller et le retour, pas l'écart
     entre ses deux extrémités (qui vaudrait `besoin_m` et sous-compterait de
     moitié) ni zéro (départ et arrivée sont le même point). C'est cette même
     estimation, à vitesse de récup constante, qui est ajoutée à
-    `etat.distance_m` : l'invariant de continuité (contrat §2.2.a, « la somme
-    des longueurs vaut `distance_totale_m` ») tient par construction, sur ce
+    `etat.distance_m` : l'invariant de continuité (« la somme des longueurs
+    vaut `distance_totale_m` ») tient par construction, sur ce
     qui est effectivement compté — pas sur la géométrie exacte, légèrement
     écrêtée en bout de boucle fermée, que `jalons_m` mémorise pour son propre
     usage (voir la docstring d'`Emplacement`).
@@ -774,12 +761,10 @@ def _variante_demi_tour(
     return [recup_emp, bloc_emp], essai
 
 
-def _route_au_dela(
-    trace: Trace, terrain: _Terrain, position_m: float, besoin_m: float, sens: int
-) -> bool:
+def _route_au_dela(trace: Trace, terrain: _Terrain, position_m: float, besoin_m: float, sens: int) -> bool:
     """`terrain.route_au_dela`, appliqué dans le sens de marche.
 
-    La fonction du contrat ne connaît que le sens du tracé ; après un premier
+    La fonction d'origine ne connaît que le sens du tracé ; après un premier
     demi-tour on roule à l'envers, et « au-delà » veut alors dire « avant la
     position ». La question reste la même : reste-t-il `besoin_m` de route
     devant, ou bien la boucle continue-t-elle ?
@@ -806,7 +791,7 @@ def _fermer(
     Sa durée est donc **recalculée** : c'est le temps qu'il faut pour rentrer
     depuis là où le dernier bloc s'est terminé.
 
-    Ce qu'on en dit suit la décision Q14 (13/09), et le ton compte autant que
+    Ce qu'on en dit suit la décision Q14, et le ton compte autant que
     le chiffre :
 
     * **rentrer plus tard n'est pas un défaut** — « c'est souvent ce que je
@@ -820,7 +805,7 @@ def _fermer(
       mais la boucle qui ne va pas avec la séance.
 
     Dans les deux cas on ne refuse pas : une note, jamais un filtre. Comme
-    toute étape (Q13, lot L5.2), le retour au calme obtient sa propre
+    toute étape, le retour au calme obtient sa propre
     position dans `emplacements`, sans note.
     """
     depart = etat.position_m
@@ -854,8 +839,7 @@ def _fermer(
         duree_txt = f"{duree / 60:.0f} min au lieu des {etape.duree_s / 60:.0f} prescrites"
         if ecart < bas:
             avertissements.append(
-                f"retour au calme raccourci : {duree_txt} ({ecart:+.0%}) — "
-                f"{MOTIF_SEANCE_AMPUTEE}"
+                f"retour au calme raccourci : {duree_txt} ({ecart:+.0%}) — {MOTIF_SEANCE_AMPUTEE}"
             )
         elif ecart > haut:
             avertissements.append(
@@ -877,7 +861,7 @@ def _km_en_plus(reste_m: float, duree_s: float, depassement_s: float) -> str:
 
     Le retour au calme couvre `reste_m` en `duree_s` ; la part en trop couvre
     la même fraction de cette distance. C'est du kilomètre facile, et c'est
-    exactement ce que le mainteneur veut voir écrit — des kilomètres, pas un
+    exactement ce qu'un cycliste veut voir écrit — des kilomètres, pas un
     pourcentage.
     """
     if not (math.isfinite(duree_s) and duree_s > 0 and math.isfinite(reste_m)):
@@ -896,8 +880,7 @@ def _puissance(etape: Etape, avertissements: list[str], idx: int) -> float:
     cible = etape.puissance_cible_w
     if cible is None or not math.isfinite(cible) or cible <= 0:
         avertissements.append(
-            f"{_nom(etape, idx)} : aucune puissance cible, vitesse estimée à "
-            f"{PUISSANCE_SANS_CIBLE_W:.0f} W"
+            f"{_nom(etape, idx)} : aucune puissance cible, vitesse estimée à {PUISSANCE_SANS_CIBLE_W:.0f} W"
         )
         return PUISSANCE_SANS_CIBLE_W
     return float(cible)
@@ -908,7 +891,7 @@ def ftp_de(seance: Seance) -> float | None:
 
     Elle sert à une seule chose ici : donner à `seance.terrain.evaluer_couloir`
     la fraction de FTP de chaque bloc, dont dépend le prix d'une descente
-    (décision du mainteneur du 13/09, voir `terrain.FACTEURS_ZONE_DESCENTE`).
+    (voir `terrain.FACTEURS_ZONE_DESCENTE`).
 
     Elle est lue dans `seance.meta["ftp_w"]`, que `seance.intervals` y écrit, et
     **pas** reçue en paramètre : c'est la FTP qui a produit les watts des
@@ -939,7 +922,3 @@ def _plus_de_route(etat: _Etat, terrain: _Terrain, etape: Etape, idx: int) -> st
         f"plus de route au km {etat.position_m / 1000:.1f} sur "
         f"{terrain.total / 1000:.1f} km pour {_nom(etape, idx)}"
     )
-
-
-def _minutes(secondes: float) -> str:
-    return f"{secondes / 60:+.0f} min"

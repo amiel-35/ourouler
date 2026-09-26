@@ -1,6 +1,6 @@
 """Le tracé vu comme une suite de pas, tel que le placement le parcourt.
 
-Sorti de `seance/placement.py`, qui le réexporte : distances cumulées,
+Sorti de `seance/placement.py` : distances cumulées,
 altitude, caps et vent arrondi de chaque pas (`_Terrain`). Rien ici ne
 décide d'un placement ; les mêmes calculs, dans le même ordre, qu'avant le
 déplacement.
@@ -32,9 +32,8 @@ from ourouler.seance.vent import ChampVent
 #: vitesses. 0,25 m/s vaut 0,9 km/h — bien en deçà de ce que la prévision sait
 #: dire, donc l'arrondi ne coûte aucune justesse.
 #:
-#: Il ne gagne pas grand-chose non plus, et c'est mesuré (15/09/2026, relecture
-#: du lot L5.1) : le supprimer coûte **2 %** sur un placement, pas l'explosion
-#: de cache qu'annonçait la première rédaction de ce commentaire. La raison est
+#: Il ne gagne pas grand-chose non plus, et c'est mesuré : le supprimer coûte
+#: **2 %** sur un placement, pas une explosion du cache. La raison est
 #: que `_Terrain.vent_face` mémoïse déjà par `(pas, sens)` : il n'existe que
 #: deux valeurs de vent possibles par pas, quoi qu'il arrive. On garde
 #: l'arrondi parce qu'il est gratuit et qu'il borne la clé, pas parce qu'il
@@ -157,10 +156,6 @@ class _Terrain:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
         return self.pentes[self._pas_contenant(position_m)]
 
-    def cap_a(self, position_m: float) -> float:
-        """Le cap du pas qui contient `position_m`, en degrés. Pendant de `pente_a`."""
-        return self.caps[self._pas_contenant(position_m)]
-
     def _pas_contenant(self, position_m: float) -> int:
         """L'indice du pas qui contient `position_m`, celui du bout au-delà des bornes."""
         i = bisect.bisect_right(self.bornes, position_m) - 1
@@ -207,9 +202,7 @@ class _Terrain:
             pos = borne
         return None
 
-    def duree_pour(
-        self, position_m: float, sens: int, distance: float, puissance_w: float
-    ) -> float | None:
+    def duree_pour(self, position_m: float, sens: int, distance: float, puissance_w: float) -> float | None:
         """Le temps qu'il faut pour couvrir `distance` depuis `position_m`, ou `None`."""
         if distance <= 0:
             return 0.0

@@ -1,6 +1,6 @@
 """Ce que `ourouler boucle` montre de ses candidates : le tableau texte et le JSON.
 
-Couche 4 de `docs/ouverture_plan.md` §2 (lot 6). `boucle/commande.py`
+La couche de rendu (`ARCHITECTURE.md`). `services/boucle.py`
 cherche, mesure, classe et écrit le GPX ; il passe ici des objets déjà
 construits — `Evaluation`, `Demande`, `ModeleTemps`, la `Config` et le bloc
 « compteur » — et imprime ce qui en revient. Ce module ne lit ni fichier, ni
@@ -18,19 +18,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ourouler.boucle.commande import TAGS_PROVENANCE_RAPPROCHEMENT, Demande, Evaluation, ModeleTemps
+from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.meteo import portee
 from ourouler.meteo.rapport import date_en_francais
+from ourouler.noyau.texte import duree_h_min, nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import PorteAPorte
 from ourouler.rendu.boucle_json import (
-    _duree_pauses_s,
     _meteo_rendue,
-    _modele_meteo_json,  # noqa: F401 — réexporté (tests)
     porte_a_porte,
-    rendre_json,  # noqa: F401 — réexporté
 )
+from ourouler.services.boucle import TAGS_PROVENANCE_RAPPROCHEMENT, Demande, Evaluation, ModeleTemps
 
 if TYPE_CHECKING:
     # Le rendu lit les champs d'une `Config` déjà chargée ; il n'importe pas,
@@ -46,7 +45,7 @@ MENTION_MODELE = "(modèle)"
 #: La même, quand CdA et Crr n'ont pas été mesurés sur ce vélo mais viennent de
 #: la table de `physique.litterature`. Deux mots de plus, et ils comptent : le
 #: temps est calculé, pas supposé constant, mais il repose sur des valeurs de
-#: catégorie (règle absolue 5, même geste que le « supposé » du facteur
+#: catégorie (on ne présente jamais une estimation comme une mesure : même geste que le « supposé » du facteur
 #: compteur).
 MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
@@ -60,7 +59,7 @@ PART_NON_CLASSE_SIGNALEE = 0.05
 #: mètres qu'on lui a retirés et le tracé proposé n'en a plus ; un GPX importé
 #: n'est pas touché, le tableau compte les mètres qui y sont **encore**.
 #: Afficher le même mot pour les deux ferait croire à un élagage qui n'a pas
-#: eu lieu (règle absolue 5).
+#: eu lieu.
 TITRE_ANTENNES_RETIREES = "antennes retirées"
 TITRE_ANTENNES_DETECTEES = "antennes détectées"
 
@@ -74,7 +73,7 @@ def avertissement_meteo(panne: str | None, meteo_absente: portee.MeteoAbsente | 
     """La ligne de la sortie d'erreur quand la météo manque, ou `None` si elle a répondu.
 
     La boucle reste servie sans ses colonnes météo : une panne d'Open-Meteo se
-    nomme, une date hors de l'horizon dit ce qu'on ne sait pas (Q40 a).
+    nomme, une date hors de l'horizon dit ce qu'on ne sait pas.
     """
     if panne is not None:
         return (
@@ -91,8 +90,7 @@ def avertissement_meteo(panne: str | None, meteo_absente: portee.MeteoAbsente | 
 
 # --- rendu texte ---------------------------------------------------------------
 
-#: Colonnes du tableau, dans l'ordre des contrats §6 (sprint 2) et §2
-#: (sprint 3). Le second membre nomme la mesure dont la colonne dépend :
+#: Colonnes du tableau, dans l'ordre d'affichage. Le second membre nomme la mesure dont la colonne dépend :
 #: sans cette mesure, la colonne **disparaît** au lieu d'afficher une colonne
 #: de tirets. `None` = toujours affichée.
 COLONNES = (
@@ -138,9 +136,7 @@ def rendre_texte(
 
     titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
     cellules = [_cellules(e, config, presentes, compteur_info) for e in evaluations]
-    largeurs = [
-        max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
-    ]
+    largeurs = [max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)]
     marge = " " * (len(MARQUE_RETENUE) + 1)
     lignes.append(marge + "  ".join(t.rjust(n) for t, n in zip(titres, largeurs, strict=True)))
     for evaluation, ligne in zip(evaluations, cellules, strict=True):
@@ -151,16 +147,14 @@ def rendre_texte(
     if compteur_info is not None:
         lignes.append(ligne_temps_ecoule(compteur_info))
     if any(e.trace.meta.get("couts_partiels") for e in evaluations):
-        lignes.append(
-            f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
-        )
+        lignes.append(f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus.")
     ligne_rapprochement = _ligne_rapprochement_tags(evaluations)
     if ligne_rapprochement is not None:
         lignes.append(ligne_rapprochement)
     non_classes = _non_classes_signales(evaluations)
     if non_classes:
         lignes.append(
-            f"{_fr(non_classes, 1)} km sur des routes non classées (ni trafic ni calme) : "
+            f"{nombre_fr(non_classes, 1)} km sur des routes non classées (ni trafic ni calme) : "
             "« trafic » et « calme » ne couvrent pas tout le tracé."
         )
     ignores = sum(int(e.trace.meta.get("segments_ignores") or 0) for e in evaluations)
@@ -179,9 +173,7 @@ def rendre_texte(
     return "\n".join(lignes)
 
 
-def _porte_a_porte_retenue(
-    evaluation: Evaluation, config: Config, compteur_info: dict | None
-) -> str:
+def _porte_a_porte_retenue(evaluation: Evaluation, config: Config, compteur_info: dict | None) -> str:
     """« , entre 4 h 23 et 4 h 38 porte à porte » — ou rien sans fourchette."""
     mouvement_s = _temps_mouvement_s(evaluation, config)
     if mouvement_s is None or compteur_info is None:
@@ -192,10 +184,11 @@ def _porte_a_porte_retenue(
 def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
     """« On n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. »
 
-    Les mots sont ceux du mainteneur (Q41 d). Rien ne s'affiche quand toutes
-    les boucles tiennent dans la tolérance — c'est le cas normal, et une
+    Les mots sont ceux de la décision Q41 d
+    (`docs/journal/questions/questions_mainteneur.md`). Rien ne s'affiche quand
+    toutes les boucles tiennent dans la tolérance — c'est le cas normal, et une
     ligne qui signale ce qui ne compte pas apprend à ne plus lire la ligne
-    (même raison que `SEUIL_ECART_DUREE` dans `sortie/commande.py`).
+    (même raison que `SEUIL_ECART_DUREE` dans `services/sortie.py`).
 
     Partagée avec `sortie`, qui rend le même fait dans un autre tableau : le
     cycliste n'a pas à apprendre deux formulations pour une seule notion.
@@ -209,12 +202,12 @@ def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
     palier_max = max(e.elargissement or 0.0 for e in elargies)
     numeros = ", ".join(f"n° {e.numero}" for e in elargies)
     lignes = [
-        f"Aucune boucle à ±{tolerance:.0%} de {_fr(distance_km, 0)} km : la tolérance a été "
+        f"Aucune boucle à ±{tolerance:.0%} de {nombre_fr(distance_km, 0)} km : la tolérance a été "
         f"élargie de {palier_max:.0%}, soit ±{tolerance + palier_max:.0%} ({numeros})."
     ]
     for e in elargies:
         lignes.append(
-            f"    n° {e.numero} : {_fr(e.trace.distance_m / 1000, 1)} km, "
+            f"    n° {e.numero} : {nombre_fr(e.trace.distance_m / 1000, 1)} km, "
             f"{e.ecart_relatif:+.0%} de la distance demandée."
         )
     return lignes
@@ -272,9 +265,7 @@ def _vitesse_passage(
     moins vite qu'un plat-pays à la même puissance. L'entête affiche donc la
     moyenne des candidates dès qu'elles diffèrent d'un dixième.
     """
-    connues = [
-        e.vitesse_meteo_kmh for e in (evaluations or []) if e.vitesse_meteo_kmh is not None
-    ]
+    connues = [e.vitesse_meteo_kmh for e in (evaluations or []) if e.vitesse_meteo_kmh is not None]
     if not connues:
         return f"{config.boucle.vitesse_moyenne_kmh:g} km/h"
     moyenne = sum(connues) / len(connues)
@@ -290,7 +281,7 @@ def _vitesse_passage(
 def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
     """« Tags de route rapprochés... » — d'où viennent les tags d'un GPX greffé.
 
-    Règle absolue 5 : un tag **mesuré** par le moteur (une candidate générée)
+    Un tag **mesuré** par le moteur (une candidate générée)
     et un tag **deviné** par rapprochement (un GPX importé, `boucle.
     tags_importes`) ne sont pas la même chose, et l'écran doit le dire —
     avec le seuil retenu et la part de kilomètres qui n'a rien trouvé.
@@ -305,7 +296,7 @@ def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
     km_sans_tag = sum(float(e.trace.meta.get("tags_km_sans_tag") or 0.0) for e in greffees)
     return (
         f"Tags de route rapprochés du tracé rerouté par BRouter (seuil {seuil:g} m) : "
-        f"{_fr(km_sans_tag, 1)} km n'ont trouvé aucun tronçon assez proche, comptés en "
+        f"{nombre_fr(km_sans_tag, 1)} km n'ont trouvé aucun tronçon assez proche, comptés en "
         "routes non classées."
     )
 
@@ -316,8 +307,8 @@ def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     Un tracé dont la moitié passe par des chemins sans `highway` connu
     (`path`, `footway`, une valeur OSM nouvelle) affichait « 0,0 km de
     trafic » exactement comme un tracé parfaitement calme : `km_trafic` et
-    `km_calme` peuvent valoir bien moins que la distance, et rien ne le disait
-    (point 15 de la relecture du sprint 2).
+    `km_calme` peuvent valoir bien moins que la distance, et rien ne le dirait
+    sans elle.
     """
     a_signaler = [
         e.couts.km_non_classe
@@ -346,12 +337,12 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
 def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
     """Nomme le modèle météo qui a **répondu**, et le dit haut quand c'est un repli.
 
-    Cette ligne annonçait le modèle *configuré* et son second avis. Depuis que
-    le repli de Q19 s'applique aussi à `boucle`, ce serait un mensonge une
-    fois sur deux : le tableau montrerait la pluie d'`icon_seamless` sous un
-    en-tête qui nomme AROME. Même phrase et même raison que
-    `rendu.sortie._ligne_modele_meteo` — règle absolue 5 : quand un seul
-    des deux modèles a pu répondre, c'est encore une divergence à dire.
+    Annoncer le modèle *configuré* et son second avis serait, puisque le repli
+    de modèle s'applique aussi à `boucle`, un mensonge une fois sur deux : le
+    tableau montrerait la pluie d'`icon_seamless` sous un en-tête qui nomme
+    AROME. Même phrase et même raison que
+    `rendu.sortie._ligne_modele_meteo` : quand un seul des deux modèles a pu
+    répondre, c'est encore une divergence à dire.
     """
     meteo = _meteo_rendue(evaluations)
     if meteo is None or not meteo.modele_utilise:
@@ -372,9 +363,7 @@ def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
             f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
             f"{meteo.modele_utilise} (second avis, configuré en repli)."
         )
-    return (
-        f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
-    )
+    return f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
 
 
 def _lignes_litterature(modele: ModeleTemps) -> list[str]:
@@ -404,7 +393,7 @@ def _entete(
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
     else:
-        # Sans `--direction` (Q47), la recherche balaie tout l'horizon : il
+        # Sans `--direction`, la recherche balaie tout l'horizon : il
         # n'y a alors pas un azimut à afficher, mais huit.
         direction = (
             f"{demande.direction} ({demande.azimut_deg:.0f}°)"
@@ -429,7 +418,8 @@ def _entete(
             lignes.append(f"⚠ Calibration du {modele.velo} : {modele.alerte}.")
     elif modele is not None:
         # Le modèle tourne, mais sur des CdA et Crr de catégorie : il le dit
-        # ici comme le facteur compteur dit « supposé » (règle absolue 5).
+        # ici comme le facteur compteur dit « supposé » (on ne présente jamais
+        # une estimation comme une mesure).
         lignes.append(
             f"Temps estimé par le modèle du {modele.velo} à {modele.puissance_w:.0f} W, "
             f"sur des valeurs de {modele.provenance} — temps en mouvement, arrêts non modélisés"
@@ -451,24 +441,17 @@ def _entete(
         # séparées par un `routes poids --appliquer` donneraient des scores
         # différents sans que rien ne l'explique.
         cites = _classes_citees(poids, evaluations or [])
-        lignes.append(
-            "Poids des routes : appris sur vos sorties"
-            + (f" ({cites})." if cites else ".")
-        )
+        lignes.append("Poids des routes : appris sur vos sorties" + (f" ({cites})." if cites else "."))
     else:
         lignes.append(
             "Poids des routes : valeurs par défaut — `ourouler routes poids --appliquer` "
             "les apprend sur vos sorties."
         )
-    lignes.append(
-        "« connu % » : part des km déjà roulés — informatif, jamais dans le score."
-    )
+    lignes.append("« connu % » : part des km déjà roulés — informatif, jamais dans le score.")
     return lignes
 
 
-def _classes_citees(
-    poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4
-) -> str:
+def _classes_citees(poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4) -> str:
     """Le poids des classes les plus **présentes dans les candidates affichées**.
 
     Citer les plus pénalisées donnait une ligne vraie mais inutile
@@ -482,7 +465,7 @@ def _classes_citees(
             if classe:
                 km_par_classe[classe] = km_par_classe.get(classe, 0.0) + km
     classes = sorted(km_par_classe.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
-    return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
+    return ", ".join(f"{classe} {nombre_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
 
 
 def _cellules(
@@ -492,16 +475,14 @@ def _cellules(
     partiels = bool(evaluation.trace.meta.get("couts_partiels"))
     cellules = [
         str(evaluation.numero),
-        f"{_fr(evaluation.trace.distance_m / 1000, 1)} km",
+        f"{nombre_fr(evaluation.trace.distance_m / 1000, 1)} km",
         _denivele(evaluation.trace),
         _temps(evaluation, config, compteur_info),
-        ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
-        ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
+        ABSENT if partiels else f"{nombre_fr(couts.km_trafic, 1)} km",
+        ABSENT if partiels else f"{nombre_fr(couts.km_non_revetu, 1)} km",
     ]
     if "cout" in presentes:
-        cellules.append(
-            _fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
-        )
+        cellules.append(nombre_fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT)
     cellules += [
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
         couts.sens,
@@ -520,9 +501,13 @@ def _cellules(
         )
     if "meteo" in presentes:
         cellules += [
-            f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
+            f"{nombre_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
             _vent_face(meteo),
-            f"{_fr(meteo.ressenti_min_c, 1)} °C" if meteo and meteo.ressenti_min_c is not None else ABSENT,
+            (
+                f"{nombre_fr(meteo.ressenti_min_c, 1)} °C"
+                if meteo and meteo.ressenti_min_c is not None
+                else ABSENT
+            ),
         ]
     return cellules
 
@@ -532,8 +517,7 @@ def _denivele(trace: Trace) -> str:
 
     Le « filtered ascend » du moteur et le D+ recalculé à la relecture d'un
     GPX divergent de 10 à 32 % sur les tracés mesurés, dans les deux sens :
-    afficher le chiffre sans sa provenance rendait l'écart incompréhensible
-    (point 5 de la relecture du sprint 2).
+    afficher le chiffre sans sa provenance rendrait l'écart incompréhensible.
     """
     if trace.denivele_m is None:
         return ABSENT
@@ -546,9 +530,9 @@ def _vent_face(meteo: MeteoTrace | None) -> str:
 
     Les parts de vent se calculent sur les seuls échantillons au vent connu,
     ce qui est le bon choix : un échantillon sans donnée ne doit pas compter
-    pour du travers. Mais « vent face 100 % » ne disait pas s'il reposait sur
+    pour du travers. Mais « vent face 100 % » ne dirait pas s'il repose sur
     douze échantillons ou sur un seul, les onze autres étant hors de
-    l'horizon de prévision (point 18 de la relecture du sprint 2).
+    l'horizon de prévision.
     """
     if meteo is None:
         return ABSENT
@@ -567,15 +551,13 @@ def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
     return evaluation.trace.distance_m / 1000 / vitesse * 3600
 
 
-def _temps_ecoule_s(
-    evaluation: Evaluation, config: Config, compteur_info: dict | None
-) -> float | None:
+def _temps_ecoule_s(evaluation: Evaluation, config: Config, compteur_info: dict | None) -> float | None:
     """Le temps écoulé porte à porte **médian**, en secondes — sans les pauses déclarées.
 
     La médiane de la fourchette du vélo (`porte_a_porte`) quand un vélo en
     donne une ; à défaut, le temps en mouvement tel quel. `None` si même
     celui-ci manque. Les pauses s'ajoutent par-dessus, ailleurs
-    (`_duree_pauses_s` + ce résultat) : la fourchette ne les connaît pas, et
+    (`duree_pauses_s` + ce résultat) : la fourchette ne les connaît pas, et
     ne doit pas les connaître — les compter ici *et* les ajouter ensuite les
     compterait deux fois.
     """
@@ -599,7 +581,7 @@ def _heure_arrivee(
     ecoule_s = _temps_ecoule_s(evaluation, config, compteur_info)
     if ecoule_s is None:
         return None
-    return demande.depart + timedelta(seconds=ecoule_s + _duree_pauses_s(demande.pauses))
+    return demande.depart + timedelta(seconds=ecoule_s + duree_pauses_s(demande.pauses))
 
 
 def _ligne_pauses(
@@ -618,7 +600,7 @@ def _ligne_pauses(
     if not demande.pauses:
         return None
     retenue = evaluations[0]
-    total_texte = _duree_texte(_duree_pauses_s(demande.pauses))
+    total_texte = duree_h_min(duree_pauses_s(demande.pauses))
     n = len(demande.pauses)
     arrivee = _heure_arrivee(retenue, demande, config, compteur_info)
     if arrivee is None:
@@ -638,25 +620,24 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
     """« 2:14 » seul, ou « 2:20-2:24 / 2:14 » — porte à porte en fourchette /
     mouvement — dès qu'un vélo donne une fourchette (voir `ligne_temps_ecoule`).
 
-    **L'écoulé vient en premier** (18/09/2026). Le mainteneur l'a tranché
-    pour l'écran, et la CLI ne dit pas l'inverse : « je demande 5 h, je veux
-    5 h, pas 4 h et un truc plus loin qui me dit en fait c'est 5 h ». Le
-    premier chiffre est donc celui qui répond à la durée demandée ; le
+    **L'écoulé vient en premier**, à l'écran comme dans la CLI : qui demande
+    5 h veut lire 5 h, pas 4 h et, plus loin, une correction qui dit qu'en
+    fait c'est 5 h. Le premier chiffre est donc celui qui répond à la durée demandée ; le
     second dit ce que ça donnerait sans un seul arrêt.
     """
     mouvement_s = _temps_mouvement_s(evaluation, config)
     if mouvement_s is None:
         return ABSENT
     if compteur_info is None:
-        return _duree_texte(mouvement_s)
+        return duree_h_min(mouvement_s)
     pp = porte_a_porte(mouvement_s, compteur_info)
-    return f"{_duree_texte(pp.bas_s)}-{_duree_texte(pp.haut_s)} / {_duree_texte(mouvement_s)}"
+    return f"{duree_h_min(pp.bas_s)}-{duree_h_min(pp.haut_s)} / {duree_h_min(mouvement_s)}"
 
 
 def texte_entre(pp: PorteAPorte) -> str:
     """« entre 4 h 23 et 4 h 38 » — la fourchette du porte à porte, en toutes lettres.
 
-    Publique : `sortie.commande` dit la sienne avec les mêmes mots.
+    Publique : `services.sortie` dit la sienne avec les mêmes mots.
     """
     return f"entre {_heures_minutes(pp.bas_s)} et {_heures_minutes(pp.haut_s)}"
 
@@ -669,7 +650,7 @@ def _heures_minutes(secondes: float) -> str:
 def provenance_fourchette(compteur_info: dict) -> str:
     """D'où vient la fourchette du vélo, en une incise : mesurée sur ses sorties ou convention.
 
-    Règle absolue 5 : la convention ne se présente jamais comme une mesure.
+    La convention ne se présente jamais comme une mesure.
     """
     brut = compteur_info["porte_a_porte"]
     if brut["provenance"] == "mesure":
@@ -680,12 +661,12 @@ def provenance_fourchette(compteur_info: dict) -> str:
 def ligne_temps_ecoule(compteur_info: dict) -> str:
     """La légende sous le tableau : ce que veut dire « 2:20-2:31 / 2:14 » en colonne « temps ».
 
-    Choix d'affichage (18/09/2026) : une cellule combinée plutôt qu'une
+    Choix d'affichage : une cellule combinée plutôt qu'une
     colonne de plus — le tableau en a déjà treize, une quatorzième pour un
     seul chiffre de plus n'aurait pas tenu en largeur de terminal. La CLI et
     le JSON disent la même chose : `temps_estime_s`/`temps_ecoule_s`.
 
-    **Publique et non préfixée** : `sortie.commande` l'appelle telle quelle
+    **Publique et non préfixée** : `services.sortie` l'appelle telle quelle
     plutôt que de réécrire la même phrase pour son propre tableau — même
     raison que `lignes_elargissement` juste au-dessus.
 
@@ -695,24 +676,14 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     chiffre, voir `_ligne_pauses` — les compter ici reviendrait à les compter
     deux fois.
 
-    Depuis L9.1 (25/09/2026) le porte à porte est le temps sans arrêt de ce
-    tracé-ci multiplié par la fourchette du vélo : la moyenne compteur ne le
-    chronomètre plus, elle ne sert qu'à choisir la distance.
+    Le porte à porte est le temps sans arrêt de ce tracé-ci multiplié par la
+    fourchette du vélo : la moyenne compteur ne le chronomètre pas, elle ne
+    sert qu'à choisir la distance.
     """
     brut = compteur_info["porte_a_porte"]
     return (
         "Temps affiché : porte à porte, arrêts compris / sans un seul arrêt — le porte "
-        f"à porte est le temps sans arrêt × {_fr(brut['bas'], 2)} à × {_fr(brut['haut'], 2)} "
+        f"à porte est le temps sans arrêt × {nombre_fr(brut['bas'], 2)} à × {nombre_fr(brut['haut'], 2)} "
         f"({provenance_fourchette(compteur_info)}) : la moitié des sorties tombe dans "
         "cette fourchette."
     )
-
-
-def _duree_texte(secondes: float) -> str:
-    minutes = round(secondes / 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale, pas de séparateur de milliers."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")

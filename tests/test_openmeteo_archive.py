@@ -41,9 +41,7 @@ def charge_complete(n: int = 24) -> dict:
     }
 
 
-def client(
-    gestionnaire, chemin_cache: Path | None = None, proprietaire: str | None = None
-) -> ClientArchive:
+def client(gestionnaire, chemin_cache: Path | None = None, proprietaire: str | None = None) -> ClientArchive:
     extra = {} if proprietaire is None else {"proprietaire": proprietaire}
     return ClientArchive(
         http=httpx.Client(transport=httpx.MockTransport(gestionnaire)),
@@ -470,9 +468,7 @@ def test_les_lignes_migrees_sont_rattachees_au_proprietaire_partage(tmp_path: Pa
     client(jamais_appele, chemin)
     cx = sqlite3.connect(chemin)
     try:
-        assert cx.execute("SELECT DISTINCT proprietaire FROM archive").fetchall() == [
-            (PROPRIETAIRE_PARTAGE,)
-        ]
+        assert cx.execute("SELECT DISTINCT proprietaire FROM archive").fetchall() == [(PROPRIETAIRE_PARTAGE,)]
         assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
     finally:
         cx.close()

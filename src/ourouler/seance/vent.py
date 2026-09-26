@@ -6,8 +6,8 @@ pas de 100 m et a besoin du vent **à la position où il se trouve**, pas au
 plus proche échantillon : d'où ce champ, qui interpole entre les deux
 échantillons encadrants.
 
-Ce que ce module apporte au placement, mesuré sur les paramètres calibrés du
-mainteneur (terrain plat, 20 min à 210 W) : 11,1 km sans vent, 13,3 km avec
+Ce que ce module apporte au placement, mesuré sur des paramètres calibrés réels
+(terrain plat, 20 min à 210 W) : 11,1 km sans vent, 13,3 km avec
 20 km/h dans le dos, 9,2 km avec 20 km/h de face. Placer un bloc sans tenir
 compte du vent, c'est se tromper de 4 km sur un bloc qui en fait 11.
 
@@ -41,22 +41,11 @@ import bisect
 import math
 from collections.abc import Sequence
 
-from ourouler.boucle.meteo_trace import (
-    SEUIL_VENT_SENSIBLE_KMH,
-    Echantillon,
-    interpoler_angle,
-)
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, Echantillon
+from ourouler.noyau.meteo import interpoler_angle
 from ourouler.physique.modele import FACTEUR_VENT_HAUTEUR
 
-#: Réexporté de `boucle.meteo_trace`, où la constante vit depuis le
-#: 17/09/2026 avec sa justification (échelle de Beaufort) et la règle qui
-#: s'en sert, `fleches_vent`. Elle était ici ; `boucle` en a eu besoin pour
-#: sérialiser les flèches de vent du JSON, et `boucle` ne peut pas importer
-#: `seance` — c'est `seance` qui importe `boucle`, partout. La déplacer d'un
-#: cran plus bas garde **une seule constante pour tous ses usages**, qui est
-#: exactement ce que le lot L5.3 voulait ; la dupliquer pour préserver
-#: l'emplacement aurait trahi la règle en respectant la ligne.
-__all__ = ["SEUIL_VENT_SENSIBLE_KMH", "ChampVent", "seuil_vent_sensible_ms"]
+__all__ = ["ChampVent", "seuil_vent_sensible_ms"]
 
 
 def seuil_vent_sensible_ms() -> float:
@@ -91,9 +80,7 @@ class ChampVent:
         sortie, elle doit seulement se dire.
         """
         self.facteur_hauteur = facteur_hauteur if math.isfinite(facteur_hauteur) else 0.0
-        connus = sorted(
-            (e for e in echantillons if _utilisable(e)), key=lambda e: float(e.dist_m)
-        )
+        connus = sorted((e for e in echantillons if _utilisable(e)), key=lambda e: float(e.dist_m))
         self.positions = [float(e.dist_m) for e in connus]
         self.vitesses_ms = [float(e.vent_kmh) / 3.6 for e in connus]
         self.directions_deg = [float(e.vent_depuis_deg) for e in connus]
@@ -157,6 +144,5 @@ def _utilisable(e: Echantillon) -> bool:
     série et rendrait toute recherche par dichotomie absurde.
     """
     return all(
-        valeur is not None and math.isfinite(valeur)
-        for valeur in (e.dist_m, e.vent_kmh, e.vent_depuis_deg)
+        valeur is not None and math.isfinite(valeur) for valeur in (e.dist_m, e.vent_kmh, e.vent_depuis_deg)
     )

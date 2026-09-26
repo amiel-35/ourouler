@@ -1,6 +1,6 @@
 """Ce qu'un cas d'usage reçoit de son appelant, en plus de la demande.
 
-Lot 10 (`docs/ouverture_plan.md` §6) : la `Demande` porte ce que le
+La `Demande` porte ce que le
 cycliste a demandé, déjà interprété ; le `Contexte` porte **où** et **pour
 qui** le service travaille — le profil du cycliste, le dossier de cache et le
 fichier de calibration déjà résolus, et la façon de faire part d'un
@@ -8,7 +8,7 @@ avertissement. Les clients HTTP et les dépôts, eux, restent des paramètres
 nommés du service, injectables un par un comme avant.
 
 Le service ne lit donc ni `Config.cache` ni le répertoire de l'utilisateur :
-c'est l'entrée (`cli.py`, l'API) qui résout les chemins, une fois.
+c'est l'entrée (`cli/`, l'API) qui résout les chemins, une fois.
 """
 
 from __future__ import annotations

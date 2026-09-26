@@ -26,11 +26,11 @@ export const LIBELLES: Record<keyof Champs, string> = {
   commune: "Commune",
 };
 
-/** Les champs obligatoires — le numéro n'en fait pas partie (constaté le
- * 25/09/2026 : une place ou un lieu-dit, « Place de la Mairie », n'a pas de
- * numéro, et le formulaire refusait de chercher tant qu'il était vide). La
+/** Les champs obligatoires — le numéro n'en fait pas partie : une place ou un
+ * lieu-dit, « Place de la Mairie », n'a pas de numéro, et le formulaire
+ * refuserait de chercher tant qu'il est vide. La
  * commune et le code postal restent obligatoires : c'est eux qui gardent le
- * garde-fou du géocodage (Q34) — sans commune, la même rue existe dans des
+ * garde-fou du géocodage (décision Q34) — sans commune, la même rue existe dans des
  * dizaines de communes, ce qu'un numéro seul ne corrige pas. */
 export const OBLIGATOIRES: (keyof Champs)[] = ["voie", "codePostal", "commune"];
 

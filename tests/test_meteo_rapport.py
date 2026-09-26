@@ -8,7 +8,6 @@ import pytest
 
 from ourouler.config import Depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, couronne
-from ourouler.meteo.openmeteo import PrevisionHeure, PrevisionPoint
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -28,6 +27,7 @@ from ourouler.meteo.rapport import (
     rendre_texte,
     vent_relatif,
 )
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 DEPART = Depart(nom="Point zéro", latitude=0.0, longitude=0.0)
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
@@ -180,9 +180,7 @@ def test_construire_second_avis_absent_donne_confiance_inconnue(second):
     au lieu d'une table entière en « inconnu ».
     """
     points = couronne(DEPART, 8, [15.0])
-    r = construire(
-        DEPART, points, previsions(points, [[0.0, 0.0]] * len(points)), second, DEBUT, 2
-    )
+    r = construire(DEPART, points, previsions(points, [[0.0, 0.0]] * len(points)), second, DEBUT, 2)
     assert len(r.cellules) == (1 + 8) * 2
     assert all(c.confiance == CONFIANCE_INCONNUE for c in r.cellules)
     assert all(c.pluie_second_avis_mm is None for c in r.cellules)

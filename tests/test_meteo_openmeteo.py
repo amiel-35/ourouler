@@ -345,9 +345,7 @@ def client_texte(corps: str, code: int = 200) -> ClientOpenMeteo:
 def test_corps_avec_des_litteraux_nan_donne_hors_du_domaine():
     client = client_texte(CORPS_HORS_DOMAINE)
     with pytest.raises(ErreurConnecteur) as e:
-        client.previsions(
-            [(0.0, 0.0)], modele="meteofrance_arome_france_hd", debut=DEBUT, horizon_h=1
-        )
+        client.previsions([(0.0, 0.0)], modele="meteofrance_arome_france_hd", debut=DEBUT, horizon_h=1)
     message = str(e.value)
     assert "hors du domaine" in message
     assert "meteofrance_arome_france_hd" in message, "le message doit nommer le modèle fautif"
@@ -472,9 +470,7 @@ def test_nan_et_infinis_traites_comme_des_valeurs_absentes(litteral: str):
         '"wind_direction_10m":[45.0,50.0],"wind_gusts_10m":[25.0,28.0],'
         '"apparent_temperature":[12.0,12.5],"temperature_2m":[14.0,14.5]}}'
     )
-    (point,) = client_json_brut(corps).previsions(
-        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2
-    )
+    (point,) = client_json_brut(corps).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2)
     assert point.heures[0].pluie_mm is None, "un NaN de pluie doit valoir « absente »"
     assert point.heures[0].vent_kmh is None
     assert point.heures[1].pluie_mm == 0.5, "la valeur saine de l'heure suivante est gardée"
@@ -490,9 +486,7 @@ def test_un_nan_de_pluie_ne_contamine_pas_les_cumuls():
         '"wind_gusts_10m":[25.0,28.0],"apparent_temperature":[12.0,12.5],'
         '"temperature_2m":[14.0,14.5]}}'
     )
-    (point,) = client_json_brut(corps).previsions(
-        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2
-    )
+    (point,) = client_json_brut(corps).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2)
     connues = [h.pluie_mm for h in point.heures if h.pluie_mm is not None]
     cumul = sum(connues)
     assert cumul == 1.5
@@ -513,9 +507,7 @@ def test_un_nan_de_precipitation_ne_se_replie_pas_sur_rain():
         '"wind_gusts_10m":[25.0],"apparent_temperature":[12.0],'
         '"temperature_2m":[14.0]}}'
     )
-    (point,) = client_json_brut(corps).previsions(
-        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1
-    )
+    (point,) = client_json_brut(corps).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
     assert point.heures[0].pluie_mm is None
 
 

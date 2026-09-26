@@ -12,9 +12,8 @@ import argparse
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique import calibration as calib
-from ourouler.physique.commande import date_option
-from ourouler.rendu.physique import rendre_json_comparaison, rendre_texte_comparaison
+from ourouler.physique.echantillonnage import LONGUEUR_ECHANTILLON_M
+from ourouler.rendu.comparaison import rendre_json_comparaison, rendre_texte_comparaison
 from ourouler.services import comparer as service
 from ourouler.services.comparer import (
     LONGUEUR_MIN_M_DEFAUT,
@@ -22,6 +21,7 @@ from ourouler.services.comparer import (
     ZONE_DEFAUT,
     DemandeComparaison,
 )
+from ourouler.services.physique import date_option
 
 
 def lire_options(args: argparse.Namespace, config: Config) -> DemandeComparaison:
@@ -29,8 +29,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> DemandeComparaison
     noms = list(getattr(args, "velos", None) or [])
     if len(noms) != 2:
         raise ErreurUtilisateur(
-            "comparer : --velos attend exactement deux noms de vélo, par exemple "
-            "`--velos RCR BMC`"
+            "comparer : --velos attend exactement deux noms de vélo, par exemple `--velos RCR BMC`"
         )
     if noms[0].casefold() == noms[1].casefold():
         raise ErreurUtilisateur(
@@ -90,9 +89,7 @@ def _zone(valeur) -> tuple[float, float]:
         return ZONE_DEFAUT
     bornes = list(valeur)
     if len(bornes) != 2:
-        raise ErreurUtilisateur(
-            "--zone attend deux fractions de la FTP, par exemple `--zone 0.56 0.75`"
-        )
+        raise ErreurUtilisateur("--zone attend deux fractions de la FTP, par exemple `--zone 0.56 0.75`")
     bas = _fraction(bornes[0], ZONE_DEFAUT[0], "--zone", "0.56 = 56 % de la FTP")
     haut = _fraction(bornes[1], ZONE_DEFAUT[1], "--zone", "0.75 = 75 % de la FTP")
     if not (bas < haut):
@@ -122,9 +119,9 @@ def _longueur_min(valeur) -> float:
         longueur = float(valeur)
     except (TypeError, ValueError) as e:
         raise ErreurUtilisateur(f"--longueur-min {valeur!r} : une longueur en mètres est attendue") from e
-    if longueur < calib.LONGUEUR_ECHANTILLON_M:
+    if longueur < LONGUEUR_ECHANTILLON_M:
         raise ErreurUtilisateur(
             f"--longueur-min {valeur!r} : au moins la longueur d'un tronçon "
-            f"({calib.LONGUEUR_ECHANTILLON_M:.0f} m) est attendue"
+            f"({LONGUEUR_ECHANTILLON_M:.0f} m) est attendue"
         )
     return longueur

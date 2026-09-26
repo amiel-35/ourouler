@@ -7,13 +7,13 @@
 # plutôt que deux services et un proxy devant.
 #
 # **Rien n'est déployé par ce fichier.** Il décrit une image ; la construire
-# et la lancer localement (`docker-compose.yml` à côté) sert à vérifier le
-# lot, pas à le mettre en ligne (règle absolue 7 de CLAUDE.md).
+# et la lancer localement (`docker-compose.yml` à côté) sert à vérifier
+# l'image, pas à la mettre en ligne (aucune installation sur un serveur sans
+# l'accord de qui l'exploite, `AGENTS.md`).
 #
 # Aucune donnée personnelle ni clé ici : la configuration réelle (TOML
 # non-secrets en base64 + variables d'environnement pour les secrets) est
-# fournie au lancement du conteneur, jamais au moment du build — même
-# contrainte que `deploiement/Dockerfile`, pour la même raison.
+# fournie au lancement du conteneur, jamais au moment du build.
 
 # --- étage 1 : le front -------------------------------------------------------
 
@@ -33,8 +33,7 @@ RUN npm run build
 
 FROM python:3.12-slim AS api
 
-# `uv` : installateur rapide, déjà la doctrine du projet (pyproject.toml) —
-# même image épinglée que `deploiement/Dockerfile`.
+# `uv` : installateur rapide, déjà la doctrine du projet (pyproject.toml).
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
@@ -58,7 +57,7 @@ COPY --from=front /front/dist ./front/dist
 ENV PATH="/app/.venv/bin:${PATH}"
 # Le dossier que `application()` monte à la racine (`api/exploitation.py`,
 # `VARIABLE_FRONT_DIST`) — posé ici, pas dans le code : c'est une donnée du
-# déploiement, la même distinction qu'entre `cli.py` et le cœur.
+# déploiement, la même distinction qu'entre `cli/` et le cœur.
 ENV OUROULER_FRONT_DIST=/app/front/dist
 
 # La sonde ne demande aucune session : c'est ce qui la rend

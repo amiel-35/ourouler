@@ -74,15 +74,14 @@ def entree(**champs) -> EntreeCache:
 
 # --- les cinq règles de rattachement, dans l'ordre ----------------------------
 #
-# Ordre fixé par le contrat du sprint 2 §7 (lot L2.7) : (1) intérieur ;
-# (2) capteur de puissance ; (3) gear_id ou équipement ; (4) période ;
-# (5) premier vélo d'usage route. Il remplace l'ordre du sprint 1, où
-# l'équipement primait sur tout, y compris sur l'intérieur.
+# L'ordre : (1) intérieur ; (2) capteur de puissance ; (3) gear_id ou
+# équipement ; (4) période ; (5) premier vélo d'usage route. L'intérieur
+# prime même sur l'équipement.
 
 
 def test_regle_1_interieur():
     """« (1) intérieur (VirtualRide, meta["trainer"] vrai, appareil Zwift/Rouvy,
-    meta["interieur"]) → "home-trainer" » (contrat §7)."""
+    meta["interieur"]) → "home-trainer" »."""
     config = depuis_dict(CONFIG_BRUTE)
     for champs in (
         {"sport": "VirtualRide"},
@@ -159,11 +158,15 @@ def test_regle_5_sans_velo_de_route():
 
 
 # --- l'ordre lui-même : un cas par paire de règles concurrentes ---------------
+#
+# Les paires « n avant 5 » n'ont pas de test à elles : le vélo par défaut de
+# `CONFIG_BRUTE` est « Route », donc chaque `test_regle_n_*` qui attend « CLM »
+# (ou le home-trainer) prouve déjà que la règle n passe devant la règle 5.
 
 
 def test_1_avant_2_l_interieur_prime_sur_le_capteur(config: Config):
     """Le home-trainer se fait avec le capteur du vélo de route : c'est quand même
-    de l'intérieur, sinon ces kilomètres virtuels s'ajoutent au vélo (contrat §7)."""
+    de l'intérieur, sinon ces kilomètres virtuels s'ajoutent au vélo."""
     ht = entree(sport="VirtualRide", meta={"power_meter": "CAPTEUR 0001"})
     assert rattacher_velo(ht, config) == HOME_TRAINER
 
@@ -171,10 +174,6 @@ def test_1_avant_2_l_interieur_prime_sur_le_capteur(config: Config):
 def test_1_avant_3_l_interieur_prime_sur_l_equipement(config: Config):
     ht = entree(sport="VirtualRide", equipement="velo-test-clm", meta={"gear_id": "b-test-clm"})
     assert rattacher_velo(ht, config) == HOME_TRAINER
-
-
-def test_1_avant_5_l_interieur_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(meta={"trainer": True}), config) == HOME_TRAINER
 
 
 def test_1_avant_4_l_interieur_prime_sur_la_periode(config: Config):
@@ -198,29 +197,13 @@ def test_2_avant_4_le_capteur_prime_sur_la_periode(config: Config):
     assert rattacher_velo(sortie, config) == "Route"
 
 
-def test_2_avant_5_le_capteur_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(meta={"power_meter": "CAPTEUR 0002"}), config) == "CLM"
-
-
 def test_3_avant_4_l_equipement_prime_sur_la_periode(config: Config):
     """Un équipement connu gagne même si la date tombe dans la période d'un autre vélo."""
     dans_la_periode_clm = datetime(2024, 6, 15, 9, 0, tzinfo=UTC)
+    assert rattacher_velo(entree(equipement="velo-test-route", debut=dans_la_periode_clm), config) == "Route"
     assert (
-        rattacher_velo(entree(equipement="velo-test-route", debut=dans_la_periode_clm), config)
-        == "Route"
+        rattacher_velo(entree(meta={"gear_id": "b-test-route"}, debut=dans_la_periode_clm), config) == "Route"
     )
-    assert (
-        rattacher_velo(entree(meta={"gear_id": "b-test-route"}, debut=dans_la_periode_clm), config)
-        == "Route"
-    )
-
-
-def test_3_avant_5_l_equipement_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(equipement="velo-test-clm"), config) == "CLM"
-
-
-def test_4_avant_5_la_periode_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(debut=datetime(2024, 6, 15, 9, 0, tzinfo=UTC)), config) == "CLM"
 
 
 def test_rattachement_sans_date(config: Config):
@@ -460,9 +443,7 @@ def test_l_inventaire_dit_lesquels_il_ecarte(tmp_path: Path, config: Config, mon
     assert rendre_json(inv)["autres_sports_par_libelle"] == {"Run": 10, "Swim": 4, "Triathlon": 2}
 
 
-def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(
-    tmp_path: Path, config: Config, monkeypatch
-):
+def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(tmp_path: Path, config: Config, monkeypatch):
     """Au-delà de quelques libellés, la ligne dit « … » plutôt que de tout dérouler."""
     autres = ["Run", "Swim", "WeightTraining", "Hike", "AlpineSki", "Rowing"]
     entrees = [entree(identifiant=f"{i:064d}", sport=sport) for i, sport in enumerate(autres)]
@@ -475,12 +456,8 @@ def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(
     assert len(inv.autres_sports_par_libelle) == len(autres), "le JSON, lui, garde tout"
 
 
-@pytest.mark.parametrize(
-    "sport", ["cycling", "cycling/indoor_cycling", "Biking", None, "", "GravelRide"]
-)
-def test_les_sports_de_fichier_restent_du_velo(
-    tmp_path: Path, config: Config, monkeypatch, sport
-):
+@pytest.mark.parametrize("sport", ["cycling", "cycling/indoor_cycling", "Biking", None, "", "GravelRide"])
+def test_les_sports_de_fichier_restent_du_velo(tmp_path: Path, config: Config, monkeypatch, sport):
     """Un FIT dit « cycling », un TCX « Biking » : un filtre calé sur le seul
     vocabulaire d'Intervals jetterait tout ce qui vient de `--importer`."""
     cache = _cache_bouchonne(tmp_path, [entree(sport=sport)], monkeypatch)

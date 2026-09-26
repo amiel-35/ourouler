@@ -1,8 +1,8 @@
-"""La calibration depuis l'écran (lot L9.4).
+"""La calibration depuis l'écran.
 
 Un compte avec capteur de puissance calibre son vélo sans la ligne de
-commande du mainteneur : Crr fixé par le pneu, CdA cherché, fourchette du
-porte à porte (L9.1), sur les sorties qu'il a importées (L9.2) ou
+commande : Crr fixé par le pneu, CdA cherché, fourchette du
+porte à porte, sur les sorties qu'il a importées ou
 synchronisées depuis Intervals.icu. Le calcul est celui de `ourouler
 calibrer` (`services.calibrer.calibrer_velo`) — pas une seconde
 implémentation —, lancé en tâche de fond (`api/taches_fond.py`) parce qu'il
@@ -17,8 +17,7 @@ RGPD l'emportent avec le reste du dossier (`api/vie_privee.py`). En mode
 personnel, rien ne change : le fichier de calibration du dossier de cache, celui
 que la ligne de commande écrit.
 
-**Quelles sorties, pour quel vélo** (rattachement strict, choix du
-25/09/2026) :
+**Quelles sorties, pour quel vélo** (rattachement strict) :
 
 - un seul vélo dans le profil → toutes ses sorties extérieures, qu'elles
   viennent d'Intervals ou d'un fichier déposé : il n'y a personne d'autre à
@@ -52,18 +51,20 @@ from pathlib import Path
 from ourouler.activites.cache import Cache
 from ourouler.api import taches_fond
 from ourouler.api.erreurs import ErreurApi, assainir
-from ourouler.config import Config, Velo
+from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.profil import Velo
+from ourouler.noyau.texte import nombre_fr
 from ourouler.physique import calibration as calib
-from ourouler.physique import commande as physique
 from ourouler.physique import litterature
 from ourouler.physique.modele import puissance_a_plat_w
-from ourouler.services import calibrer
+from ourouler.physique.parametres_velo import crr_du_velo
+from ourouler.services import calibrer, physique
 from ourouler.stockage import calibrations as stockage
 
 #: La vitesse à laquelle l'écran dit ce que coûte le vélo : « à 30 km/h sur
 #: le plat, sans vent, il vous faut … W ». C'est la grandeur que le contrat
-#: de L9.1 juge (puissance par watt affiché), pas le CdA, qui n'est qu'un
+#: de la calibration juge (puissance par watt affiché), pas le CdA, qui n'est qu'un
 #: paramètre de compensation.
 VITESSE_REPERE_KMH = 30.0
 
@@ -141,7 +142,7 @@ def verifier(
                 "ecartees": motifs,
             },
         )
-    if physique.crr_du_velo(velo) is None and not sans_pneu:
+    if crr_du_velo(velo) is None and not sans_pneu:
         crr = calibrer.crr_de_l_usage(velo)
         raise ErreurApi(
             code="pneu_absent",
@@ -149,7 +150,7 @@ def verifier(
                 f"calibration de {velo.nom} : aucun pneu déclaré. Choisissez-le dans vos "
                 "vélos — le résultat sera plus sûr —, ou calibrez quand même : la "
                 f"résistance au roulement typique d'un vélo « {velo.usage} » "
-                f"({_fr(crr, 4)}, littérature) sera alors gardée fixe, et le résultat le dira"
+                f"({nombre_fr(crr, 4)}, littérature) sera alors gardée fixe, et le résultat le dira"
             ),
             statut=422,
             details={"velo": velo.nom, "crr_usage": crr},
@@ -235,7 +236,7 @@ def etat(config: Config, cache: Cache, proprietaire: str) -> dict:
                 "sorties_disponibles": disponibles,
                 "sorties_ecartees": motifs,
                 "pneu": pneu.cle if pneu is not None else None,
-                "crr_connu": physique.crr_du_velo(velo) is not None,
+                "crr_connu": crr_du_velo(velo) is not None,
                 "crr_usage": calibrer.crr_de_l_usage(velo),
                 "tache": tache.json() if tache is not None else None,
             }
@@ -306,10 +307,6 @@ def lancer(
 def fichier_du_compte(dossier_du_compte: Path) -> Path:
     """Où la calibration d'un compte hébergé s'écrit : dans son dossier, à côté de son profil."""
     return dossier_du_compte / physique.NOM_CALIBRATION
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    return f"{valeur:.{decimales}f}".replace(".", ",")
 
 
 __all__ = [

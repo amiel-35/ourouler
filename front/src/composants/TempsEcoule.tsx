@@ -1,36 +1,33 @@
 /** Les deux horloges d'une sortie : le porte à porte, et le temps sans arrêt.
  *
- * Le défaut d'origine, mesuré chez le mainteneur : une sortie demandée pour
- * 5 h affichait « 3 h 57 ». Le chiffre n'était pas faux — c'est le temps de
- * **mouvement** du modèle physique, qui ignore les arrêts par construction —
- * mais seul, il se lisait comme une durée totale.
+ * Seul, le temps de **mouvement** du modèle physique — qui ignore les arrêts
+ * par construction — se lit comme une durée totale : une sortie demandée pour
+ * 5 h afficherait « 3 h 57 ».
  *
- * **L'ordre des deux chiffres est celui du mainteneur** (corrigé le
- * 18/09/2026, il avait d'abord été posé à l'envers) : « je demande 5 h, je
- * veux 5 h, pas 4 h et un truc plus loin qui me dit en fait c'est 5 h ».
+ * **L'ordre des deux chiffres compte** : qui demande 5 h veut lire 5 h, pas
+ * 4 h et, plus loin, une correction qui dit qu'en fait c'est 5 h.
  * Le majeur est donc le **porte à porte**, celui qu'on lit sur une montre du
  * départ au retour ; le temps de mouvement vient juste à côté, et dit ce que
  * ça donnerait sans un seul feu ni un seul stop.
  *
- * **Depuis L9.1 (25/09/2026), le porte à porte est une fourchette** :
+ * **Le porte à porte est une fourchette** :
  * « entre 4 h 23 et 4 h 38 ». Il part du temps sans arrêt de *ce tracé-ci*
  * (côtes et vent compris) et y ajoute ce que les vraies sorties du cycliste
  * prennent en plus — la moitié d'entre elles tombent dans la fourchette. Il
- * ne s'appuie plus sur la moyenne compteur, qui était à plat (« je pige
- * pas », mainteneur, 21/09, devant l'ancien dépliant : d'où les phrases
- * courtes et sans jargon ci-dessous).
+ * ne s'appuie pas sur la moyenne compteur, qui est à plat. Les phrases
+ * ci-dessous sont courtes et sans jargon : c'est ce qui se comprend.
  *
  * `compteur === null` (ou absent) : la configuration ne porte aucun vélo — il
  * n'y a alors pas de fourchette, et **on retombe sur le seul chiffre
  * disponible**, nommé pour ce qu'il est, plutôt que d'afficher un tiret
- * (règle absolue 5 : l'ignorance ne se montre pas comme une valeur).
+ * (l'ignorance ne se montre pas comme une valeur).
  */
 
 import { duree, dureeApprox, enPlus, entreDurees, nombre } from "../api/formats";
 import type { Candidate, Compteur } from "../api/types";
 
 /** Le porte à porte en toutes lettres : la fourchette, ou la seule médiane d'une
- * réponse d'avant L9.1 (arrondie et précédée de « ≈ », comme alors). */
+ * réponse plus ancienne (arrondie et précédée de « ≈ »). */
 export function textePorteAPorte(
   ecouleS: number,
   basS: number | null | undefined,

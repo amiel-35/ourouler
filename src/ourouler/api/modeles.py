@@ -1,6 +1,6 @@
 """Les corps de requête, et seulement eux.
 
-Pydantic entre dans le projet avec l'API (`doctrine_architecture.md:74` :
+Pydantic entre dans le projet avec l'API (`doctrine_architecture.md` §10.3 :
 « pas de Pydantic **tant qu'il n'y a pas d'API** »), et il n'en sort pas : le
 cœur reste en dataclasses. Il sert ici à deux choses, et pas une de plus —
 refuser un corps mal formé avant d'appeler quoi que ce soit, et donner au
@@ -10,9 +10,9 @@ front un schéma OpenAPI lisible sur `/docs`.
 la ligne de commande rend déjà ; le décrire une seconde fois en Pydantic
 créerait exactement la divergence que l'adaptateur évite. Le contrat de ces
 réponses est `docs/journal/ux/discovery_donnees.md`, complété par
-`docs/ux/api_contrat.md`.
+`docs/journal/ux/api_contrat.md`.
 
-**Les pannes, elles, ont un modèle** (`ReponseErreur`, ajouté le 17/09/2026),
+**Les pannes, elles, ont un modèle** (`ReponseErreur`),
 et ce n'est pas la même chose : leur forme n'appartient pas au cœur, elle
 appartient à l'API — c'est elle qui traduit une exception en code stable. La
 décrire ici ne duplique rien ; ne pas la décrire laissait quatre écrans
@@ -20,8 +20,8 @@ d'échec dessinés sans aucun nom publié à quoi les brancher.
 
 **Un départ est un point, jamais une adresse.** Les routes de parcours
 reçoivent des coordonnées déjà tranchées ; c'est le front qui choisit dans
-la liste que rend la route de géocodage (F0.7 : « là où la CLI choisit et le
-dit, l'API ne choisit pas et fait choisir »).
+la liste que rend la route de géocodage : là où la CLI choisit et le dit,
+l'API ne choisit pas et fait choisir.
 """
 
 from __future__ import annotations
@@ -36,13 +36,13 @@ from ourouler.api.erreurs import CODES_PANNE
 #: Ce qu'une chaîne doit contenir pour vouloir dire quelque chose : au moins
 #: une lettre ou un chiffre.
 #:
-#: **Pourquoi ce n'est pas `min_length=1`** (17/09/2026). Trois entrées
-#: distinctes passaient cette borne sans être des valeurs : la chaîne vide, la
-#: chaîne d'espaces, la chaîne d'octets de contrôle. Chacune traversait
-#: l'API et se faisait interpréter plus bas — un `jour=""` devenait
-#: « aujourd'hui », parce qu'une chaîne vide est fausse en Python et que le
-#: cœur lit ses options avec un défaut ; une adresse d'espaces partait chez la
-#: BAN, y consommait un appel et revenait en 502 avec une phrase en anglais.
+#: **Pourquoi ce n'est pas `min_length=1`.** Trois entrées distinctes passent
+#: cette borne sans être des valeurs : la chaîne vide, la chaîne d'espaces, la
+#: chaîne d'octets de contrôle. Chacune traverserait l'API et se ferait
+#: interpréter plus bas — un `jour=""` deviendrait « aujourd'hui », parce
+#: qu'une chaîne vide est fausse en Python et que le cœur lit ses options avec
+#: un défaut ; une adresse d'espaces partirait chez la BAN, y consommerait un
+#: appel et reviendrait en 502 avec une phrase en anglais.
 #: Un champ à moitié effacé dans un formulaire produit exactement ça, et
 #: E16 prévient qu'il en enverra (« l'écran affiche une estimation qui bouge à
 #: chaque frappe »).
@@ -86,9 +86,7 @@ class Panne(Modele):
         json_schema_extra={"enum": sorted(CODES_PANNE)},
     )
     message: str = Field(description="la phrase française que l'écran affiche telle quelle")
-    service: str | None = Field(
-        default=None, description="le service externe fautif, quand il y en a un"
-    )
+    service: str | None = Field(default=None, description="le service externe fautif, quand il y en a un")
     details: dict = Field(
         default_factory=dict, description="ce que l'écran peut exploiter en plus du message"
     )
@@ -142,9 +140,8 @@ class DemandeSortie(Modele):
 class DemandeBoucle(Modele):
     """Une boucle libre, sans séance — l'équivalent d'`ourouler boucle`.
 
-    Q47 : `direction` était obligatoire alors que `sortie` balaie déjà tout
-    l'horizon quand rien n'est demandé — une contrainte héritée, pas un choix
-    de conception. Elle est désormais facultative, comme côté `sortie`.
+    `direction` est facultative, comme côté `sortie`, qui balaie déjà tout
+    l'horizon quand rien n'est demandé.
     """
 
     distance_km: float = Field(gt=0, le=1000)
@@ -190,7 +187,7 @@ class DemandeAnalyse(Modele):
 
 
 class DemandeCalibration(Modele):
-    """Calibrer un vélo sur ses propres sorties (L9.4)."""
+    """Calibrer un vélo sur ses propres sorties."""
 
     velo: TexteUtile | None = Field(
         default=None, description="nom du vélo (défaut : le premier vélo de route du profil)"
@@ -233,14 +230,12 @@ class DemandeVitesseCompteur(Modele):
     # désignerait un propriétaire — un faux positif ici, mais le contourner
     # par le nom est plus simple et plus sûr que de creuser une exception
     # dans une liste que la doctrine veut la plus courte possible.
-    vitesse_kmh: float = Field(
-        gt=0, le=100, description="moyenne lue au compteur sur une sortie solo"
-    )
+    vitesse_kmh: float = Field(gt=0, le=100, description="moyenne lue au compteur sur une sortie solo")
     denivele_m_par_km: float = Field(
         ge=0,
         le=100,
         description="dénivelé de référence du terrain déclaré, en m par km (voir "
-        "docs/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
+        "docs/journal/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
     )
     velo: TexteUtile | None = None
 
@@ -251,7 +246,7 @@ class DemandeEntree(Modele):
     `jeton` et `secret` restent des `TexteUtile` ordinaires : ce module ne
     connaît pas la forme du jeton (elle vit en base et dans `comptes.py`), et
     aucune politique de mot de passe n'a été tranchée — inventer une longueur
-    minimale ici serait décider une règle produit à la place du mainteneur.
+    minimale ici serait décider une règle produit en passant.
     """
 
     jeton: TexteUtile = Field(description="le jeton reçu par le lien d'invitation")

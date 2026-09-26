@@ -1,18 +1,18 @@
 """Modèle physique : quelle puissance pour quelle vitesse, et l'inverse.
 
 Le bilan est celui de Martin & al. (1998), réduit à ce qui compte hors
-montagne et **sans folie** (décision du mainteneur, 13/09) : roulement,
+montagne et **sans folie** : roulement,
 gravité, aérodynamique, rendement de transmission. Ni inertie, ni frottement
 des roulements de roue, ni résistance du vent de travers.
 
     P = (1/η) · [ (Crr·m·g·cos θ + m·g·sin θ)·v + ½·ρ·CdA·v_air·|v_air|·v ]
 
 avec θ = atan(pente) et `v_air = v + v_vent_face` (vent de face compté
-positif). Le contrat de sprint §3 écrit ce dernier terme `(v + v_vent_face)²` ;
-c'est la même chose tant que l'air vient de face, mais un vent arrière plus
-rapide que le cycliste (`v_air < 0`) rendait alors une traînée **positive**,
+positif). On écrit souvent ce dernier terme `(v + v_vent_face)²` ; c'est la
+même chose tant que l'air vient de face, mais un vent arrière plus rapide que
+le cycliste (`v_air < 0`) rendrait alors une traînée **positive**,
 c'est-à-dire un vent de dos qui freine. `v_air·|v_air|` garde le signe : la
-poussée est une puissance négative. Écart au contrat assumé et signalé.
+poussée est une puissance négative.
 
 Le vent que ce bilan attend est celui **à hauteur de cycliste**, pas celui
 des bulletins : `vent_au_cycliste` fait la conversion, une fois pour toutes,
@@ -142,8 +142,7 @@ def vent_au_cycliste(vent_10m: float) -> float:
     `seance.vent.ChampVent` applique la même constante lui-même, parce qu'il
     expose un `facteur_hauteur` injectable que ses tests font varier. Les deux
     ne peuvent donc pas diverger numériquement, mais ce ne sont pas les mêmes
-    lignes — la version antérieure de cette docstring disait « un seul
-    endroit », et c'est devenu faux avec le lot L5.1.
+    lignes : il y a deux endroits, pas un.
 
     Le signe est conservé : un vent de dos (compté négatif en composante de
     face) reste un vent de dos. Une valeur non finie est rendue telle quelle —
@@ -184,9 +183,7 @@ def puissance_requise(v_ms: float, pente: float, vent_face_ms: float, p: Paramet
     _finis(v_ms=v_ms, pente=pente, vent_face_ms=vent_face_ms)
     theta = math.atan(pente)
     v_air = v_ms + vent_face_ms
-    resistance = (
-        p.crr * p.masse_totale_kg * G * math.cos(theta) + p.masse_totale_kg * G * math.sin(theta)
-    )
+    resistance = p.crr * p.masse_totale_kg * G * math.cos(theta) + p.masse_totale_kg * G * math.sin(theta)
     trainee = 0.5 * p.rho * p.cda_m2 * v_air * abs(v_air)
     return (resistance * v_ms + trainee * v_ms) / p.rendement
 
@@ -254,8 +251,8 @@ def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Par
 # `vitesse_regime(p, 0.0, 0.0, params)` à chaque appel marchait, mais laissait
 # à chaque appelant le soin de se rappeler lequel des deux zéros est la pente.
 #
-# **Ce n'est pas la moyenne du compteur.** Mesuré le 16/09/2026 sur les sorties
-# extérieures du mainteneur (décision 8) : le compteur affiche 87 à 90 % de
+# **Ce n'est pas la moyenne du compteur.** Mesuré sur des sorties extérieures
+# réelles (décision 8 du cycle UX) : le compteur affiche 87 à 90 % de
 # cette vitesse-là selon le vélo, le relief et le vent coûtant plus cher que
 # les arrêts. Confondre les deux décale tout l'escalier des zones vers le bas.
 
@@ -277,7 +274,7 @@ def force_a_plat_n(vitesse_kmh: float, p: Parametres) -> float:
     force subie par le vélo, pas ce que le cycliste dépense pour la vaincre.
 
     Ce nombre est celui qui gouverne la durée prédite d'une boucle quand les
-    paramètres ne sont pas mesurés (campagne du 17/09/2026, commit `b6114b2`) :
+    paramètres ne sont pas mesurés (campagne de mesure, commit `b6114b2`) :
     à résistance totale égale à l'allure de croisière, le partage entre CdA et
     Crr ne déplace pas la durée d'une demi-minute sur 2 h, alors qu'un newton
     d'erreur en coûte de l'ordre de deux et demie. `physique.litterature` s'en
@@ -297,9 +294,7 @@ def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
     """
     _finis(vitesse_kmh=vitesse_kmh)
     if vitesse_kmh < 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)"
-        )
+        raise ErreurUtilisateur(f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)")
     return puissance_requise(vitesse_kmh / 3.6, 0.0, 0.0, p)
 
 
@@ -308,18 +303,18 @@ def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
 # La **troisième valeur** de l'écran de FTP (décision 8 du cycle UX,
 # `docs/journal/ux/cycle_ux_contrat.md`). Sans elle, quelqu'un tape dans le champ « à
 # plat » la moyenne qu'il lit sur son compteur, et tout l'escalier des zones se
-# décale vers le bas : la mesure du 16/09/2026 place alors le cycliste *sous*
+# décale vers le bas : la mesure place alors le cycliste *sous*
 # sa Z2, et cette position fausse se propage à toutes les autres zones.
 #
 # **Le facteur est un réglage par vélo** (`config.Velo.facteur_compteur`), pas
 # une constante de module : il dépend de la masse du cycliste autant que de ses
 # routes. Le mesurer sur son propre historique est le travail de
-# `tests/validation/facteur_compteur_retrospectif.py` ; ce qui suit n'est que le
+# `scripts/validation/facteur_compteur_retrospectif.py` ; ce qui suit n'est que le
 # défaut de celui qui n'a pas encore d'historique.
 #
 # **Le temps retenu est le temps écoulé**, du premier au dernier point, arrêts
 # compris — pas le temps de mouvement. Les deux existent et ne donnent pas le
-# même facteur (quatre points d'écart, mesurés le 16/09/2026). Trois raisons :
+# même facteur (quatre points d'écart, mesurés). Trois raisons :
 # le temps écoulé se lit sur n'importe quelle source, alors que le GPX et le TCX
 # ne portent aucun temps de mouvement (`Activite.duree_mouvement_s` y vaut
 # `None`) ; il ne dépend pas du réglage d'arrêt automatique du compteur, qui est
@@ -380,37 +375,25 @@ def facteur_compteur_defaut(
         part_arret=part_arret,
     )
     if puissance_w <= 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : puissance positive attendue, reçu {puissance_w!r} W"
-        )
+        raise ErreurUtilisateur(f"modèle physique : puissance positive attendue, reçu {puissance_w!r} W")
     if denivele_m_par_km < 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : dénivelé de référence négatif ({denivele_m_par_km} m/km)"
-        )
+        raise ErreurUtilisateur(f"modèle physique : dénivelé de référence négatif ({denivele_m_par_km} m/km)")
     if not 0.0 <= part_arret < 1.0:
-        raise ErreurUtilisateur(
-            f"modèle physique : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}"
-        )
+        raise ErreurUtilisateur(f"modèle physique : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}")
 
     v_plat = vitesse_a_plat_ms(puissance_w, p)
     if v_plat <= 0:
-        raise ErreurUtilisateur(
-            "modèle physique : vitesse à plat nulle — paramètres de vélo inexploitables"
-        )
+        raise ErreurUtilisateur("modèle physique : vitesse à plat nulle — paramètres de vélo inexploitables")
     pente = denivele_m_par_km / 500.0
     # Même plancher et même plafond que `simuler` : sous `V_MIN_MS` le cycliste
     # met pied à terre, au-dessus de `V_MAX_DESCENTE_KMH` il freine.
     v_montee = max(vitesse_regime(puissance_w, pente, 0.0, p), V_MIN_MS)
-    v_descente = min(
-        vitesse_regime(puissance_w, -pente, 0.0, p), V_MAX_DESCENTE_KMH / 3.6
-    )
+    v_descente = min(vitesse_regime(puissance_w, -pente, 0.0, p), V_MAX_DESCENTE_KMH / 3.6)
     v_mouvement = 2.0 / (1.0 / v_montee + 1.0 / v_descente)
     return (v_mouvement / v_plat) * (1.0 - part_arret)
 
 
-def moyenne_compteur_kmh(
-    puissance_w: float, p: Parametres, facteur: float | None = None
-) -> float:
+def moyenne_compteur_kmh(puissance_w: float, p: Parametres, facteur: float | None = None) -> float:
     """La moyenne que le compteur affichera, en km/h — la troisième valeur.
 
     `facteur` est le `facteur_compteur` du vélo, mesuré sur l'historique du
@@ -427,23 +410,20 @@ def moyenne_compteur_kmh(
     else:
         _finis(facteur=facteur)
         if facteur <= 0:
-            raise ErreurUtilisateur(
-                f"modèle physique : facteur compteur positif attendu, reçu {facteur!r}"
-            )
+            raise ErreurUtilisateur(f"modèle physique : facteur compteur positif attendu, reçu {facteur!r}")
     return vitesse_a_plat_kmh(puissance_w, p) * facteur
 
 
 # --- temps écoulé, porte à porte ---------------------------------------------
 #
 # `simuler` rend un temps **en mouvement** (docstring plus bas) ; le cycliste,
-# lui, mesure sa sortie porte à porte. Jusqu'au 25/09/2026, le porte à porte
-# appliquait la moyenne compteur habituelle à la distance — une moyenne à
-# plat, qui ignorait le relief de la boucle évaluée (« sinon en montagne ça va
-# être débile », mainteneur, 21/09). Depuis L9.1, il part du temps simulé de
+# lui, mesure sa sortie porte à porte. Appliquer la moyenne compteur
+# habituelle à la distance ignorerait le relief de la boucle évaluée — en
+# montagne, ce serait absurde. Le porte à porte part donc du temps simulé de
 # CE tracé-ci, relief et vent compris, et le multiplie par ce que les vraies
 # sorties du cycliste coûtent en plus : une **fourchette**, pas un chiffre,
 # parce que l'erreur du modèle sur une sortie (3 à 5 %) est du même ordre que
-# la correction elle-même (note du 23/09, tranché par le mainteneur).
+# la correction elle-même.
 
 
 @dataclass(frozen=True)
@@ -454,7 +434,7 @@ class FourchettePorteAPorte:
     les sorties de ce vélo roulées seul, `n` sorties) ou `"defaut"` (la
     convention de `physique.litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT`,
     mesurée sur un seul cycliste, `n` = 0). Tout écran qui l'affiche dit
-    laquelle des deux (règle absolue 5).
+    laquelle des deux (on ne présente jamais une estimation comme une mesure).
     """
 
     bas: float
@@ -471,9 +451,7 @@ class FourchettePorteAPorte:
                 f"{self.bas!r}, {self.mediane!r}, {self.haut!r}"
             )
         if self.provenance not in ("mesure", "defaut"):
-            raise ErreurUtilisateur(
-                f"fourchette du porte à porte : provenance {self.provenance!r} inconnue"
-            )
+            raise ErreurUtilisateur(f"fourchette du porte à porte : provenance {self.provenance!r} inconnue")
 
 
 @dataclass(frozen=True)
@@ -492,7 +470,7 @@ def temps_ecoule(temps_estime_s: float, fourchette: FourchettePorteAPorte) -> Po
     `temps_estime_s` est le temps **en mouvement** d'une candidate (celui que
     `simuler` rend sur ce tracé-ci, relief et vent compris, ou son repli à
     vitesse moyenne). La fourchette est celle du vélo
-    (`physique.commande.fourchette_du_velo`) : mesurée sur ses sorties, ou la
+    (`services.physique.fourchette_du_velo`) : mesurée sur ses sorties, ou la
     convention par défaut.
 
     **La moyenne compteur n'entre plus ici.** Elle garde son rôle ailleurs —
@@ -506,9 +484,7 @@ def temps_ecoule(temps_estime_s: float, fourchette: FourchettePorteAPorte) -> Po
     """
     _finis(temps_estime_s=temps_estime_s)
     if temps_estime_s < 0:
-        raise ErreurUtilisateur(
-            f"temps écoulé : temps en mouvement négatif ({temps_estime_s} s)"
-        )
+        raise ErreurUtilisateur(f"temps écoulé : temps en mouvement négatif ({temps_estime_s} s)")
     return PorteAPorte(
         bas_s=temps_estime_s * fourchette.bas,
         mediane_s=temps_estime_s * fourchette.mediane,
@@ -551,9 +527,7 @@ def simuler(
         raise ErreurUtilisateur("simuler : tracé de longueur nulle")
 
     bornes = _bornes_pas(total)
-    altitudes = moyenne_glissante(
-        [_altitude(points, distances, d) for d in bornes], FENETRE_ALTITUDE
-    )
+    altitudes = moyenne_glissante([_altitude(points, distances, d) for d in bornes], FENETRE_ALTITUDE)
     puissance = puissance_w if callable(puissance_w) else (lambda _d, _p=float(puissance_w): _p)
 
     v_max_descente = V_MAX_DESCENTE_KMH / 3.6

@@ -80,7 +80,7 @@ de lignes, pas une réécriture.
 panne.** Si la BAN répond une erreur technique (service injoignable,
 réponse illisible), l'erreur remonte telle quelle — Nominatim n'est pas
 appelé à sa place, pour ne pas travestir une panne en « adresse
-introuvable » (règle absolue 5 : ne rien affirmer sans mesure). Si
+introuvable » (doctrine §1 : ne rien affirmer sans mesure). Si
 Nominatim est ensuite appelé (parce que la BAN a légitimement répondu
 « rien trouvé ») et qu'il échoue à son tour, cette erreur-là remonte aussi,
 sans être avalée.
@@ -97,10 +97,10 @@ sans être avalée.
   `addressdetails=1` : sans lui Nominatim ne rend pas la commune, et
   `ambiguite()` refuserait alors tout résultat de repli.
 - **La commande** `ourouler geocoder "<adresse>" [--max N] [--json]`
-  (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
+  (`src/ourouler/services/geocodage.py`) expose le connecteur sans jamais
   trancher entre les candidats — exactement la forme que la route d'API
   reprend telle quelle.
-- **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli.py`
+- **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli/`
   résout l'adresse en un `Depart` et le passe au cœur, qui ne géocode
   toujours rien.
 - **Une adresse ambiguë est refusée** : mieux vaut refuser que retenir un
@@ -115,8 +115,8 @@ sans être avalée.
 ## Ce qui reste ouvert
 
 - **Non vérifié sur une adresse personnelle** : le dépôt n'en porte aucune
-  (règle absolue 1 — aucune coordonnée
-  réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
+  (`AGENTS.md`, « Aucune donnée personnelle ni clé dans le dépôt » — aucune
+  coordonnée réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
   trace resterait dans l'historique). Les services ont été appelés en direct
   avec des **lieux publics** (mairies, gares, préfectures), jamais avec une
   adresse personnelle, et seuls les chiffres sont reportés. Chacun peut
@@ -128,7 +128,7 @@ sans être avalée.
   il ne l'est pas pour tracer une boucle.
 - **`ambiguite()` dépend du nombre de candidats demandé.** Demander vingt
   candidats au lieu de cinq fait apparaître des communes lointaines et mal
-  notées, donc refuse plus souvent. `cli.lieu_depart` demande toujours
+  notées, donc refuse plus souvent. `cli.depart.lieu_depart` demande toujours
   `LIMITE_DEFAUT` ; `ourouler geocoder --max` et la route d'API laissent le
   choix, et c'est assumé — ni l'un ni l'autre ne refuse quoi que ce soit.
 - **La migration `api-adresse.data.gouv.fr` → `data.geopf.fr`** n'a pas de

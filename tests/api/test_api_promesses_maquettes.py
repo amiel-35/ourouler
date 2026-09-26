@@ -33,14 +33,6 @@ from outils_api import (
     transport_constant,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Décision 2 du contrat UX : « L'horizon du vent reste à trois jours. » Mesuré
 #: sur 2 064 heures : 93 %, 92 %, 88 % à un, deux et trois jours.
 HORIZON_ORIENTATION_J = 3
@@ -140,7 +132,8 @@ def test_le_profil_stocke_une_position_dans_la_zone_et_pas_des_watts():
     ecritures = [
         (chemin, methode, operation)
         for chemin, methode, operation in routes(schema)
-        if methode in {"POST", "PUT", "PATCH"} and "profil" in chemin.lower()
+        if methode in {"POST", "PUT", "PATCH"}
+        and "profil" in chemin.lower()
         and not chemin.lower().endswith(("apercu", "preview"))
     ]
     assert ecritures, "aucune route n'écrit le profil : rien ne peut y stocker une position"
@@ -285,9 +278,7 @@ def _demander_un_parcours(client, **champs):
     """
     schema = schema_openapi(client)
     chemin, methode, operation = route_pour(schema, "sortie", "parcours", "meteo")
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 @pytest.mark.parametrize("jours", [0, 1, HORIZON_ORIENTATION_J], ids=["aujourdhui", "demain", "j3"])
@@ -337,8 +328,7 @@ def test_au_dela_de_trois_jours_l_api_dit_qu_elle_ne_sait_pas():
     corps = corps_json(_demander_un_parcours(client, **{jour or "jour": quand}))
     entier = texte_entier(corps).lower()
     assert "horizon" in entier or "ne sait pas" in entier or "hors_horizon" in entier, (
-        "à J+4, rien n'explique l'absence d'orientation. Les maquettes exigent le pourquoi, "
-        "pas le silence."
+        "à J+4, rien n'explique l'absence d'orientation. Les maquettes exigent le pourquoi, pas le silence."
     )
     directions = cherche_profond(corps, "vent_depuis_deg", "orientation_vent", "direction_vent")
     assert all(valeur in (None, "", []) for _, valeur in directions), (
@@ -367,7 +357,6 @@ def test_une_proposition_porte_la_geometrie_de_son_trace():
     en JSON, F2 ne peut qu'encadrer la page HTML déjà générée.
     """
     client = _client_de_parcours()
-
 
     corps = corps_json(_demander_un_parcours(client))
     geometries = cherche_profond(corps, "geometrie", "trace", "points", "coordonnees", "polyligne")
@@ -406,12 +395,11 @@ def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     **`xfail` levé le 17/09/2026.** Ce test décrivait un trou, et il disait
     déjà comment le combler : « le **cœur** compte et publie — pas l'API qui
     multiplie une densité par une distance ». C'est ce qui a été fait :
-    `contraste.Profil` portait `feux` et `stops` depuis le sprint 3 sans
-    jamais les sérialiser, `sortie/commande.rendre_json` les rend maintenant.
+    `contraste.Profil` portait `feux` et `stops` sans jamais les
+    sérialiser, `services/sortie.rendre_json` les rend maintenant.
     Le front, lui, a cessé de multiplier (relecture F2 · C1).
     """
     client = _client_de_parcours()
-
 
     corps = corps_json(_demander_un_parcours(client))
     feux = cherche_profond(corps, "feux", "marqueurs")
@@ -438,11 +426,8 @@ def test_chaque_proposition_porte_son_propre_gpx():
     """
     client = _client_de_parcours()
 
-
     corps = corps_json(_demander_un_parcours(client))
-    propositions = next(
-        (v for _, v in cherche_profond(corps, "proposition") if isinstance(v, list)), None
-    )
+    propositions = next((v for _, v in cherche_profond(corps, "proposition") if isinstance(v, list)), None)
     assert propositions, f"aucune liste de propositions dans {corps!r}"
     sans_gpx = [
         numero
@@ -477,10 +462,8 @@ def test_l_absence_de_seance_garde_la_meme_forme_de_reponse():
     construction. Il vise maintenant la route d'un jour, compare les
     **données**, et sépare un jour avec séance d'un jour sans.
     """
-    module = __import__("test_sortie_commande")
-    client = client_api(
-        config=config_d_essai(), client_intervals=client_seance_ordinaire(ce_jour_la=True)
-    )
+    module = __import__("outils_sortie_commande")
+    client = client_api(config=config_d_essai(), client_intervals=client_seance_ordinaire(ce_jour_la=True))
     schema = schema_openapi(client)
     chemin, methode, _ = route_pour(schema, "seances/{")
     avec = corps_json(client.requete(methode, chemin.replace("{jour}", module.JOUR.isoformat())))

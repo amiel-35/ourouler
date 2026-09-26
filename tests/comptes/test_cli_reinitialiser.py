@@ -1,4 +1,4 @@
-"""`ourouler reinitialiser` : le câblage complet de `cli.py` (lot L9.6).
+"""`ourouler reinitialiser` : le câblage complet de `cli/` (lot L9.6).
 
 Même patron que `test_cli_inviter.py` — `cli.main()` de bout en bout, contre une vraie
 base PostgreSQL jetable (fixture `url_base`). Sans Docker, ces tests sautent proprement.
@@ -65,9 +65,7 @@ def test_reinitialiser_affiche_le_lien_pour_un_compte_actif(config_toml: Path, c
         emise = depot.inviter("actif@exemple.invalid")
         depot.activer(emise.jeton, MOT_DE_PASSE)
 
-    code = main(
-        ["--config", str(config_toml), "reinitialiser", "actif@exemple.invalid", "--sans-courriel"]
-    )
+    code = main(["--config", str(config_toml), "reinitialiser", "actif@exemple.invalid", "--sans-courriel"])
     assert code == 0
     sortie = capsys.readouterr().out
     assert f"{URL_PUBLIQUE}/reinitialiser?jeton=" in sortie
@@ -123,7 +121,7 @@ def test_reinitialiser_marche_avec_un_toml_hebergement_sans_depart_ni_cycliste(
         depot.activer(emise.jeton, MOT_DE_PASSE)
 
     config_toml_hebergement = tmp_path / "hebergement.toml"
-    config_toml_hebergement.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+    config_toml_hebergement.write_text("[meteo]\ndirections=8\n", encoding="utf-8")
 
     code = main(
         [

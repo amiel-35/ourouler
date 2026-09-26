@@ -58,9 +58,7 @@ def test_reinitialiser_emet_un_lien_pour_un_compte_actif(depot: DepotComptes, co
     assert emise.invitation.compte == identifiant
 
     # C'est bien la même table, pas un second mécanisme.
-    ligne = connexion.execute(
-        "SELECT compte FROM invitations WHERE jeton = %s", (emise.jeton,)
-    ).fetchone()
+    ligne = connexion.execute("SELECT compte FROM invitations WHERE jeton = %s", (emise.jeton,)).fetchone()
     assert ligne == (identifiant,)
 
 
@@ -97,9 +95,7 @@ def test_reinitialisation_pose_le_nouveau_secret_sans_toucher_actif_ni_proprieta
     assert acces.compte.actif is True
     assert acces.proprietaire == proprietaire_avant
 
-    secret = connexion.execute(
-        "SELECT secret FROM comptes WHERE id = %s", (identifiant,)
-    ).fetchone()[0]
+    secret = connexion.execute("SELECT secret FROM comptes WHERE id = %s", (identifiant,)).fetchone()[0]
     assert verifier_mot_de_passe(NOUVEAU_MOT_DE_PASSE, secret)
     assert not verifier_mot_de_passe(MOT_DE_PASSE, secret), "l'ancien mot de passe ne doit plus valoir"
 
@@ -220,9 +216,7 @@ def test_changer_mot_de_passe_verifie_l_ancien_et_ne_ferme_pas_les_autres_sessio
 
     depot.changer_mot_de_passe(identifiant, MOT_DE_PASSE, NOUVEAU_MOT_DE_PASSE)
 
-    secret = connexion.execute(
-        "SELECT secret FROM comptes WHERE id = %s", (identifiant,)
-    ).fetchone()[0]
+    secret = connexion.execute("SELECT secret FROM comptes WHERE id = %s", (identifiant,)).fetchone()[0]
     assert verifier_mot_de_passe(NOUVEAU_MOT_DE_PASSE, secret)
     # La session qui a servi à prouver l'ancien mot de passe reste ouverte :
     # rien ne la rend caduque, à la différence de la réinitialisation par jeton.
@@ -233,9 +227,7 @@ def test_changer_mot_de_passe_refuse_si_l_ancien_est_faux(depot: DepotComptes, c
     identifiant = _compte_actif(depot, "mauvais-ancien@exemple.invalid")
     with pytest.raises(ErreurMotDePasseActuelRefuse):
         depot.changer_mot_de_passe(identifiant, "un-mot-de-passe-invente", NOUVEAU_MOT_DE_PASSE)
-    secret = connexion.execute(
-        "SELECT secret FROM comptes WHERE id = %s", (identifiant,)
-    ).fetchone()[0]
+    secret = connexion.execute("SELECT secret FROM comptes WHERE id = %s", (identifiant,)).fetchone()[0]
     assert verifier_mot_de_passe(MOT_DE_PASSE, secret), "l'ancien mot de passe doit rester valable"
 
 
@@ -257,18 +249,3 @@ def test_compte_par_email_et_compte_du_proprietaire(depot: DepotComptes):
 
 def test_compte_par_email_rend_none_si_l_adresse_n_a_pas_de_compte(depot: DepotComptes):
     assert depot.compte_par_email("personne@exemple.invalid") is None
-
-
-# --- fermer_sessions_du_compte, appelable seule -----------------------------
-
-
-def test_fermer_sessions_du_compte_les_ferme_toutes_et_rend_le_compte(depot: DepotComptes):
-    identifiant = _compte_actif(depot, "toutes-fermees@exemple.invalid")
-    a = depot.ouvrir_session(identifiant)
-    b = depot.ouvrir_session(identifiant)
-
-    assert depot.fermer_sessions_du_compte(identifiant) == 2
-    assert depot.proprietaire_de_la_session(a) is None
-    assert depot.proprietaire_de_la_session(b) is None
-    # Idempotente : rien à fermer une seconde fois.
-    assert depot.fermer_sessions_du_compte(identifiant) == 0

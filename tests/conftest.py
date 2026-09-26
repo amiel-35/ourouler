@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import itertools
+import os
 import socket
 import sys
 import time
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sauts_autorises import raison_du_saut, saut_autorise
 
 DOSSIER_FIXTURES = Path(__file__).resolve().parent / "fixtures"
 DOSSIER_ACTIVITES = DOSSIER_FIXTURES / "activites"
@@ -180,6 +182,55 @@ def pytest_configure(config):
     )
 
 
+# --- aucun saut silencieux en CI ----------------------------------------------
+#
+# En CI, un test sauté pour un motif absent de `tests/sauts_autorises.py` fait
+# échouer la session. Hors CI, rien ne change. Cela couvre aussi les tests de
+# comptes : « PostgreSQL local indisponible » n'est pas un motif autorisé.
+
+
+#: Les sauts de la session en cours dont le motif n'est pas autorisé.
+_SAUTS_REFUSES: list[str] = []
+
+
+def _en_ci() -> bool:
+    return os.environ.get("CI", "").strip().lower() not in ("", "0", "false", "non")
+
+
+def _noter_saut(rapport) -> None:
+    if rapport.skipped and not hasattr(rapport, "wasxfail"):
+        raison = raison_du_saut(rapport)
+        if not saut_autorise(raison):
+            _SAUTS_REFUSES.append(f"{rapport.nodeid} : {raison}")
+
+
+def pytest_sessionstart(session):
+    _SAUTS_REFUSES.clear()
+
+
+def pytest_runtest_logreport(report):
+    _noter_saut(report)
+
+
+def pytest_collectreport(report):
+    _noter_saut(report)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if _SAUTS_REFUSES and _en_ci() and session.exitstatus == pytest.ExitCode.OK:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    refuses = _SAUTS_REFUSES
+    if not refuses:
+        return
+    titre = "sauts hors de tests/sauts_autorises.py"
+    terminalreporter.section(titre + (" — CI rouge" if _en_ci() else " (toléré hors CI)"))
+    for ligne in refuses:
+        terminalreporter.line(ligne)
+
+
 # --- fichiers de référence (golden) -------------------------------------------
 
 
@@ -226,8 +277,8 @@ def fuseau_de_paris(monkeypatch):
     """Le fuseau du système posé à Europe/Paris le temps d'un test, puis rendu.
 
     `--depart 09:00` se lit en **heure locale de la machine** (`heure_depart`,
-    contrat de la CLI). Les bouchons Open-Meteo de `test_boucle_commande.py`,
-    `test_sortie_commande.py` et `fabriques_l53.py` rendent une série figée qui
+    contrat de la CLI). Les bouchons Open-Meteo de `outils_boucle_commande.py`,
+    `outils_sortie_commande.py` et `fabriques_propositions.py` rendent une série figée qui
     commence à 06:00 **UTC**, sans lire `start_hour` : ils ont été calibrés sur
     le Mac du mainteneur, où 09:00 local vaut 07:00 UTC. Sous TZ=UTC (CI,
     conteneur), le même 09:00 tombe à la fin de la série et la pluie, le vent

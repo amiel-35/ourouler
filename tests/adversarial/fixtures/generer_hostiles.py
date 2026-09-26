@@ -42,8 +42,22 @@ from pathlib import Path
 # --- CRC FIT ----------------------------------------------------------------
 
 _TABLE_CRC = (
-    0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
-    0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
+    0x0000,
+    0xCC01,
+    0xD801,
+    0x1400,
+    0xF001,
+    0x3C00,
+    0x2800,
+    0xE401,
+    0xA001,
+    0x6C00,
+    0x7800,
+    0xB401,
+    0x5000,
+    0x9C01,
+    0x8801,
+    0x4400,
 )
 
 
@@ -117,8 +131,14 @@ def _assembler(corps: bytes, *, data_size: int | None = None) -> bytes:
 CHAMPS_FILE_ID = [_Champ(0, ENUM), _Champ(1, UINT16), _Champ(4, UINT32)]
 CHAMPS_DEVICE = [_Champ(2, UINT16), _Champ(27, CHAINE, 24)]
 CHAMPS_SESSION = [
-    _Champ(253, UINT32), _Champ(2, UINT32), _Champ(5, ENUM), _Champ(7, UINT32),
-    _Champ(8, UINT32), _Champ(9, UINT32), _Champ(20, UINT16), _Champ(22, UINT16),
+    _Champ(253, UINT32),
+    _Champ(2, UINT32),
+    _Champ(5, ENUM),
+    _Champ(7, UINT32),
+    _Champ(8, UINT32),
+    _Champ(9, UINT32),
+    _Champ(20, UINT16),
+    _Champ(22, UINT16),
 ]
 
 # `record` : on choisit les champs variante par variante.
@@ -198,15 +218,21 @@ def fit(
             3,
             CHAMPS_SESSION,
             [
-                horodatage_fit(pts[-1]["t"]), horodatage_fit(pts[0]["t"]), 2,
-                abs(ecoule) * 1000, abs(ecoule) * 1000, int(pts[-1]["dist"] * 100),
-                200 if puissance else None, 120,
+                horodatage_fit(pts[-1]["t"]),
+                horodatage_fit(pts[0]["t"]),
+                2,
+                abs(ecoule) * 1000,
+                abs(ecoule) * 1000,
+                int(pts[-1]["dist"] * 100),
+                200 if puissance else None,
+                120,
             ],
         )
     return _assembler(corps)
 
 
 # --- GPX / TCX --------------------------------------------------------------
+
 
 def gpx(
     *,
@@ -235,12 +261,18 @@ def gpx(
             lignes.append(f"<time>{horodatages[i]}</time>")
         elif temps:
             lignes.append(f"<time>{p['t'].strftime('%Y-%m-%dT%H:%M:%SZ')}</time>")
-        ext = [f"<gpxtpx:hr>{p['fc']}</gpxtpx:hr>", f"<gpxtpx:cad>{p['cad']}</gpxtpx:cad>",
-               f"<gpxtpx:atemp>{p['temp']}</gpxtpx:atemp>"]
+        ext = [
+            f"<gpxtpx:hr>{p['fc']}</gpxtpx:hr>",
+            f"<gpxtpx:cad>{p['cad']}</gpxtpx:cad>",
+            f"<gpxtpx:atemp>{p['temp']}</gpxtpx:atemp>",
+        ]
         if puissance:
             ext.insert(0, f"<pwr:PowerInWatts>{p['pui']}</pwr:PowerInWatts>")
-        lignes.append("<extensions><gpxtpx:TrackPointExtension>" + "".join(ext)
-                      + "</gpxtpx:TrackPointExtension></extensions>")
+        lignes.append(
+            "<extensions><gpxtpx:TrackPointExtension>"
+            + "".join(ext)
+            + "</gpxtpx:TrackPointExtension></extensions>"
+        )
         lignes.append("</trkpt>")
     lignes += ["</trkseg></trk>", "</gpx>"]
     return "\n".join(lignes).encode("utf-8")
@@ -270,7 +302,7 @@ def tcx(
         f"<TrainingCenterDatabase{_TCX_NS if espaces_de_noms else ''}>",
         f'<Activities><Activity Sport="{sport}">',
         f"<Id>{pts[0]['t'].strftime('%Y-%m-%dT%H:%M:%SZ')}</Id>",
-        f"<Lap StartTime=\"{pts[0]['t'].strftime('%Y-%m-%dT%H:%M:%SZ')}\">",
+        f'<Lap StartTime="{pts[0]["t"].strftime("%Y-%m-%dT%H:%M:%SZ")}">',
         f"<TotalTimeSeconds>{(nb_points - 1) * 60}</TotalTimeSeconds>",
         f"<DistanceMeters>{pts[-1]['dist']:.1f}</DistanceMeters>",
         "<Track>",
@@ -282,8 +314,10 @@ def tcx(
         elif temps:
             lignes.append(f"<Time>{p['t'].strftime('%Y-%m-%dT%H:%M:%SZ')}</Time>")
         if gps:
-            lignes.append(f"<Position><LatitudeDegrees>{p['lat']:.6f}</LatitudeDegrees>"
-                          f"<LongitudeDegrees>{p['lon']:.6f}</LongitudeDegrees></Position>")
+            lignes.append(
+                f"<Position><LatitudeDegrees>{p['lat']:.6f}</LatitudeDegrees>"
+                f"<LongitudeDegrees>{p['lon']:.6f}</LongitudeDegrees></Position>"
+            )
         lignes.append(f"<AltitudeMeters>{p['alt']:.1f}</AltitudeMeters>")
         lignes.append(f"<DistanceMeters>{p['dist']:.1f}</DistanceMeters>")
         lignes.append(f"<HeartRateBpm><Value>{p['fc']}</Value></HeartRateBpm>")
@@ -345,7 +379,7 @@ def contenus() -> dict[str, bytes]:
         "nominal_mixte.Gpx": gpx(),
         "vide.gpx": b"",
         "espaces_seuls.gpx": b"   \n\t\n  ",
-        "xml_invalide.gpx": gpx()[: int(len(gpx()) * 0.6)] + b"<trkpt lat=\"0.0\"",
+        "xml_invalide.gpx": gpx()[: int(len(gpx()) * 0.6)] + b'<trkpt lat="0.0"',
         "pas_du_gpx.gpx": b'<?xml version="1.0"?>\n<html><body>bonjour</body></html>\n',
         "gpx_sans_gps.gpx": gpx(gps=False),
         "gpx_sans_puissance.gpx": gpx(puissance=False),
@@ -362,9 +396,7 @@ def contenus() -> dict[str, bytes]:
             nb_points=3,
             horodatages=["2026-10-25T00:30:00", "2026-10-25T00:31:00", "2026-10-25T00:32:00"],
         ),
-        "gpx_temps_absurde.gpx": gpx(
-            nb_points=3, horodatages=["hier matin", "2026-13-45T99:99:99Z", ""]
-        ),
+        "gpx_temps_absurde.gpx": gpx(nb_points=3, horodatages=["hier matin", "2026-13-45T99:99:99Z", ""]),
         # --- TCX ---
         "nominal.tcx": tcx(),
         "nominal_maj.TCX": tcx(),

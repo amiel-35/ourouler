@@ -1,6 +1,5 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — le bloc
- * « en attendant » d'un échec de lecture (séance du jour ou semaine), qui
- * était dupliqué à l'identique dans les deux branches. */
+/** Séparé d'`App.tsx` — le bloc « en attendant » d'un échec de lecture
+ * (séance du jour ou semaine), commun aux deux branches. */
 
 export function EnAttendantHistorique({
   surDemander,

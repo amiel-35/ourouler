@@ -125,9 +125,7 @@ def test_uniquement_des_sauts_verticaux():
 
 
 def test_fichier_tronque_sans_section_donnees():
-    contenu = (
-        b"[COURSE HEADER]\nDESCRIPTION = Coupee\nMINUTES PERCENT\n[END COURSE HEADER]\n"
-    )
+    contenu = b"[COURSE HEADER]\nDESCRIPTION = Coupee\nMINUTES PERCENT\n[END COURSE HEADER]\n"
     with pytest.raises(ErreurLecture, match="deux points"):
         lire_mrc(contenu, ftp_w=FTP, jour=JOUR)
 

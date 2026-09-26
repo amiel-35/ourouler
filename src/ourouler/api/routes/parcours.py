@@ -1,4 +1,4 @@
-"""Un GPX déjà en main : simulé à puissance constante, ou déposé puis analysé (L9.8)."""
+"""Un GPX déjà en main : simulé à puissance constante, ou déposé puis analysé."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def simuler(
     demande: DemandeSimulation,
 ) -> dict:
     """Le temps d'un GPX du dépôt à puissance constante, avec le modèle calibré."""
-    from ourouler.physique import commande as physique
+    from ourouler.services import physique
 
     config = _config(ctx, qui)
     try:
@@ -60,7 +60,7 @@ def simuler(
     return resultat.enveloppe(ctx.budgets.budget("simulation"), qui)
 
 
-# --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+# --- un parcours déjà en main, à analyser -------------------------------------
 
 
 @routeur.post("/parcours/fichier")
@@ -73,7 +73,7 @@ async def deposer_parcours(
     """Dépose le GPX d'un parcours **déjà en main** (imposé d'un BRM, d'une Flèche, boucle
     de club) — l'identifiant rendu se repasse à `POST /parcours/analyser` dans `gpx`.
 
-    Seul le `.GPX` est accepté : `DepotHistorique` (L9.2) sait déjà lire un `.FIT`/`.TCX`,
+    Seul le `.GPX` est accepté : `DepotHistorique` sait déjà lire un `.FIT`/`.TCX`,
     mais pour des **sorties passées**, pas pour un parcours qu'on va rouler — deux usages
     du dépôt de fichier, deux routes, comme `/seances/fichier` et `/activites/import` sont
     déjà séparées pour la même raison.
@@ -107,7 +107,7 @@ async def deposer_parcours(
     # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
     # déposée avant de rendre la main.
     from ourouler.boucle.gpx import lire_gpx_parcours
-    from ourouler.physique.commande import DISTANCE_MAX_ANALYSE_M
+    from ourouler.services.physique import DISTANCE_MAX_ANALYSE_M
 
     try:
         trace, avertissements_trace = lire_gpx_parcours(depose.chemin)
@@ -116,8 +116,7 @@ async def deposer_parcours(
     if len(trace.points) < 2 or trace.distance_m <= 0:
         raise ErreurApi(
             code="fichier_illisible",
-            message=f"{nom} : un seul point, ou des points tous au même endroit — "
-            "il n'y a rien à parcourir",
+            message=f"{nom} : un seul point, ou des points tous au même endroit — il n'y a rien à parcourir",
             statut=422,
         )
     if trace.distance_m > DISTANCE_MAX_ANALYSE_M:
@@ -146,19 +145,19 @@ def analyser_parcours(
     qui: Qui,
     demande: DemandeAnalyse,
 ) -> dict:
-    """La météo et la durée porte à porte d'un parcours déjà en main (L9.8).
+    """La météo et la durée porte à porte d'un parcours déjà en main.
 
     `ourouler simuler` retourné dans l'autre sens (voir la docstring
     d'`executer_analyser`) : le GPX n'est pas une candidate choisie par le moteur, c'est
     celui qu'on va rouler — l'imposé d'un brevet, une boucle de club. Compte dans les
     **consultations météo** (`ctx.quotas_meteo`), pas dans les générations.
 
-    **Seule une météo rendue consomme la consultation** (décision du superviseur,
-    25/09/2026) : fichier introuvable, GPX refusé, toute erreur — et aussi une
-    réponse 200 **sans** météo (panne Open-Meteo, départ au-delà de l'horizon), où
+    **Seule une météo rendue consomme la consultation** : fichier introuvable,
+    GPX refusé, toute erreur — et aussi une réponse 200 **sans** météo (panne
+    Open-Meteo, départ au-delà de l'horizon), où
     la durée est servie mais la consultation n'a rien rapporté — la rembourse.
     """
-    from ourouler.physique import commande as physique
+    from ourouler.services import physique
 
     _verifier_quota(ctx, qui, ctx.quotas_meteo)
     try:

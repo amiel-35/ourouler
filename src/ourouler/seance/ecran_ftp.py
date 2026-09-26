@@ -2,22 +2,22 @@
 
 Le calcul des trois valeurs liées et de l'escalier est du domaine pur, dans
 `seance.ftp`, qui reçoit le profil du cycliste et le modèle physique du vélo
-tout faits (lot 7, `docs/ouverture_plan.md` §6). Ce module-ci est la couche
+tout faits. Ce module-ci est la couche
 commande qui les lui prépare : il choisit le vélo demandé dans le profil,
-lit sa calibration par `physique.commande` (qui résout le chemin de
+lit sa calibration par `services.physique` (qui résout le chemin de
 du fichier de calibration et passe par `stockage.calibrations`) et délègue.
 
-Les signatures sont celles d'avant le lot 7 — un profil et un nom de vélo
-—, pour que la ligne de commande, l'API, `boucle` et `sortie` n'aient pas à
-changer. L'ordre des vérifications aussi : un vélo inconnu ne se signale que
+Les signatures prennent un profil et un nom de vélo, pour que la ligne de
+commande, l'API, `boucle` et `sortie` n'aient pas à changer. L'ordre des
+vérifications aussi : un vélo inconnu ne se signale que
 là où le calcul avait besoin du vélo.
 
-**Lot 10 : le fichier de calibration arrive résolu.** Chaque fonction prend
+**Le fichier de calibration arrive résolu.** Chaque fonction prend
 `fichier_calibration` : un service le lui passe (`Contexte.fichier_calibration`)
 et ne lit donc jamais le cache de la configuration. Absent, il est résolu
 depuis `profil`, qui doit alors être une `config.Config` entière
-(`physique.commande.chemin_calibration`) — c'est le cas de l'API et de
-`rendu.profil` jusqu'au lot 11.
+(`services.physique.chemin_calibration`) — c'est le cas de l'ancien chemin
+de l'API et de `rendu.profil`.
 """
 
 from __future__ import annotations
@@ -25,19 +25,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from ourouler.noyau.profil import Profil, Velo
-from ourouler.physique.commande import (
+from ourouler.physique.modele import Parametres
+from ourouler.seance import ftp
+from ourouler.services.physique import (
     chemin_calibration,
     fourchette_du_velo,
     parametres_du_velo,
     velo_demande,
-)
-from ourouler.physique.modele import Parametres
-from ourouler.seance import ftp
-from ourouler.seance.ftp import (
-    MAX_ITERATIONS_BISSECTION,
-    PUISSANCE_MAXI_BISSECTION_W,
-    PUISSANCE_MINI_BISSECTION_W,
-    TOLERANCE_PUISSANCE_W,
 )
 
 
@@ -101,9 +95,9 @@ def info_compteur(
     La moyenne compteur qui a dimensionné la distance demandée (« 5 h à
     23 km/h » → 115 km) demande trois des valeurs de cet écran —
     `moyenne_compteur_kmh`, `facteur_compteur`, `facteur_provenance` — plus le
-    nom du vélo. Depuis L9.1 (25/09/2026), le bloc porte aussi la fourchette
-    du porte à porte du vélo (`porte_a_porte`) : c'est elle, et non plus la
-    moyenne compteur, qui chronomètre une candidate
+    nom du vélo. Le bloc porte aussi la fourchette du porte à porte du vélo
+    (`porte_a_porte`) : c'est elle, et non la moyenne compteur, qui
+    chronomètre une candidate
     (`physique.modele.temps_ecoule`). Ce module en est la source
     unique : ceci n'est pas une deuxième lecture de la configuration,
     seulement un sous-ensemble mis en forme pour ce contrat-là, comme
@@ -112,11 +106,11 @@ def info_compteur(
     **`puissance_w` / `vitesse_a_plat_kmh` (exclusifs entre eux, comme pour
     `position_pour`) : la puissance effectivement demandée pour CE parcours-ci**
     — `--puissance`, ou ce qu'exige `--vitesse-a-plat`, sur `ourouler boucle`.
-    Corrige un défaut trouvé le 18/09/2026 : sans ce paramètre, la moyenne
-    compteur restait celle de la puissance d'endurance **de la configuration**
-    quelle que soit la puissance demandée, et le temps écoulé porte à porte
-    n'en suivait donc pas les variations — 150 W et 300 W rendaient le même
-    porte à porte alors que le temps en mouvement, lui, changeait bien.
+    Sans ce paramètre, la moyenne compteur resterait celle de la puissance
+    d'endurance **de la configuration** quelle que soit la puissance demandée,
+    et le temps écoulé porte à porte n'en suivrait pas les variations — 150 W
+    et 300 W rendraient le même porte à porte alors que le temps en
+    mouvement, lui, change bien.
 
     **Ce que ça ne change pas** : l'écran de FTP lui-même (décision 7 du cycle
     UX) continue de montrer les trois valeurs liées à la position **de la
@@ -148,9 +142,7 @@ def info_compteur(
     liees = valeurs_liees(config, nom_velo, position=position, fichier_calibration=fichier_calibration)
     if liees is None:
         return None
-    fourchette = fourchette_du_velo(
-        velo_demande(config, nom_velo), _fichier(config, fichier_calibration)
-    )
+    fourchette = fourchette_du_velo(velo_demande(config, nom_velo), _fichier(config, fichier_calibration))
     return ftp.bloc_compteur(liees, fourchette)
 
 
@@ -224,10 +216,6 @@ def ftp_pour_vitesse_compteur(
 
 
 __all__ = [
-    "MAX_ITERATIONS_BISSECTION",
-    "PUISSANCE_MAXI_BISSECTION_W",
-    "PUISSANCE_MINI_BISSECTION_W",
-    "TOLERANCE_PUISSANCE_W",
     "contexte",
     "ftp_pour_vitesse_compteur",
     "info_compteur",

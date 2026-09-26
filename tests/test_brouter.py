@@ -115,7 +115,7 @@ def test_le_profil_de_l_appel_prime_sur_celui_de_la_configuration():
 
 
 def test_la_boucle_demande_le_recalage_des_points_de_passage():
-    """Contrat §1 : les paramètres de recalage partent avec la demande, au nom que BRouter attend.
+    """Les paramètres de recalage partent avec la demande, au nom que BRouter attend.
 
     Mesuré sur le serveur du mainteneur le 18/09/2026 : le snake_case envoyé
     jusqu'ici (`profile:correct_misplaced_via_points…`) n'était jamais reçu
@@ -326,9 +326,7 @@ def test_le_cout_par_km_suit_la_colonne_de_l_entete_pas_sa_position():
     proprietes = charge["features"][0]["properties"]
     entete, *lignes = proprietes["messages"]
     ordre = [entete.index(nom) for nom in ("CostPerKm", *[n for n in entete if n != "CostPerKm"])]
-    proprietes["messages"] = [
-        [ligne[i] for i in ordre] for ligne in ([entete] + lignes)
-    ]
+    proprietes["messages"] = [[ligne[i] for i in ordre] for ligne in ([entete] + lignes)]
     client, _ = client_repondant(charge)
     trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
     assert [s.cout_km for s in trace.segments] == [1200.0] * 6

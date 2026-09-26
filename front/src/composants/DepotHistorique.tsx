@@ -1,16 +1,14 @@
-/** E17 bis — L9.2 : déposer son historique, sans passer par Intervals.icu.
+/** E17 bis : déposer son historique, sans passer par Intervals.icu.
  *
- * Extrait de `ecrans/Importer.tsx` le 25/09/2026 (L9.7) pour que l'assistant
- * (T2, « Export Strava ou Garmin ») puisse proposer le même dépôt, tout de
- * suite, au lieu de dire que l'import « n'est pas encore proposé » — faux
- * depuis L9.2. La logique ne change pas d'un trait : suivi d'un import en
+ * Commun à `ecrans/Importer.tsx` et à l'assistant (T2, « Export Strava ou
+ * Garmin »), qui propose ainsi le même dépôt, tout de suite. Suivi d'un import en
  * fond via `localStorage` (`etat/memoire.ts`), reprise après rechargement,
  * interrogation périodique tant qu'il tourne.
  *
  * Place *un* historique entier pour que les parcours proposés reconnaissent
- * les routes déjà connues — utile même sans capteur de puissance ([[Q48]] :
- * « l'import permet de comprendre les routes, la puissance permet de
- * comprendre le niveau — c'est 2 choses »).
+ * les routes déjà connues — utile même sans capteur de puissance : l'import
+ * fait comprendre les routes, la puissance fait comprendre le niveau
+ * (décision Q48, `docs/journal/questions/questions_mainteneur.md`).
  *
  * **L'import tourne en tâche de fond côté serveur** : le dépôt rend un
  * identifiant tout de suite, ce composant l'interroge périodiquement et

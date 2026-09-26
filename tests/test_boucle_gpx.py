@@ -141,9 +141,7 @@ def test_ce_que_le_seuil_de_denivele_fait_vraiment():
 
     montee_legere = profil(montee, 1.0)
     assert brut(montee_legere) > 300.0
-    assert denivele_filtre(montee_legere) == pytest.approx(20.0, abs=2.0), (
-        "et le vrai dénivelé, lui, survit"
-    )
+    assert denivele_filtre(montee_legere) == pytest.approx(20.0, abs=2.0), "et le vrai dénivelé, lui, survit"
 
     plat_fort = profil(plat, 2.5)  # oscillation au-dessus du seuil de 2 m
     assert denivele_filtre(plat_fort) > 400.0, (
@@ -245,9 +243,7 @@ def test_le_denivele_ignore_le_bruit_d_altimetre():
 
 
 def test_le_denivele_compte_une_vraie_montee():
-    points = [
-        PointTrace(lat=0.0, lon=i / 1000, alt_m=50.0 + 5 * i, dist_m=0.0) for i in range(5)
-    ]
+    points = [PointTrace(lat=0.0, lon=i / 1000, alt_m=50.0 + 5 * i, dist_m=0.0) for i in range(5)]
     trace = Trace("Montée", points, [], 0.0, None, None, {})
     relue = lire_gpx_trace(ecrire_gpx(trace, "Montée").encode("utf-8"))
     assert relue.denivele_m == pytest.approx(20.0)
@@ -255,9 +251,7 @@ def test_le_denivele_compte_une_vraie_montee():
 
 def test_le_nom_retombe_sur_celui_du_fichier(tmp_path: Path):
     fichier = tmp_path / "sans_nom.gpx"
-    fichier.write_text(
-        GPX_SANS_ALTITUDE.replace("<name>Sans altitude</name>", ""), encoding="utf-8"
-    )
+    fichier.write_text(GPX_SANS_ALTITUDE.replace("<name>Sans altitude</name>", ""), encoding="utf-8")
     assert lire_gpx_trace(fichier).nom == "sans_nom"
 
 

@@ -136,7 +136,7 @@ def nom_de_azimut(azimut_deg: float, directions: int = 8) -> str:
     Elle existe pour que le **front n'ait pas à la refaire** : « vent de
     sud-ouest » est une valeur affichée, et une valeur affichée ne se calcule
     pas côté écran. Un azimut non fini n'a pas de nom — on rend `""` plutôt
-    qu'une direction inventée (règle absolue 5).
+    qu'une direction inventée (on n'affirme rien sans mesure).
     """
     if not math.isfinite(azimut_deg):
         return ""
@@ -152,7 +152,11 @@ def ecart_angulaire(a_deg: float, b_deg: float) -> float:
 
 
 def distance_haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Distance orthodromique entre deux points, en km (formule de haversine)."""
+    """Distance orthodromique entre deux points, en km (formule de haversine).
+
+    Avec `azimut_initial_deg`, l'inverse de `destination` : ce qui permet de
+    vérifier la couronne de l'extérieur.
+    """
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = phi2 - phi1
     dlambda = math.radians(lon2 - lon1)

@@ -21,10 +21,8 @@ export function EtapeExport({ a }: { a: EtatAssistant }) {
       </div>
       {exportChoisi === "Strava" || exportChoisi === "Garmin" ? (
         <>
-          {/* L9.2 a ajouté l'import (`POST /activites/import`, tâche de
-              fond), mais cet écran continuait à dire qu'il n'existait
-              pas — constaté le 25/09/2026. Deux lignes pour l'obtenir,
-              puis le même dépôt qu'« Importer » (`DepotHistorique`),
+          {/* L'import existe (`POST /activites/import`, tâche de fond) :
+              deux lignes pour l'obtenir, puis le même dépôt qu'« Importer » (`DepotHistorique`),
               réutilisé plutôt que dupliqué. */}
           <p className="mention" style={{ marginBottom: 16 }}>
             {exportChoisi === "Strava" ? (

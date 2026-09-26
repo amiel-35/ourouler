@@ -5,16 +5,15 @@ serveur à chaque requête, jamais seulement côté front. **Aucune requête san
 clause de propriétaire.** »
 
 `api/proprietaire.py` dit *à qui* appartient une ligne ; ce module-ci dit
-*comment la requête en cours se rattache à quelqu'un*. Jusqu'au 18/09/2026
-les deux étaient confondus : `resoudre()` rendait le propriétaire local, donc
-une requête anonyme obtenait les données du mainteneur. La couture est ici.
+*comment la requête en cours se rattache à quelqu'un*. Confondre les deux
+reviendrait à rendre le propriétaire local à une requête anonyme, donc à lui
+servir les données du cycliste local. La couture est ici.
 
-**La méthode d'authentification a été tranchée le 19/09/2026** (lot L7.2-C) :
-un compte, un mot de passe, une session par jeton opaque en base
-(`api/comptes.py`, `migrations/0002_sessions.sql`). Ce fichier s'écrit alors
-exactement comme la note ci-dessous l'annonçait — **une troisième classe, et
-rien d'autre ne bouge** : `SessionParCookie` s'ajoute à côté de
-`SessionPersonnelle` et `SessionHebergee`, qui restent inchangées.
+**La méthode d'authentification** : un compte, un mot de passe, une session
+par jeton opaque en base (`api/comptes.py`, `migrations/0002_sessions.sql`),
+portée par `SessionParCookie`, à côté de `SessionPersonnelle` et
+`SessionHebergee`. Une autre méthode serait une classe de plus, et rien
+d'autre ne bougerait.
 
 ## Deux produits, pas deux réglages
 
@@ -28,15 +27,14 @@ Un service qui sert **une** personne chez elle et un service qui en sert
 - `SessionHebergee` — un service exposé, mais sans base de comptes
   configurée (`OUROULER_DATABASE_URL` absente). Il n'ouvre **aucune**
   session : toute route de données répond 401. C'est le bon comportement, pas
-  une régression — servir le profil du mainteneur à un inconnu serait pire
+  une régression — servir le profil du serveur à un inconnu serait pire
   qu'un refus.
 - `SessionParCookie` — un service exposé, avec une base de comptes
   configurée. Un cookie porte un jeton opaque, retrouvé en base
   (`DepotComptes.proprietaire_de_la_session`) ; absent, inconnu ou expiré, il
   vaut `None` comme les deux autres cas où personne ne parle.
 
-Ce qui a disparu avec le lot L7.A et ne revient pas : que le mode personnel
-soit le **défaut implicite** d'un service exposé. Le mode se déclare
+Le mode personnel n'est jamais le **défaut implicite** d'un service exposé. Le mode se déclare
 (`OUROULER_MODE`, lu par `api/exploitation.py` et par lui seul) ; en son
 absence, le service refuse au lieu de deviner.
 
@@ -125,9 +123,8 @@ class SessionHebergee:
     servirait « le » profil du serveur ferait de chaque déploiement une fuite
     en un mot.
 
-    Le jour où la méthode sera tranchée (clé Brevo, politique de modération —
-    hors périmètre du sprint 7), elle prendra la place de cette classe dans
-    `exploitation.fournisseur_session`, et rien d'autre ne changera.
+    Dès qu'une base de comptes est configurée, `SessionParCookie` prend sa
+    place dans `exploitation.fournisseur_session`, et rien d'autre ne change.
     """
 
     mode = MODE_HEBERGE
@@ -148,10 +145,9 @@ NOM_COOKIE = "ourouler_session"
 
 @dataclass(frozen=True)
 class SessionParCookie:
-    """Plusieurs cyclistes, une session par jeton opaque en base (lot L7.2-C).
+    """Plusieurs cyclistes, une session par jeton opaque en base.
 
-    **La méthode d'authentification que la note de module annonçait.** Le
-    cookie porte un jeton ; ce module le lit (`requete.cookies`, l'attribut
+    Le cookie porte un jeton ; ce module le lit (`requete.cookies`, l'attribut
     que Starlette expose) et demande au dépôt des comptes à qui il
     appartient. `DepotComptes.proprietaire_de_la_session` rend `None` pour un
     jeton absent, inconnu ou expiré — les trois cas où « personne » est la
@@ -167,7 +163,7 @@ class SessionParCookie:
     """
 
     #: L'URL du PostgreSQL des comptes — lue une fois par `api/exploitation.py`
-    #: (règle absolue 2) et portée ici telle quelle. Ce module ne la relit
+    #: (le cœur ne lit ni configuration ni environnement) et portée ici telle quelle. Ce module ne la relit
     #: jamais dans l'environnement.
     url: str
 
@@ -190,16 +186,13 @@ class SessionParCookie:
 
 
 #: La phrase rendue au cycliste quand aucune session n'est ouverte. Elle dit
-#: ce qui s'est passé **et** ce qu'on peut faire (L7.D) : « 401 » tout seul
-#: n'a jamais renseigné personne.
+#: ce qui s'est passé **et** ce qu'on peut faire : « 401 » tout seul
+#: ne renseigne personne.
 #:
-#: **Reformulée le 19/09/2026 (lot L7.2-C).** Elle disait « la méthode de
-#: connexion n'est pas branchée sur ce déploiement », vrai tant que
-#: `SessionHebergee` était la seule issue d'un service exposé. Ce n'est plus
-#: toujours vrai : un cookie absent, inconnu ou expiré vaut aussi `None` chez
-#: `SessionParCookie`, sur un déploiement où la connexion, elle, est bien
-#: branchée. La phrase ne présume donc plus de la raison et donne les deux
-#: gestes possibles.
+#: Elle ne présume pas de la raison : un cookie absent, inconnu ou expiré
+#: vaut `None` chez `SessionParCookie`, sur un déploiement où la connexion est
+#: bien branchée, comme chez `SessionHebergee`, où elle ne l'est pas. Elle
+#: donne donc les deux gestes possibles.
 MESSAGE_SANS_SESSION = (
     "aucune session ouverte — cette route sert des données personnelles, et ce "
     "serveur ne sait pas encore à qui elles appartiennent. Se connecter "

@@ -16,15 +16,15 @@ Deux fournisseurs, chacun sans clé d'API :
    (adresse au numéro de rue près), **inexistantes hors de France** — la
    BAN ne connaît que le territoire national, elle rend alors zéro
    candidat, jamais une erreur. Licence Etalab 2.0 (licence ouverte),
-   aucune clé, débit limité à 50 requêtes/s par IP (mesuré sur la
-   documentation officielle, 16/09/2026) — sans commune mesure avec l'usage
+   aucune clé, débit limité à 50 requêtes/s par IP (selon la
+   documentation officielle) — sans commune mesure avec l'usage
    d'un cycliste qui tape une adresse de temps en temps.
 
 2. **Nominatim** (OpenStreetMap, `https://nominatim.openstreetmap.org`),
    en repli quand la BAN ne rend aucun candidat — hors de France, ou
    adresse que la BAN ne reconnaît pas. Couverture mondiale, mais la
    politique d'usage du service (operations.osmfoundation.org/policies/
-   nominatim, relevée le 16/09/2026) impose :
+   nominatim) impose :
    - **1 requête par seconde maximum** — jamais en jeu ici : ce connecteur
      n'appelle Nominatim qu'une fois par recherche d'adresse, après un
      échec de la BAN, jamais en boucle ;
@@ -50,6 +50,7 @@ from typing import Any
 import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur
+from ourouler.noyau.lecture import texte_ou_none
 
 BASE_URL_BAN = "https://data.geopf.fr/geocodage"
 CHEMIN_RECHERCHE_BAN = "/search"
@@ -126,10 +127,10 @@ def _clef_commune(candidat: Candidat) -> str | None:
 def ambiguite(candidats: list[Candidat]) -> Ambiguite | None:
     """Ces candidats désignent-ils un seul lieu ? `None` si oui, un `Ambiguite` sinon.
 
-    **Aucun seuil de score n'est utilisé, et c'est le fond de la décision du
-    mainteneur sur Q34** (« on refuse », 17/09/2026). La mesure du 17/09/2026,
-    quinze requêtes sur la vraie BAN avec des lieux publics, dit pourquoi
-    aucun seuil n'est possible : l'écart de score entre les deux premiers
+    **Aucun seuil de score n'est utilisé** : dans le doute, on refuse
+    (décision Q34, `docs/journal/questions/questions_mainteneur.md`). La mesure,
+    quinze requêtes sur la vraie BAN avec des lieux publics, dit pourquoi aucun
+    seuil n'est possible : l'écart de score entre les deux premiers
     candidats vaut 0,0016 à 0,0024 quand la réponse est arbitraire (cinq
     communes distinctes, jusqu'à 400 km d'écart) et 0,0020 quand elle est
     juste (cinq candidats, une seule commune). Les deux intervalles se
@@ -154,7 +155,7 @@ def ambiguite(candidats: list[Candidat]) -> Ambiguite | None:
     **Ce dont cette règle dépend, et qui doit être dit** : du nombre de
     candidats demandés au service. Demander vingt candidats au lieu de cinq
     fait apparaître des communes lointaines et mal notées, donc refuse plus
-    souvent. L'appelant qui tranche (`cli.lieu_depart`) demande toujours
+    souvent. L'appelant qui tranche (`cli.depart.lieu_depart`) demande toujours
     `LIMITE_DEFAUT`, c'est ce qui rend la règle reproductible.
     """
     if not candidats:
@@ -196,9 +197,7 @@ class ClientBAN:
         try:
             reponse = self.http.get(self.url_recherche, params=params)
         except httpx.HTTPError as e:
-            raise ErreurConnecteur(
-                f"BAN : injoignable sur {self.url_recherche} ({type(e).__name__})"
-            ) from e
+            raise ErreurConnecteur(f"BAN : injoignable sur {self.url_recherche} ({type(e).__name__})") from e
         if reponse.status_code >= 400:
             raise ErreurConnecteur(f"BAN : HTTP {reponse.status_code} sur {self.url_recherche}")
         try:
@@ -226,7 +225,7 @@ class ClientNominatim:
             raise ErreurConnecteur("Nominatim : adresse vide")
         # `addressdetails=1` : sans lui, Nominatim ne rend pas la commune, et
         # `ambiguite()` refuserait alors *tout* résultat de repli faute de
-        # pouvoir vérifier qu'une seule commune est en jeu (Q34).
+        # pouvoir vérifier qu'une seule commune est en jeu.
         params = {"q": adresse, "format": "jsonv2", "limit": limite, "addressdetails": 1}
         # Le User-Agent est passé par requête, pas seulement à la construction
         # du client HTTP : un client injecté par un test (ou un futur
@@ -288,8 +287,8 @@ def _candidats_ban(charge: Any, url: str) -> list[Candidat]:
                     longitude=float(lon),
                     score=float(proprietes.get("score", 0.0)),
                     source="ban",
-                    commune=_texte_ou_none(proprietes.get("city")),
-                    code_postal=_texte_ou_none(proprietes.get("postcode")),
+                    commune=texte_ou_none(proprietes.get("city")),
+                    code_postal=texte_ou_none(proprietes.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
@@ -313,20 +312,12 @@ def _candidats_nominatim(charge: Any, url: str) -> list[Candidat]:
                     score=float(item.get("importance", 0.0)),
                     source="nominatim",
                     commune=_commune_nominatim(adresse),
-                    code_postal=_texte_ou_none(adresse.get("postcode")),
+                    code_postal=texte_ou_none(adresse.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
             raise ErreurConnecteur(f"Nominatim : candidat illisible sur {url} ({e})") from e
     return candidats
-
-
-def _texte_ou_none(valeur: Any) -> str | None:
-    """Une chaîne non vide, ou `None`. Un champ absent et un champ vide se valent ici."""
-    if valeur is None:
-        return None
-    texte = str(valeur).strip()
-    return texte or None
 
 
 #: Les clefs sous lesquelles Nominatim range ce que la BAN appelle `city`.
@@ -347,7 +338,7 @@ def _commune_nominatim(adresse: Any) -> str | None:
     if not isinstance(adresse, dict):
         return None
     for clef in CLEFS_COMMUNE_NOMINATIM:
-        commune = _texte_ou_none(adresse.get(clef))
+        commune = texte_ou_none(adresse.get(clef))
         if commune is not None:
             return commune
     return None

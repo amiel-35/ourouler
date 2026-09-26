@@ -48,9 +48,7 @@ def tracer(points: list[PointTrace], segments: list[Segment] | None = None) -> T
     avec_distance = [points[0]]
     for precedent, suivant in zip(points, points[1:], strict=False):
         cumul += distance_m(precedent, suivant)
-        avec_distance.append(
-            PointTrace(lat=suivant.lat, lon=suivant.lon, alt_m=suivant.alt_m, dist_m=cumul)
-        )
+        avec_distance.append(PointTrace(lat=suivant.lat, lon=suivant.lon, alt_m=suivant.alt_m, dist_m=cumul))
     return Trace(
         nom="fabriquee",
         points=avec_distance,
@@ -88,9 +86,7 @@ def trace_avec_antenne(longueur_antenne_m: float = 150.0) -> Trace:
 
 def trace_sans_antenne() -> Trace:
     """Un carré de 400 m de côté, fermé, sans aucun demi-tour."""
-    return tracer(
-        polyligne([(0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)])
-    )
+    return tracer(polyligne([(0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)]))
 
 
 # --- détection : le cas nominal ----------------------------------------------
@@ -150,9 +146,7 @@ def test_une_boucle_qui_repasse_par_son_depart_au_dela_de_la_fenetre_n_est_pas_u
     6 000 premiers mètres supprimerait une vraie route. La fenêtre est le
     seul curseur : assez large, la même géométrie redevient une antenne.
     """
-    trace = tracer(
-        polyligne([(0.0, 0.0), (4000.0, 0.0), (0.0, 0.0), (0.0, 600.0)], pas_m=20.0)
-    )
+    trace = tracer(polyligne([(0.0, 0.0), (4000.0, 0.0), (0.0, 0.0), (0.0, 600.0)], pas_m=20.0))
     assert detecter(trace) == []
     assert len(detecter(trace, fenetre_m=9000)) == 1
 
@@ -207,9 +201,7 @@ def test_une_antenne_bruitee_au_dela_de_la_tolerance_n_est_plus_reconnue():
 
 
 def test_une_antenne_au_depart_commence_a_l_indice_zero():
-    trace = tracer(
-        polyligne([(0.0, 0.0), (0.0, 150.0), (0.0, 0.0), (600.0, 0.0)])
-    )
+    trace = tracer(polyligne([(0.0, 0.0), (0.0, 150.0), (0.0, 0.0), (600.0, 0.0)]))
     antennes = detecter(trace)
     assert len(antennes) == 1
     assert antennes[0].debut_idx == 0
@@ -289,9 +281,7 @@ def test_les_distances_cumulees_sont_recalculees_et_croissantes():
     assert elaguee.points[-1].dist_m == pytest.approx(elaguee.distance_m)
     for precedent, suivant in zip(elaguee.points, elaguee.points[1:], strict=False):
         assert suivant.dist_m >= precedent.dist_m
-        assert suivant.dist_m - precedent.dist_m == pytest.approx(
-            distance_m(precedent, suivant), abs=1e-6
-        )
+        assert suivant.dist_m - precedent.dist_m == pytest.approx(distance_m(precedent, suivant), abs=1e-6)
 
 
 def test_elaguer_preserve_la_fermeture_de_la_boucle():
@@ -337,9 +327,7 @@ def trace_segmentee() -> Trace:
         (130, 150, "track"),  # à cheval sur la sortie
         (150, dernier, "secondary"),  # intact, après l'antenne
     ]
-    trace.segments = [
-        Segment(a, b, longueur(a, b), {"highway": classe}) for a, b, classe in bornes
-    ]
+    trace.segments = [Segment(a, b, longueur(a, b), {"highway": classe}) for a, b, classe in bornes]
     return trace
 
 
@@ -402,9 +390,7 @@ def test_chaque_segment_elague_couvre_la_distance_entre_ses_bornes():
     trace = trace_segmentee()
     elaguee = elaguer(trace, detecter(trace))
     for segment in elaguee.segments:
-        couvert = (
-            elaguee.points[segment.fin_idx].dist_m - elaguee.points[segment.debut_idx].dist_m
-        )
+        couvert = elaguee.points[segment.fin_idx].dist_m - elaguee.points[segment.debut_idx].dist_m
         assert segment.longueur_m == pytest.approx(couvert, abs=5)
 
 
@@ -469,7 +455,7 @@ def test_l_elagage_garde_les_tags_de_noeud():
     """Les feux suivent le tronçon : sans eux, une boucle urbaine se note comme la campagne.
 
     Même faute que `cout_km`, un champ et trois mois plus tard. `node_tags`
-    est arrivé au sprint 4 et le constructeur de `_resegmenter` ne l'a jamais
+    est arrivé après coup et le constructeur de `_resegmenter` ne l'a jamais
     repris : **toute candidate générée passe par l'élagage**, donc toute
     candidate perdait ses feux, stops et passages piétons avant d'être notée.
     `evaluer_couloir` jugeait des couloirs urbains sans un carrefour.

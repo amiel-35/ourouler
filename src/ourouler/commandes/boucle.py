@@ -1,8 +1,8 @@
 """`ourouler boucle` : la demande, le service, le rendu imprimé.
 
 `lire_options` valide tout ce qui peut l'être **avant** la moindre
-connexion (contrat §6) et construit la `Demande` du service
-(`boucle/commande.py`) ; le rendu est `rendu/boucle.py`.
+connexion et construit la `Demande` du service
+(`services/boucle.py`) ; le rendu est `rendu/boucle.py`.
 """
 
 from __future__ import annotations
@@ -12,18 +12,19 @@ import math
 from pathlib import Path
 
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.boucle import commande as service
-from ourouler.boucle.commande import Demande, ResultatBoucle, direction_en_azimut, verifier_sortie
 from ourouler.boucle.horaire import analyser_pause, valider_pauses
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.profil import Depart, Profil
-from ourouler.rendu.boucle import avertissement_meteo, rendre_json, rendre_texte
+from ourouler.rendu.boucle import avertissement_meteo, rendre_texte
+from ourouler.rendu.boucle_json import rendre_json
+from ourouler.services import boucle as service
+from ourouler.services.boucle import Demande, ResultatBoucle, direction_en_azimut, verifier_sortie
 from ourouler.services.contexte import Contexte
+from ourouler.services.meteo import heure_depart
 
 
 def executer_depuis_namespace(
@@ -38,9 +39,9 @@ def executer_depuis_namespace(
     """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant (`cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant (`cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API). Il remplace celui de la configuration **avant** la
-    lecture des options, comme avant le lot 10 : la génération des candidates,
+    lecture des options : la génération des candidates,
     les en-têtes de texte et le JSON lisent tous le départ du profil, et un
     seul de ces points oublié rendrait une boucle autour de la maison pour une
     adresse à 400 km.
@@ -55,8 +56,13 @@ def executer_depuis_namespace(
     else:
         print(
             rendre_texte(
-                r.evaluations, r.demande, r.profil, r.chemin, r.modele,
-                poids=r.poids, compteur_info=r.compteur_info,
+                r.evaluations,
+                r.demande,
+                r.profil,
+                r.chemin,
+                r.modele,
+                poids=r.poids,
+                compteur_info=r.compteur_info,
             )
         )
     return 0
@@ -121,17 +127,17 @@ def interpreter(
     """Valide les options **avant** toute connexion. Lève `ErreurUtilisateur` sinon.
 
     L'ordre compte : une distance négative ou une direction illisible doivent
-    coûter un message immédiat, pas un aller-retour sur le serveur du
-    mainteneur (contrat §6). `profil` est le profil **BRouter** (`--profil`),
-    `config` le profil du cycliste.
+    coûter un message immédiat, pas un aller-retour sur le serveur BRouter.
+    `profil` est le profil **BRouter** (`--profil`), `config` le profil du
+    cycliste.
     """
     chemin_gpx = Path(gpx) if gpx else None
     if chemin_gpx is not None and not chemin_gpx.is_file():
         raise ErreurUtilisateur(f"--gpx {gpx} : fichier introuvable")
 
     # `--puissance` et `--vitesse-a-plat` sont exclusives : le refus se dit
-    # ici, avant tout appel à BRouter ou à Open-Meteo (contrat §6). La
-    # conversion, elle, a besoin du vélo et attend `boucle.commande._modele_temps`.
+    # ici, avant tout appel à BRouter ou à Open-Meteo. La
+    # conversion, elle, a besoin du vélo et attend `services.boucle._modele_temps`.
     if puissance is not None and vitesse_a_plat is not None:
         raise ErreurUtilisateur(
             "--puissance et --vitesse-a-plat disent la même chose de deux façons "
@@ -140,7 +146,7 @@ def interpreter(
 
     distance_km = distance
     # Sans `--direction`, la recherche balaie tout l'horizon plutôt que de
-    # refuser (Q47) — même défaut que `sortie` : « peu importe » est une
+    # refuser — même défaut que `sortie` : « peu importe » est une
     # demande valable, pas une omission à corriger.
     libelle, azimut = ("", None)
     if direction is not None:
@@ -170,7 +176,7 @@ def interpreter(
     pauses_lues = tuple(analyser_pause(p) for p in pauses or [])
     # Sans `--gpx`, `distance_km` (la distance **demandée**) est la seule
     # longueur connue avant tout appel BRouter — les candidates réellement
-    # générées peuvent différer dans la tolérance du contrat, mais une pause
+    # générées peuvent différer dans la tolérance de distance, mais une pause
     # au-delà de ce qui a été demandé est déjà une erreur d'entrée. Avec
     # `--gpx`, la longueur réelle du tracé n'est connue qu'après lecture du
     # fichier : le service revalide alors contre elle.

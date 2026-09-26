@@ -15,7 +15,7 @@
  *
  * Et la moyenne compteur **dit toujours si son facteur est mesuré ou
  * supposé**. Sans cette mention, l'écran ment à qui hérite du défaut
- * (décision 8, règle absolue 5).
+ * (décision 8 ; on ne présente jamais une estimation comme une mesure).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -47,9 +47,9 @@ type Champ = "puissance" | "vitesse" | null;
  * Une FTP qui sort de l'entonnoir (vitesse puis terrain, `t4`) est le résultat
  * d'une inversion du modèle physique, donc un flottant : le champ affichait
  * « 250.97864468892416 », quatorze décimales sur une grandeur dont le dernier
- * watt n'est déjà pas mesurable. Constaté à l'écran le 20/09/2026.
+ * watt n'est déjà pas mesurable.
  *
- * `null` (FTP facultative depuis le 19/09/2026, `docs/ux/parcours_accueil.md`)
+ * `null` (FTP facultative, `docs/journal/ux/parcours_accueil.md`)
  * rend un champ vide, jamais le texte « null ».
  */
 export function ftpAffichee(ftp_w: number | null): string {
@@ -58,8 +58,8 @@ export function ftpAffichee(ftp_w: number | null): string {
 
 export function EcranFtp({ zones, velo, surApercu, surFtp, echappatoire }: Props) {
   const liees = zones.valeurs_liees;
-  // `zones.ftp_w` peut valoir `null` (FTP facultative depuis le 19/09/2026,
-  // `docs/ux/parcours_accueil.md`) : un profil qui n'a pas encore franchi
+  // `zones.ftp_w` peut valoir `null` (FTP facultative,
+  // `docs/journal/ux/parcours_accueil.md`) : un profil qui n'a pas encore franchi
   // l'étage T3/T4 de l'accueil. Un champ vide, jamais le texte « null ».
   const [ftp, setFtp] = useState(ftpAffichee(zones.ftp_w));
   const [enEdition, setEnEdition] = useState<Champ>(null);

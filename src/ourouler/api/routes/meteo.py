@@ -21,7 +21,7 @@ from ourouler.api.routes.commun import (
     _verifier_quota,
     nouveau_routeur,
 )
-from ourouler.config import Depart
+from ourouler.noyau.profil import Depart
 
 routeur = nouveau_routeur()
 
@@ -42,12 +42,12 @@ def geocoder(
 ) -> dict:
     """Tous les candidats d'une adresse, notés — **l'API ne tranche jamais**.
 
-    C'est l'inverse de la ligne de commande, et c'est écrit dans F0.7 : une
-    commande doit bien partir de quelque part, donc elle retient le premier
-    candidat et le dit ; un front, lui, peut montrer la liste et faire
+    C'est l'inverse de la ligne de commande : une commande doit bien partir de
+    quelque part, donc elle retient le premier candidat et le dit ; un front,
+    lui, peut montrer la liste et faire
     choisir. Les coordonnées choisies reviennent ensuite dans `depart`.
     """
-    from ourouler.geocodage import commande as geocodage
+    from ourouler.services import geocodage
 
     config = _config(ctx, qui)
     resultat = calculer(
@@ -69,9 +69,7 @@ def geocoder(
         # Zéro candidat **n'est pas une panne** — les services ont répondu —
         # mais l'écran d'échec « adresse introuvable » a besoin d'une phrase,
         # et une liste vide n'en est pas une.
-        phrase = (
-            f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal"
-        )
+        phrase = f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal"
         charge["avertissements"] = [
             *charge["avertissements"],
             Avertissement(code=classer_avertissement(phrase), message=phrase).charge(),
@@ -92,7 +90,7 @@ def vent_depart(
     longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
     nom: str = "Départ",
 ) -> dict:
-    """D'où vient le vent au départ, et ce que chaque préférence donnerait (Q44).
+    """D'où vient le vent au départ, et ce que chaque préférence donnerait.
 
     L'écran de demande appelle cette route **pendant** que le cycliste choisit,
     pas après : on ne demande pas une direction sans donner l'information qui
@@ -106,7 +104,7 @@ def vent_depart(
     `latitude`/`longitude` remplacent le départ du profil pour cette requête
     seulement — toutes deux ou aucune, comme pour `/meteo`.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     config = _config(ctx, qui)
     if (latitude is None) != (longitude is None):
@@ -115,9 +113,7 @@ def vent_depart(
             message="vent au départ : latitude et longitude se donnent ensemble",
             statut=400,
         )
-    lieu = (
-        None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
-    )
+    lieu = None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
     resultat = _avec_journal(
         ctx,
         qui,
@@ -155,9 +151,9 @@ def meteo(
     `latitude`/`longitude` remplacent le départ du profil pour cette requête
     seulement — toutes deux ou aucune.
     """
-    from ourouler.meteo import commande as meteo_commande
+    from ourouler.services import meteo as meteo_commande
 
-    # L9.3 : quota séparé de celui des générations — ~50 appels Open-Meteo
+    # Quota séparé de celui des générations — ~50 appels Open-Meteo
     # par consultation (une couronne, deux modèles), contre ~150 pour une
     # sortie ou une boucle. Pas de remboursement ici (à la différence de
     # `POST /sorties`/`POST /boucles`) : ce n'est pas demandé, et une
@@ -170,11 +166,7 @@ def meteo(
             message="météo : latitude et longitude se donnent ensemble",
             statut=400,
         )
-    lieu = (
-        None
-        if latitude is None
-        else Depart(nom=nom, latitude=latitude, longitude=longitude)
-    )
+    lieu = None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
     resultat = calculer(
         ctx.chemin_api,
         config,

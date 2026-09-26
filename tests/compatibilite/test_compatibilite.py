@@ -73,14 +73,14 @@ REGENERER = "uv run pytest tests/compatibilite --regenerer-golden"
 LECTURE = ECHANTILLONS / "lecture.json"
 VERSIONS = ECHANTILLONS / "versions.json"
 
-#: Les constantes de version de schéma, par nom qualifié. Un lot qui déplace
-#: un module garde un réexport (lot 3) ou met ce nom à jour ; il ne change
+#: Les constantes de version de schéma, par nom qualifié. Un changement qui
+#: déplace un module garde un réexport ou met ce nom à jour ; il ne change
 #: jamais la **valeur**.
 CONSTANTES_DE_VERSION = (
     "ourouler.activites.cache.VERSION_SCHEMA",
     "ourouler.apprentissage.routes.VERSION_SCHEMA",
     "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA",
-    "ourouler.physique.commande.VERSION_CALIBRATION",
+    "ourouler.stockage.calibrations.VERSION_CALIBRATION",
 )
 
 #: Migrations Postgres autorisées à contenir `DROP` ou `RENAME`, par nom de
@@ -127,8 +127,7 @@ def _echec(nom: str, attendu: Any, obtenu: Any) -> None:
     )
     if len(diff) > 6000:
         diff = diff[:6000] + "\n[… diff tronqué …]\n"
-    pytest.fail(f"{MESSAGE}\n{nom} — régénérer seulement après décision : {REGENERER}\n{diff}",
-                pytrace=False)
+    pytest.fail(f"{MESSAGE}\n{nom} — régénérer seulement après décision : {REGENERER}\n{diff}", pytrace=False)
 
 
 def comparer(nom: str, attendu: Any, obtenu: Any) -> None:
@@ -274,10 +273,7 @@ def lire_archive(copie: Path) -> dict:
     lu = {}
     for lat, lon, jour in cles:
         heures = client.horaires(lat, lon, date.fromisoformat(jour), aujourd_hui=date(2026, 9, 8))
-        valeurs = [
-            [h.t.isoformat(), h.vent_kmh, h.vent_depuis_deg, h.temp_c, h.pression_hpa]
-            for h in heures
-        ]
+        valeurs = [[h.t.isoformat(), h.vent_kmh, h.vent_depuis_deg, h.temp_c, h.pression_hpa] for h in heures]
         # Les 24 heures en entier, par leur empreinte (valeurs relues du JSON
         # rangé, donc exactes) ; la première et la dernière en clair.
         lu[f"{lat},{lon},{jour}"] = {
@@ -296,9 +292,7 @@ def lire_routes(copie: Path) -> dict:
     for proprietaire in ("local", COMPTE):
         base = BaseRoutes(chemin, proprietaire=proprietaire)
         lu[proprietaire] = {
-            "troncons": sorted(
-                (dataclasses.asdict(t) for t in base.troncons()), key=lambda t: json.dumps(t)
-            ),
+            "troncons": sorted((dataclasses.asdict(t) for t in base.troncons()), key=lambda t: json.dumps(t)),
             "sorties": base.sorties(),
             "sorties_apprises": sorted(base.sorties_apprises()),
             "statistiques": dataclasses.asdict(base.statistiques()),
@@ -465,7 +459,7 @@ def test_les_versions_ecrites_sont_celles_des_constantes(fraiche: Path):
     for constante, relatif in ecrit.items():
         assert vider_sqlite(fraiche / relatif)["user_version"] == _constante(constante), relatif
     calibration = json.loads((fraiche / "donnees/calibration.json").read_text(encoding="utf-8"))
-    assert calibration["version"] == _constante("ourouler.physique.commande.VERSION_CALIBRATION")
+    assert calibration["version"] == _constante("ourouler.stockage.calibrations.VERSION_CALIBRATION")
 
 
 def test_aucune_migration_ne_detruit_ni_ne_renomme():
@@ -541,7 +535,7 @@ def test_une_calibration_d_une_autre_version_est_ignoree(copie: Path):
     chemin = copie / "donnees" / "calibration.json"
     charge = json.loads(chemin.read_text(encoding="utf-8"))
     assert lire_calibration(chemin, "RCR") is not None
-    charge["version"] = _constante("ourouler.physique.commande.VERSION_CALIBRATION") + 1
+    charge["version"] = _constante("ourouler.stockage.calibrations.VERSION_CALIBRATION") + 1
     chemin.write_text(json.dumps(charge), encoding="utf-8")
     assert lire_calibration(chemin, "RCR") is None
 
@@ -572,9 +566,7 @@ def test_les_echantillons_ne_portent_aucune_coordonnee_reelle(copie: Path):
     profil = json.loads((copie / f"donnees/api/{COMPTE}/profil.json").read_text(encoding="utf-8"))
     points.append((profil["depart"]["latitude"], profil["depart"]["longitude"]))
     gpx = (copie / "parcours.gpx.xml").read_text(encoding="utf-8")
-    points += [
-        (float(a), float(b)) for a, b in re.findall(r'lat="([-0-9.]+)" lon="([-0-9.]+)"', gpx)
-    ]
+    points += [(float(a), float(b)) for a, b in re.findall(r'lat="([-0-9.]+)" lon="([-0-9.]+)"', gpx)]
     assert len(points) > 20, "l'invariant ne mesurerait rien"
     loin = [p for p in points if abs(p[0]) > RAYON_DEG or abs(p[1]) > RAYON_DEG]
     assert loin == [], f"coordonnées hors de la zone synthétique : {loin[:5]}"

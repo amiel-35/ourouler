@@ -1,40 +1,35 @@
-# Orchestration de l'API+front (lot L7.E) **sur Coolify**, distincte du
-# `deploiement/api/docker-compose.yml` local. Même différences que celles déjà
-# mesurées pour le générateur de la page du jour (`docker-compose.coolify.yml`,
-# à lire d'abord) et toutes conséquences de l'hébergeur, pas des choix de
-# confort :
+# Orchestration de l'API+front **sur Coolify**, distincte du
+# `deploiement/api/docker-compose.yml` local. Trois différences, et elles sont
+# toutes des conséquences de l'hébergeur, pas des choix de confort :
 #
 # 1. **Aucun port publié.** Le reverse-proxy de Coolify (Traefik) termine le
 #    TLS et parle au conteneur par le réseau interne.
 # 2. **Le fichier TOML arrive par une variable**, `OUROULER_CONFIG_TOML_B64`,
 #    et non par un montage : Coolify déploie depuis le dépôt git, il n'y a
 #    pas de chemin hôte à monter. `deploiement/api/entrypoint.py` l'écrit au
-#    démarrage — le même geste que `deploiement/generateur/entrypoint.py`.
+#    démarrage.
 # 3. **Le domaine vient de `SERVICE_FQDN_API_8000`**, la variable magique de
 #    Coolify : elle lui dit quel service exposer et sur quel port. Le front
 #    et l'API partagent cette même origine (un seul conteneur, voir
 #    `deploiement/api/README.md` pour pourquoi) : il n'y a qu'une seule
 #    variable `SERVICE_FQDN_*` à poser pour les deux.
 #
-# Et une absence, mesurée sur le même piège que le générateur : pas un seul
-# `${VAR:?message}`. Coolify prend le message pour une valeur par défaut et
-# démarre le conteneur avec, au lieu de refuser — `${VAR}` seul laisse la
-# variable vide, et `config.charger` (ou, pour `OUROULER_MODE`, l'API
-# elle-même) échoue franchement, ou refuse franchement, au démarrage.
+# Et une absence : pas un seul `${VAR:?message}`. Coolify prend le message
+# pour une valeur par défaut et démarre le conteneur avec, au lieu de
+# refuser — `${VAR}` seul laisse la variable vide, et `config.charger` (ou,
+# pour `OUROULER_MODE`, l'API elle-même) échoue franchement, ou refuse
+# franchement, au démarrage.
 #
-# Et il vit à la racine, pas dans `deploiement/`, pour la même raison mesurée
-# que `docker-compose.coolify.yml` : avec le fichier dans `deploiement/` et un
-# `context: ..`, le déploiement échoue sur `lstat /artifacts/deploiement: no
-# such file or directory`. Coolify ne résout pas le contexte de construction
-# relativement au fichier compose comme le fait `docker compose`. À la
-# racine, `context: .` désigne la racine du dépôt quelle que soit la façon
-# dont l'outil s'y prend.
+# Et il vit à la racine, pas dans `deploiement/` : avec le fichier dans
+# `deploiement/` et un `context: ..`, le déploiement échoue sur `lstat
+# /artifacts/deploiement: no such file or directory`. Coolify ne résout pas
+# le contexte de construction relativement au fichier compose comme le fait
+# `docker compose`. À la racine, `context: .` désigne la racine du dépôt
+# quelle que soit la façon dont l'outil s'y prend.
 #
 # **`OUROULER_MODE` n'a pas de défaut ici, et c'est voulu.** Le poser à
-# `personnel` (le mainteneur, seul cycliste, sur son propre déploiement) ou
-# `heberge` (plusieurs cyclistes — aucune méthode de connexion n'est branchée
-# tant que le mainteneur n'en a pas décidé une, hors périmètre du sprint 7)
-# est un choix produit, pas une valeur qui se devine : l'absence de variable
+# `personnel` (un seul cycliste, sur son propre déploiement) ou `heberge`
+# (plusieurs cyclistes, chacun avec son compte) est un choix produit, pas une valeur qui se devine : l'absence de variable
 # vaut déjà `heberge` côté code (`api/exploitation.fournisseur_session`), donc
 # ce fichier n'a pas besoin de la répéter pour obtenir ce comportement, et ne
 # doit surtout pas y substituer `personnel` en silence.
@@ -44,14 +39,8 @@ services:
     build:
       context: .
       dockerfile: deploiement/api/Dockerfile
-    # Tout en dictionnaire : mélanger la forme liste (`- CLE`) et la forme
-    # dictionnaire (`CLE: valeur`) dans le même bloc est un YAML invalide, et
-    # le déploiement échoue sur « did not find expected '-' indicator » sans
-    # dire lequel des deux blocs est fautif (constaté le 18/09/2026, avant le
-    # premier déploiement). `SERVICE_FQDN_API_8000` sans valeur est repris de
-    # l'environnement, ce que la forme dictionnaire écrit avec une valeur vide.
     # Tout en liste, et pas en dictionnaire — deux pièges successifs, tous
-    # deux mesurés sur ce fichier le 18/09/2026 :
+    # deux mesurés sur ce fichier :
     #
     # 1. Mélanger les deux formes (`- CLE` et `CLE: valeur`) dans le même bloc
     #    est un YAML invalide : le déploiement échoue sur « did not find
@@ -61,9 +50,7 @@ services:
     #    variable ordinaire pour Coolify, qui ne pose alors pas les étiquettes
     #    Traefik du service. Résultat : conteneur `running:healthy`, et 503
     #    « no available server » sur le domaine. La forme reconnue est la
-    #    **déclaration nue**, `- SERVICE_FQDN_API_8000`, sans valeur — c'est
-    #    celle qu'utilise `docker-compose.coolify.yml` (page du jour), qui
-    #    lui est en ligne et répond.
+    #    **déclaration nue**, `- SERVICE_FQDN_API_8000`, sans valeur.
     #
     # Donc : liste partout, et la déclaration nue en premier.
     environment:
@@ -84,15 +71,15 @@ services:
       - OUROULER_SERVICE=/config/service.toml
       - 'OUROULER_SERVICE_TOML_B64=${OUROULER_SERVICE_TOML_B64:-}'
       # L'URL publique devant laquelle `/entrer?jeton=…` et
-      # `/reinitialiser?jeton=…` s'ouvrent — lue par `cli._url_publique()`
+      # `/reinitialiser?jeton=…` s'ouvrent — lue par `cli.comptes._url_publique()`
       # pour `ourouler inviter`/`reinitialiser`, jamais par le processus API
-      # lui-même. Absente jusqu'au 25/09/2026 : ces deux commandes refusaient
-      # dans le conteneur avec « OUROULER_URL_PUBLIQUE n'est pas défini »,
-      # alors même que Coolify calcule déjà cette URL — `SERVICE_URL_API` est
+      # lui-même. Sans elle, ces deux commandes refuseraient dans le conteneur
+      # avec « OUROULER_URL_PUBLIQUE n'est pas défini », alors même que
+      # Coolify calcule déjà cette URL — `SERVICE_URL_API` est
       # la variable magique qu'il dérive de `SERVICE_FQDN_API_8000` ci-dessus
       # (même mécanisme que `SERVICE_FQDN_API` pour le domaine nu), avec le
       # `https://` déjà dedans. La reprendre ici évite de la deviner en code
-      # (repli sur `SERVICE_URL_API` dans `cli.py`, qui aurait dû en connaître
+      # (repli sur `SERVICE_URL_API` dans `cli/`, qui aurait dû en connaître
       # le format) : Coolify la calcule une fois, ce fichier la nomme une
       # fois, comme `OUROULER_DATABASE_URL` juste au-dessus.
       - 'OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}'
@@ -108,10 +95,9 @@ services:
       # directement en `nouveau`. Déclarée ici, sinon Coolify ne la transmet pas.
       - 'OUROULER_API_CHEMIN=${OUROULER_API_CHEMIN:-}'
       # **Les cinq variables suivantes ne valent qu'en OUROULER_MODE=personnel**
-      # (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
-      # fuite fermée le 21/09/2026, voir deploiement/api/README.md). En
-      # `heberge`, laisser leur valeur Coolify **vide** : l'API les ignore
-      # de toute façon depuis cette date et **refuse de démarrer** si l'une
+      # (sections personnelles, jamais héritées : décision Q35 ; voir
+      # deploiement/api/README.md). En `heberge`, laisser leur valeur Coolify
+      # **vide** : l'API les ignore de toute façon et **refuse de démarrer** si l'une
       # d'elles porte une valeur — un point de départ ou une clé au niveau du
       # serveur seraient distribués à chaque personne invitée. La déclaration
       # ci-dessous ne pose que le *nom* de la variable pour Coolify (même

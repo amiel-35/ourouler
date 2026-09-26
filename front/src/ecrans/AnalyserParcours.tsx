@@ -1,16 +1,15 @@
-/** L9.8 — analyser un parcours déjà en main.
+/** Analyser un parcours déjà en main.
  *
- * Le troisième usage de « Déposer » (`docs/plan_sprints_agents.md`, constat du
- * mainteneur du 25/09/2026) : « déposer c'est pas que ça, c'est aussi l'analyse
- * d'une trace existante pour y caler la météo, l'estimation, le vent etc. » —
- * l'imposé d'un BRM ou d'une Flèche, une boucle de club, pas un parcours que le
+ * Le troisième usage de « Déposer » : pas seulement une séance ou un
+ * historique, aussi une trace existante sur laquelle caler la météo,
+ * l'estimation et le vent — l'imposé d'un BRM ou d'une Flèche, une boucle de club, pas un parcours que le
  * moteur cherche. Trois gestes : déposer le GPX, dire l'heure de départ (la
  * puissance a un défaut), lire la météo par tronçon et l'heure d'arrivée.
  *
  * **Rien de neuf pour l'affichage du résultat** : `Carte`, `LegendeVent` et
  * `ProfilAltitude` sont ceux de `Boucles.tsx` — `POST /parcours/analyser` rend
- * `trace`/`meteo` dans la même forme qu'une candidate de boucle (F0.1)
- * précisément pour ça.
+ * `trace`/`meteo` dans la même forme qu'une candidate de boucle précisément
+ * pour ça.
  */
 
 import { useState } from "react";
@@ -289,7 +288,7 @@ function erreurInterne(cause: unknown): ErreurApi {
 }
 
 /** Le refus faute de FTP, quand ni puissance ni vitesse à plat n'ont été
- * données (`physique/commande.py`, commande « analyser » : « donner
+ * données (`services/physique.py`, commande « analyser » : « donner
  * --puissance W ou --vitesse-a-plat KMH — aucune FTP dans le profil »). Le
  * message de ligne de commande n'a pas sa place à l'écran ; le code d'abord,
  * la mention de FTP dans le message ensuite, pour ne pas confondre avec un

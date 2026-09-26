@@ -1,15 +1,20 @@
 {
   "name": "ourouler-front",
   "private": true,
-  "version": "0.9.6",
+  "version": "0.10.0",
   "type": "module",
   "description": "L'interface du cycliste — elle ne parle qu'à l'API d'ourouler.",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "apercu": "vite preview",
     "test": "vitest run",
-    "verifier": "tsc --noEmit && vitest run"
+    "lint": "eslint .",
+    "verifier": "tsc --noEmit && eslint . && vitest run"
   },
   "dependencies": {
     "leaflet": "1.9.4",
@@ -17,16 +22,22 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@testing-library/dom": "10.4.0",
-    "@testing-library/react": "16.0.1",
-    "@testing-library/user-event": "14.5.2",
-    "@types/leaflet": "1.9.12",
-    "@types/node": "^22.9.0",
+    "@eslint/js": "9.39.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/leaflet": "1.9.22",
+    "@types/node": "20.19.43",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.3",
+    "eslint": "9.39.5",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "17.12.0",
     "jsdom": "25.0.1",
     "typescript": "5.6.3",
+    "typescript-eslint": "8.70.1",
     "vite": "5.4.11",
     "vitest": "2.1.5"
   }

@@ -56,14 +56,6 @@ export function sortieRetenue(jour: string): SortieMemorisee | null {
   }
 }
 
-export function oublierSortie(jour: string): void {
-  try {
-    window.localStorage.removeItem(`${CLE_SORTIE}.${jour}`);
-  } catch {
-    /* rien à faire */
-  }
-}
-
 export function retenirLectureSeances(jour: string): void {
   try {
     window.localStorage.setItem(CLE_SEANCES, jour);
@@ -81,7 +73,7 @@ export function derniereLectureSeances(): string | null {
 }
 
 /**
- * L'identifiant du dernier import d'historique lancé (L9.2) — un import réel
+ * L'identifiant du dernier import d'historique lancé — un import réel
  * dure jusqu'à un quart d'heure (archive Strava, ≈2 900 sorties), largement
  * de quoi recharger la page ou fermer l'onglet par erreur pendant l'attente.
  *

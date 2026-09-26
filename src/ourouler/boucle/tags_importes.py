@@ -12,11 +12,11 @@ organisateur de BRM le tracé est le sujet. On rejoue le GPX dans BRouter
 tracé rerouté, jetable, qui porte des tags **et** une altitude), puis pour
 chaque point du GPX on cherche le tronçon rerouté le plus proche et on lui
 emprunte ses tags, son `cout_km` et les tags de son nœud de fin. L'altitude,
-elle, ne se rapproche pas point par point : `boucle.commande._greffer_tags_sur_gpx`
+elle, ne se rapproche pas point par point : `services.boucle._greffer_tags_sur_gpx`
 applique directement `boucle.trace.denivele_filtre` à la séquence de points
 du tracé rerouté, qui vient de la carte de terrain de BRouter et non plus du
-GPX (contrat sprint 7 §L7.C — l'altitude d'un GPX exporté d'un appareil porte
-le même bruit de baromètre qu'un FIT).
+GPX (l'altitude d'un GPX exporté d'un appareil porte le même bruit de
+baromètre qu'un FIT).
 
 **Le regroupement se fait par tronçon d'origine, pas seulement par tags
 identiques.** Deux points consécutifs du GPX rejoignent le même `Segment`
@@ -35,12 +35,12 @@ complexe pour un cas rare.
 
 **Le seuil de rapprochement.** Au-delà de `SEUIL_RAPPROCHEMENT_M`, un point
 n'hérite de rien : lui attribuer les tags d'une route à 275 m serait faux.
-Mesuré le 18/09/2026 sur des sorties réelles du mainteneur (méthode : router
+Mesuré sur des sorties réelles (méthode : router
 un tracé GPS réel via des points de passage tous les 1 500 m, puis mesurer
 la distance de chaque point du tracé réel au tronçon rerouté le plus
 proche) : médiane 1,6 à 2,4 m, 90ᵉ centile 3,5 à 8,4 m, maximum 23 à 433 m
 selon la sortie — le routeur préfère parfois une autre route. **25 m**
-(proposition initiale du mainteneur, confirmée par la mesure) couvre
+(proposition confirmée par la mesure) couvre
 largement la médiane et le 90ᵉ centile de chaque sortie mesurée, tout en
 écartant les vraies divergences de tracé : sur quatre sorties rejouées,
 0 à 8,2 % des points seulement tombaient au-delà.
@@ -59,8 +59,8 @@ from dataclasses import dataclass
 from ourouler.boucle.geometrie import _distance_segment_m
 from ourouler.noyau.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
 
-#: Voir la docstring du module pour la mesure qui le justifie. Point de
-#: départ du mainteneur, confirmé sur quatre sorties réelles rejouées.
+#: Voir la docstring du module pour la mesure qui le justifie, confirmée sur
+#: quatre sorties réelles rejouées.
 SEUIL_RAPPROCHEMENT_M = 25.0
 
 #: Taille de maille du quadrillage qui limite la recherche du tronçon
@@ -98,9 +98,7 @@ class Greffage:
         return any(s.tags for s in self.segments)
 
 
-def greffer(
-    trace_gpx: Trace, trace_reroutee: Trace, *, seuil_m: float = SEUIL_RAPPROCHEMENT_M
-) -> Greffage:
+def greffer(trace_gpx: Trace, trace_reroutee: Trace, *, seuil_m: float = SEUIL_RAPPROCHEMENT_M) -> Greffage:
     """Les `Segment` à poser sur `trace_gpx`, tags empruntés à `trace_reroutee`.
 
     Voir la docstring du module pour l'algorithme et le choix du seuil. Un

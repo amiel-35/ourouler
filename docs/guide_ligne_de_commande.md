@@ -15,7 +15,7 @@ programme lise le résultat (avant ou après le nom de la sous-commande).
 Pour développer ou utiliser la ligne de commande sur sa machine :
 
 ```bash
-uv sync --extra dev
+uv sync --frozen --extra dev
 mkdir -p ~/.config/ourouler && cp config.example.toml ~/.config/ourouler/config.toml
 uv run ourouler config
 ```
@@ -42,11 +42,12 @@ valeurs inventées, et `tests/test_invariants.py` le vérifie. L'extra `dev`
 installe aussi les dépendances de l'API, pour que la suite de tests la
 couvre.
 
-Vérifier avant tout commit :
+Vérifier avant tout commit (détail dans `CONTRIBUTING.md`) :
 
 ```bash
-uv run pytest
 uv run ruff check .
+uv run pytest -q
+cd front && npm run verifier
 ```
 
 ## Ce que fait la ligne de commande
@@ -60,6 +61,7 @@ uv run ruff check .
 | `routes` | apprend sur les sorties passées quelles routes le cycliste accepte, et en tire les poids du score |
 | `calibrer` | ajuste le modèle physique d'un vélo sur ses sorties réelles et mesure son erreur sur des sorties qu'il n'a pas vues |
 | `simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu |
+| `analyser` | pour un parcours déjà en main (brevet, boucle de club) : durée porte à porte en fourchette, météo par tronçon à l'heure où on y passe, heure d'arrivée |
 | `comparer` | de combien un vélo va plus vite que l'autre à puissance égale, sans modèle physique |
 | `seance` | la séance planifiée du jour, étape par étape, avec la longueur de route que chaque bloc demande |
 | `sortie` | la séance du jour posée sur des boucles : propositions contrastées, GPX du parcours réellement roulé, tenue, carte HTML de vérification |
@@ -244,6 +246,20 @@ Le temps en mouvement du parcours à puissance constante, avec le modèle
 calibré du vélo (`--velo`) et, si `--heure-depart` est donné, le vent
 prévu le long du tracé.
 
+## `analyser` — un parcours qu'on a déjà
+
+```
+ourouler analyser --gpx brevet.gpx --heure-depart 2026-10-04T06:00
+ourouler analyser --gpx boucle_club.gpx --vitesse-a-plat 28 --heure-depart 08:30
+```
+
+Pour un tracé imposé (l'itinéraire d'un brevet, la boucle du club) : la
+durée porte à porte en fourchette, l'heure d'arrivée, et la météo de chaque
+tronçon à l'heure où l'on y passe. `--heure-depart` est obligatoire ; la
+puissance vient de `--puissance`, de `--vitesse-a-plat`, ou à défaut de la
+puissance d'endurance du profil. Au-delà de l'horizon de prévision, la
+météo est déclarée absente plutôt qu'inventée.
+
 ## `calibrer` — le modèle physique d'un vélo
 
 ```
@@ -358,17 +374,20 @@ l'interface web un troisième, qui ne parle qu'à l'API.
 
 ### L'API
 
-Chaque route appelle la **même** fonction que la sous-commande
-correspondante et rend son JSON : l'API expose ce que la ligne de commande
-sait déjà rendre.
+Chaque route rend le même JSON que la sous-commande correspondante avec
+`--json` : l'API expose ce que la ligne de commande sait déjà rendre. Selon
+`OUROULER_API_CHEMIN`, elle y arrive par la commande elle-même (`ancien`, le
+défaut) ou en appelant directement le service et le rendu (`nouveau`) ; voir
+`ARCHITECTURE.md` §4.
 
 ```bash
 uv sync --extra api
 uv run ourouler api --port 8000     # puis http://127.0.0.1:8000/docs
 ```
 
-Les routes, la forme des réponses, les codes d'erreur, l'isolation par
-propriétaire sont décrits dans `docs/ux/api_contrat.md`. En mode hébergé,
+Les routes et la forme des réponses se lisent dans la documentation
+interactive (`/docs`) ; la référence figée est
+`tests/caracterisation/openapi.json`. En mode hébergé,
 chaque compte a des quotas journaliers (générations, consultations météo,
 calibrations, imports) ; un quota atteint rend un refus lisible.
 FastAPI et son serveur sont un extra : la ligne de commande s'installe et
@@ -381,7 +400,7 @@ jamais au cœur Python, et n'affiche rien que l'API n'ait rendu.
 
 ```bash
 uv run ourouler api --port 8000            # dans un terminal
-cd front && npm install && npm run dev     # dans un autre, puis http://localhost:5180
+cd front && npm ci && npm run dev          # dans un autre, puis http://localhost:5180
 ```
 
 `npm run verifier` passe les types et les tests ; aucun test du front ne
@@ -390,16 +409,10 @@ touche au réseau. Les écrans et l'organisation du code sont décrits dans
 
 ### Le déploiement
 
-Deux paquetages, dans `deploiement/`, à essayer d'abord sur sa propre
-machine avec `docker compose` :
-
-- **la page du jour** (`deploiement/README.md`) : un conteneur qui exécute
-  `ourouler sortie` une fois par jour et un serveur statique qui sert la
-  page derrière une authentification basique. C'est l'hébergé minimal,
-  sans compte ni base ;
-- **l'API et l'interface** (`deploiement/api/README.md`) : un seul
-  conteneur qui sert l'API et, dessous, l'interface construite, avec les
-  comptes dans PostgreSQL.
+Le paquetage `deploiement/api/` (`deploiement/api/README.md`), à essayer
+d'abord sur sa propre machine avec `docker compose` : un seul conteneur qui
+sert l'API et, dessous, l'interface construite, avec les comptes dans
+PostgreSQL.
 
 En mode hébergé, le point de départ, le cycliste, les vélos et la clé
 Intervals appartiennent à chaque compte : le serveur refuse de démarrer si
@@ -508,9 +521,10 @@ Ce qu'il faut savoir avant de lire un chiffre.
 - `docs/geocodage.md` et `docs/meteo_vent.md` — deux sujets techniques
   détaillés.
 - `docs/inviter.md` — inviter quelqu'un sur le service hébergé.
-- `docs/ux/api_contrat.md` — le contrat de l'API.
+- `tests/caracterisation/openapi.json` — le contrat de l'API, figé ;
+  `docs/journal/ux/api_contrat.md` en garde l'histoire (archive, pas une
+  référence).
 - `front/README.md` — la construction de l'interface web et ses règles.
-- `deploiement/README.md` et `deploiement/api/README.md` — les deux
-  paquetages de déploiement.
+- `deploiement/api/README.md` — le paquetage de déploiement.
 
 Licence AGPL-3.0-or-later — voir `LICENSE`.

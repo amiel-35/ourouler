@@ -2,7 +2,8 @@
 
 D'où part le projet, comment on y a travaillé, avec quels outils, ce qui a
 été essayé et abandonné, ce qui reste possible. Ce document recueille la
-substance des contrats et relectures de sprint, absents du dépôt public.
+substance des contrats et relectures de sprint, gardés bruts dans
+[`journal/sprints/`](journal/sprints/).
 Les chiffres sont des ordres de grandeur ou des rapports : les mesures
 portent sur l'historique réel du mainteneur, dont les valeurs personnelles
 n'ont pas leur place ici. Mode d'emploi : `docs/guide_ligne_de_commande.md`.
@@ -371,7 +372,7 @@ au hasard sur la même boucle. Le script lit le cache réel et n'est pas
 collecté par la suite de tests :
 
 ```bash
-uv run python tests/validation/terrain_retrospectif.py
+uv run python scripts/validation/terrain_retrospectif.py
 ```
 
 **Critère** : la note médiane des emplacements réels vaut au plus 70 % de
@@ -404,7 +405,7 @@ il en est rendu.
 **Le constat qui justifie l'outil** : sur une sortie de référence, deux
 longs blocs étaient tombés sur un couloir médiocre quand un couloir plus de
 trois fois meilleur existait sur la même boucle. Le même geste a servi au
-vent, aux marqueurs urbains et au trafic estimé (`tests/validation/`).
+vent, aux marqueurs urbains et au trafic estimé (`scripts/validation/`).
 
 ## 6. Ce qui reste possible
 

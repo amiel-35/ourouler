@@ -158,7 +158,7 @@ on les rebase après les lots qui les touchent :
 
 **À faire à la fin de la restructuration complète** (décisions du
 mainteneur, 25/09/2026 ; rien avant) :
-- **Retirer `.claude/` du dépôt** (5 définitions d'agents et
+- **Fait le 26/09/2026.** **Retirer `.claude/` du dépôt** (5 définitions d'agents et
   `settings.json`) : il reste en place tant que la restructuration s'en sert,
   puis il part dans l'espace local du mainteneur. Les contributeurs
   n'auront qu'`AGENTS.md` ; vérifier alors que `CLAUDE.md` et
@@ -176,6 +176,69 @@ pour le cycliste avant de pousser en prod.
 réponse réussie** (les 200 sont des objets vides) ; les types du front ne
 sont donc vérifiés que pour les requêtes. Déclarer des modèles de réponse
 fait partie du lot 11.
+
+## 0 bis. Phase de nettoyage — avant toute nouvelle fonctionnalité
+
+Demandée par le mainteneur le 26/09/2026 : « avant de repartir sur les
+features, un vrai nettoyage : worktrees, documents de travail, vérification
+des documents, du README, du changelog… Pas de nouvelle feature, pas de
+nouveau code ; des retouches seulement pour finir ou nettoyer (code mort,
+doublons, artefacts de test), et le contenu et la documentation. Le dépôt
+doit être vu comme l'état de l'art. »
+
+**Règles de la phase.** Aucun changement de comportement : les sorties de
+référence, la compatibilité et le contrat d'API passent sans régénération
+(sauf l'openapi si un texte de description change, relu comme tel). P3 sur les
+vraies données après chaque lot qui touche `src/`. Au plus deux agents à la
+fois. Chaque lot est une PR, mergée si la CI est verte.
+
+| Lot | Contenu | Critère de fin | Modèle |
+|---|---|---|---|
+| N0 | **Mise en prod 0.10.0** (API en `ancien`) : rejeu complet en préprod, P3, poussée sur `prod`, étiquette. Rien ne change pour les invités hors les correctifs déjà dans `main` | prod saine, invitation rejouée en prod, étiquette `v0.10.0` | moi |
+| N1 | **Environnement de travail** : worktrees morts, branches locales et distantes déjà mergées (garder `main`, `prod`, les étiquettes, les branches garées nommées), stash, conteneurs et images de test orphelins, dossiers temporaires | `git worktree list` et `git branch -r` ne montrent que l'utile ; liste de ce qui a été supprimé | moi |
+| N2 | **Code mort et doublons** : fonctions, constantes et modules jamais appelés (analyse AST + vérification à la main), aides dupliquées entre modules, réexports résiduels, `noqa` et exceptions qui ne servent plus, `TODO`/`FIXME` périmés | chaque suppression justifiée en une ligne ; suite complète et références vertes | Opus |
+| N3 | **Tests et fixtures** : tests morts ou en double, fixtures inutilisées, artefacts (fichiers écrits par des tests, dossiers `~`), docstrings de tests qui citent d'anciens chemins, scripts `tests/validation/` (garder, documenter ou retirer), exceptions ruff des tests tranchées | nombre de tests et temps de suite rapportés avant/après ; rien de ce qui mord n'est retiré (mutation de contrôle) | Opus |
+| N4 | **Commentaires historiques** (décision Q4) : dates, numéros de lot, « le mainteneur a dit », citations → le pourquoi durable en une phrase, renvoi `docs/journal/questions/…#Qnn` quand utile ; docstrings périmées | `grep` des marqueurs historiques vide dans `src/` (hors renvois assumés) ; aucune ligne de code changée | Opus, par paquets |
+| N5 | **Documentation** : README, ARCHITECTURE (carte réelle après les lots 3–14), CONTRIBUTING, SECURITY, AGENTS, `doctrine_architecture.md` relue et mise à jour, guides de `docs/`, READMEs de `front/` et `deploiement/`, `CHANGELOG.md` (entrée « Non publié » rédigée du point de vue du cycliste). Chaque commande, option, chemin et lien cité existe (test) | aucune affirmation fausse sur le code ; liens et commandes vérifiés | Opus |
+| N6 | **Documents de travail** : le plan d'ouverture et la préparation des sprints passent dans `docs/journal/` une fois clos ; `docs/` ne garde que le relu ; index de `docs/` | arborescence de `docs/` lisible par un inconnu | Sonnet |
+| N7 | **Métadonnées et outillage** : `pyproject.toml` (description, licence, URLs, classifiers), `front/package.json`, `.gitignore` relu, délai maximal par job en CI (leçon du blocage de 25 min), format du code (`ruff format` : décider et appliquer ou documenter) | CI verte, métadonnées complètes | Sonnet |
+| N8 | **Relecture « état de l'art »** en regard extérieur (Fable) sur tout le dépôt : ce qu'un développeur expérimenté qui découvre le dépôt trouverait brouillon, faux ou daté ; corrections, puis seconde passe | verdict écrit ; points bloquants corrigés | Fable, puis Opus |
+| N9 | **Gestes de fin avec le mainteneur** : retrait de `.claude/`, branches garées, réglages GitHub (au passage en public) | fait avec lui | lui + moi |
+
+Ordre : N0 et N1 d'abord (sans risque), puis N2 et N3 en parallèle, N4, puis
+N5 et N6 (la documentation décrit le code nettoyé), N7, N8, N9.
+
+**État au 26/09/2026.** N0 fait (0.10.0 en prod, étiquette `v0.10.0`). N1
+fait. N2 mergé (#83), N3 (#84), N6 (#85), N5 (#86), N4 (#87 : 1 523 lignes
+d'historique → 69, AST identique hors docstrings, P3 identique), N7 (#88 :
+métadonnées, CI à délai maximal et actions épinglées, Dependabot). N8 : la
+relecture Fable (30 constats : 17 A, 5 B, 8 C) juge le dépôt « au-dessus de
+la moyenne » ; les 17 A sont faits (#99 accueil et documentation, #100 tests
+sans histoire de sprint), Dependabot groupé (#101), `ruff format` appliqué une
+fois et vérifié en CI (#103). N9, décisions du mainteneur du 26/09/2026 :
+`.claude/` retiré du dépôt et Q67 tranchée, la doctrine suit le code (#107) ;
+ESLint au front (#108) ; capture de l'interface au README (#109) ; `cli.py`
+devenu le paquet `cli/` et les huit cas d'usage rangés dans `services/`, P3
+identique (#110) ; pyright avec une ligne de base de 159 erreurs (#111) ;
+hébergement autonome de la page du jour retiré (#112). Dependabot : mineures
+mergées, quatre majeures qui cassent la CI fermées (React 19, TypeScript 7,
+jsdom 30, vitest 5 : chacune une migration à part, au backlog). **La phase de
+nettoyage est close.** Restent au mainteneur : merger les trois PR d'actions
+GitHub (#90–#92, qui demandent le droit `workflow`), arrêter l'application
+« page du jour » sur Coolify avant le prochain déploiement de `prod`, les
+réglages GitHub au passage en public, et le tri des branches garées et des
+worktrees d'autres sessions.
+
+**Backlog issu de N8 (classe B, changements visibles)** : en-têtes HTTP de
+sécurité sur l'API ; limitation des tentatives de connexion (avant
+l'ouverture publique du service) ; conteneur de l'API hors root (avec
+migration des droits du volume, essai en préprod) ; bascule du chemin API
+vers `nouveau` puis retrait d'`api/adaptateur.py` ; fusion des petites
+conversions dupliquées (`_flottant`, `_instant`…) dans le noyau, sous tests
+de caractérisation. Restent aussi pour après la phase, hors comportement : les chaînes affichées qui portent encore de
+l'historique (aide de `Volets.tsx`, `CODES_PANNE`), à traiter comme un
+changement visible ; l'écart doctrine ↔ code sur la conservation des fichiers
+bruts après export (Q67), à trancher par le mainteneur.
 
 ## 1. Diagnostic (mesuré)
 

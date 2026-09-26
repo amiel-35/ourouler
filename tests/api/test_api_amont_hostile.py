@@ -40,15 +40,6 @@ from outils_api import (
     texte_entier,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-
 #: Un bloc horaire entièrement nul : ce qu'Open-Meteo rend au-delà de la portée
 #: du modèle régional, et aussi hors de sa grille.
 METEO_TOUT_NUL = {
@@ -99,9 +90,7 @@ def _demander_un_parcours(client, **champs):
     """
     schema = schema_openapi(client)
     chemin, methode, operation = route_pour(schema, "sortie", "parcours", "meteo")
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 # Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais

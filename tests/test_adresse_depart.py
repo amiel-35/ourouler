@@ -6,7 +6,7 @@ Deux choses distinctes sont vérifiées ici :
    `sortie` interrogent bien le point qu'on leur donne, et non celui de la
    configuration — la couronne météo et les appels BRouter se déplacent
    entièrement.
-2. **`cli.py` géocode et tranche**, lui seul : l'adresse ambiguë (le cas
+2. **`cli/` géocode et tranche**, lui seul : l'adresse ambiguë (le cas
    normal), l'adresse introuvable qui ne retombe jamais sur le départ
    configuré, et l'heure de départ qui n'est pas le lieu.
 
@@ -29,6 +29,7 @@ import pytest
 from test_brouter import reponse_fabriquee  # même dossier : pytest y met le sys.path
 
 from ourouler import cli
+from ourouler.cli import depart as cli_depart
 from ourouler.config import Config, Depart, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -149,8 +150,12 @@ def test_meteo_interroge_la_couronne_autour_du_depart_recu():
     config = config_de_test()
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=False,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=False,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -176,8 +181,12 @@ def test_meteo_sans_depart_recu_reste_sur_celui_de_la_configuration():
     """Le paramètre est optionnel : sans lui, rien ne change pour l'usage existant."""
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=False,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=False,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -190,8 +199,12 @@ def test_le_rapport_meteo_nomme_le_depart_recu():
     """Le lieu retenu se lit dans le rendu, pas seulement dans le message d'annonce."""
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=True,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=True,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -219,8 +232,16 @@ def test_boucle_demande_ses_candidates_depuis_le_depart_recu(tmp_path: Path):
     # tout, et le sujet du test (le départ transmis au moteur) ne serait plus
     # atteignable. La distance n'a jamais été son sujet.
     args = argparse.Namespace(
-        distance=7.5, direction="NE", depart="2026-09-13T09:00", candidates=1,
-        profil=None, sortie=None, ecraser=False, gpx=None, json=False, velo=None,
+        distance=7.5,
+        direction="NE",
+        depart="2026-09-13T09:00",
+        candidates=1,
+        profil=None,
+        sortie=None,
+        ecraser=False,
+        gpx=None,
+        json=False,
+        velo=None,
         puissance=None,
     )
 
@@ -375,7 +396,7 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
     autant. On refuse, et on dit pourquoi.
     """
     monkeypatch.setattr(
-        cli,
+        cli_depart,
         "chercher_adresse",
         lambda *a, **k: pytest.fail("aucun géocodage ne doit avoir lieu"),
     )
@@ -387,9 +408,13 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
     )
     code = cli.main(
         [
-            "--config", str(config), "boucle",
-            "--gpx", str(tmp_path / "importe.gpx"),
-            "--adresse-depart", "Place du Test",
+            "--config",
+            str(config),
+            "boucle",
+            "--gpx",
+            str(tmp_path / "importe.gpx"),
+            "--adresse-depart",
+            "Place du Test",
         ]
     )
     assert code == 2
@@ -401,19 +426,17 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
 def test_l_adresse_introuvable_sort_en_code_2_sans_trace_python(tmp_path, monkeypatch, capsys):
     """De bout en bout : `main` affiche une ligne et rend 2, jamais une trace.
 
-    Le géocodage est remplacé dans `cli` (aucun réseau) ; ce qui est mesuré
+    Le géocodage est remplacé dans `cli.depart` (aucun réseau) ; ce qui est mesuré
     ici est le chemin d'erreur de la ligne de commande, pas le connecteur.
     """
-    monkeypatch.setattr(cli, "chercher_adresse", lambda *a, **k: [])
+    monkeypatch.setattr(cli_depart, "chercher_adresse", lambda *a, **k: [])
     config = tmp_path / "config.toml"
     config.write_text(
         '[depart]\nnom = "Point zéro"\nlatitude = 0.0\nlongitude = 0.0\n'
         "[cycliste]\nmasse_kg = 80.0\nftp_w = 250\n",
         encoding="utf-8",
     )
-    code = cli.main(
-        ["--config", str(config), "meteo", "--adresse-depart", "adresse totalement introuvable"]
-    )
+    code = cli.main(["--config", str(config), "meteo", "--adresse-depart", "adresse totalement introuvable"])
     assert code == 2
     capture = capsys.readouterr()
     assert "Traceback" not in capture.err
@@ -429,7 +452,7 @@ def test_la_mise_en_garde_sur_les_routes_connues_suit_l_existence_du_cache(tmp_p
     existe, on se tait quand elle n'existe pas — le piège du lot est de casser
     ça en silence.
     """
-    from ourouler.apprentissage.commande import NOM_BASE
+    from ourouler.services.apprentissage import NOM_BASE
 
     dossier = tmp_path / "cache"
     dossier.mkdir()

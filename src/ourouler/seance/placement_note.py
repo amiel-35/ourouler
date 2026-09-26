@@ -1,6 +1,6 @@
 """La note d'un placement : pénalité des extrémités élastiques et note de terrain pondérée.
 
-Sorti de `seance/placement.py`, qui réexporte ces noms. Mêmes calculs, même
+Sorti de `seance/placement.py`. Mêmes calculs, même
 ordre des sommes et des comparaisons qu'avant le déplacement.
 """
 
@@ -21,28 +21,29 @@ from ourouler.seance.placement_resultat import Emplacement
 #:
 #: Elle doit rester **au-dessus d'un bloc mutilé** — `terrain.PENALITE_BLOC_TRONQUE`
 #: vaut 10 — parce que c'est tout son objet : empêcher qu'une séance tronquée
-#: gagne. Mesuré le 13/09 sur les quatre candidates des deux sorties réelles :
-#: à 20, aucun placement retenu ne tronque la séance sur le 08/02, et celui du
-#: 22/04 qui tronque (retour au calme à 20 min au lieu de 40) paie 8,9 et finit
-#: dernier. Le même calcul avec la pénalité à 0 fait aussitôt gagner des
-#: placements amputés : le 08/02, une candidate bascule sur un placement à
-#: 0 min de retour au calme (−98 %) et remonte de la 4ᵉ à la 3ᵉ place ; le
-#: 22/04, une autre bascule sur 12 min au lieu de 40 (−69 %) et passe devant.
+#: gagne. Mesuré sur les quatre candidates de deux sorties réelles : à 20,
+#: aucun placement retenu ne tronque la première séance, et celui de la
+#: seconde qui tronque (retour au calme à 20 min au lieu de 40) paie 8,9 et
+#: finit dernier. Le même calcul avec la pénalité à 0 fait aussitôt gagner des
+#: placements amputés : sur la première, une candidate bascule sur un
+#: placement à 0 min de retour au calme (−98 %) et remonte de la 4ᵉ à la
+#: 3ᵉ place ; sur la seconde, une autre bascule sur 12 min au lieu de 40
+#: (−69 %) et passe devant.
 PENALITE_SEANCE_NON_TENUE = 20.0
 
 #: Ce que coûte une **heure** de retour au calme en plus de la prescription, en
-#: kilomètres équivalents. **Q14, close le 13/09/2026 par le mainteneur :** « le
-#: retour au calme en fait peut dépasser de plus, c'est souvent ce que je fais
-#: car c'est incontrôlable de faire parfait, et c'est du kilomètre facile. Faut
-#: réduire le dépassement au max. »
+#: kilomètres équivalents. Le retour au calme peut dépasser : c'est la façon
+#: normale de refermer une boucle, impossible à faire tomber juste, et c'est
+#: du kilomètre facile — mais le dépassement doit rester le plus court possible
+#: (décision Q14, `docs/journal/questions/questions_mainteneur.md`).
 #:
 #: Deux conséquences, et c'est tout le dessin de cette constante :
 #:
 #: 1. **Aucun seuil.** Le coût court dès la première minute en trop, au
-#:    prorata. L'ancien `PENALITE_SEANCE_ALLONGEE` ne s'appliquait qu'au-delà
-#:    de la fenêtre d'élasticité : en deçà deux placements de terrain égal
-#:    étaient à égalité parfaite, et le plus long pouvait gagner. Maintenant,
-#:    à terrain égal, la boucle la plus juste gagne toujours.
+#:    prorata. Avec un seuil à la fenêtre d'élasticité, deux placements de
+#:    terrain égal seraient en deçà à égalité parfaite, et le plus long
+#:    pourrait gagner. Sans seuil, à terrain égal, la boucle la plus juste
+#:    gagne toujours.
 #: 2. **Faible.** Un dépassement n'est pas une faute, c'est la façon normale
 #:    de refermer une boucle dont la longueur n'est jamais exacte. Ce qu'il
 #:    coûte, aux trois durées qui parlent :
@@ -52,7 +53,7 @@ PENALITE_SEANCE_NON_TENUE = 20.0
 #:      * 40 min de plus → **0,40**
 #:
 #:    à comparer à un défaut de terrain franc sous un bloc : 1 km de village
-#:    traversé pendant un bloc de 20 min de la séance du 08/02 coûte
+#:    traversé pendant un bloc de 20 min d'une séance réelle coûte
 #:    `POIDS_KM_BATI` × 1200/3120 = **1,15** après pondération par la durée des
 #:    blocs. Rentrer 20 min plus tard est donc près de six fois moins cher que
 #:    de faire traverser un bourg pendant un 20' — ce qui est l'ordre voulu.
@@ -73,7 +74,7 @@ class _EcartElastique:
     secondes, et seulement vers le haut : il vaut 0 dès que l'étape tient sa
     prescription ou reste en deçà. Les deux coexistent parce que les deux
     défauts ne se mesurent pas dans la même unité — amputer une séance se juge
-    en part de ce qui manque, dépasser se juge en minutes de plus (Q14).
+    en part de ce qui manque, dépasser se juge en minutes de plus (décision Q14).
     """
 
     ecart: float
@@ -88,28 +89,27 @@ def _penalite_seance(
 ) -> float:
     """Ce que coûtent les extrémités élastiques, en kilomètres équivalents.
 
-    Deux défauts, deux traitements — c'est toute la décision de Q14 (13/09).
+    Deux défauts, deux traitements — c'est toute la décision Q14.
 
     **Raccourcir ampute la séance.** Une étape élastique tombée sous sa fenêtre
     coûte `PENALITE_SEANCE_NON_TENUE` au prorata de ce qui l'en sépare, et non
     de l'écart entier : une minute de moins que la borne ne doit pas coûter
-    d'un coup une note entière. Mesuré sur la vérification réelle du 08/02 : le
+    d'un coup une note entière. Mesuré sur une vérification réelle : le
     placement qui faisait demi-tour au bloc 2, repartait à l'envers et rentrait
     au km 0 avec 0 min de retour au calme au lieu de 20 notait 1,81 — le
     meilleur de tous. Il paie 19,0 de pénalité et se retrouve dernier.
 
-    **Dépasser referme la boucle.** Le mainteneur : « le retour au calme en
-    fait peut dépasser de plus […] c'est du kilomètre facile. Faut réduire le
-    dépassement au max. » Le dépassement se paie donc, mais peu, et **dès la
+    **Dépasser referme la boucle.** C'est du kilomètre facile, mais le
+    dépassement doit rester le plus court possible. Il se paie donc, mais peu, et **dès la
     première minute** : `PENALITE_CALME_ALLONGE_KM_PAR_H` par heure de trop,
     sans fenêtre franchie ni marche. C'est ce qui fait qu'à terrain égal la
-    boucle la plus juste gagne — avec un seuil, les deux étaient à égalité
-    parfaite et le tri retombait sur l'ordre des candidates.
+    boucle la plus juste gagne — avec un seuil, les deux seraient à égalité
+    parfaite et le tri retomberait sur l'ordre des candidates.
 
-    La fenêtre haute du retour au calme ne sert donc plus à facturer, seulement
+    La fenêtre haute du retour au calme ne sert donc pas à facturer, seulement
     à dire (voir `_fermer`). La Z2 d'ouverture, elle, garde sa fenêtre : elle
     est le levier de placement, et l'utiliser dans les bornes fixées par le
-    mainteneur ne coûte rien — c'est à cela qu'elle sert.
+    profil ne coûte rien — c'est à cela qu'elle sert.
     """
     total = 0.0
     for element in ecarts:
@@ -129,8 +129,8 @@ def _note_ponderee(emplacements: Sequence[Emplacement], etapes: Sequence[Etape])
 
         note_totale = Σ (note_i × duree_i) / Σ duree_i
 
-    Décision du superviseur du 13/09 (Q12). Les quatre activations de 40 s à
-    375 W de la séance du 22/04 sont des blocs au sens de la séance, et c'est
+    Décision Q12. Les quatre activations de 40 s à 375 W d'une séance réelle
+    sont des blocs au sens de la séance, et c'est
     juste. Mais chercher un couloir propre pour 40 s n'a pas de sens, et la
     validation rétrospective montre que les blocs courts ne se discriminent
     pas : leur note est du bruit. Plutôt qu'un seuil arbitraire qui les

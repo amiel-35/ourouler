@@ -1,4 +1,4 @@
-"""Tests de `seance.placement` (sprint 4, lot L4.3).
+"""Tests de `seance.placement` : la séance posée sur le tracé.
 
 Les fonctions de terrain sont remplacées par `monkeypatch` dans chaque test :
 on veut un terrain dont on connaît la réponse, pas le vrai. Les **modules**,
@@ -29,7 +29,7 @@ import pytest
 from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
-from ourouler.seance import placement
+from ourouler.seance import pas_trace, placement, placement_note, placement_resultat
 from ourouler.seance.terrain import PENALITE_BLOC_TRONQUE, POIDS_KM_BATI, NoteBloc
 
 # --- fixtures synthétiques ----------------------------------------------------
@@ -228,17 +228,13 @@ def test_aucune_duree_de_recuperation_ne_bouge_quel_que_soit_le_decalage(monkeyp
     resultat = placement.placer(seance, _trace(), P)
 
     assert resultat is not None
-    assert resultat.duree_totale_s == pytest.approx(
-        prescrite + resultat.decalage_z2_s, abs=1.0
-    ), (
+    assert resultat.duree_totale_s == pytest.approx(prescrite + resultat.decalage_z2_s, abs=1.0), (
         f"{resultat.duree_totale_s:.0f} s roulées pour {prescrite + resultat.decalage_z2_s:.0f} s "
         f"prescrites (décalage compris) : une durée non élastique a bougé de "
         f"{resultat.duree_totale_s - prescrite - resultat.decalage_z2_s:+.0f} s"
     )
     # Les durées de la prescription elle-même n'ont pas été réécrites en place.
-    assert [e.duree_s for e in seance.etapes] == [
-        e.duree_s for e in _seance_recups_inegales().etapes
-    ]
+    assert [e.duree_s for e in seance.etapes] == [e.duree_s for e in _seance_recups_inegales().etapes]
 
 
 def test_l_ecart_entre_deux_blocs_vaut_exactement_la_recuperation_prescrite(monkeypatch):
@@ -335,9 +331,7 @@ def _cout_du_retard(retard_s: float, calme_s: float) -> float:
 @pytest.mark.parametrize(
     ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
 )
-def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(
-    nom, durees, calme_s
-):
+def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(nom, durees, calme_s):
     """Q14 : rentrer plus tard doit rester bien moins cher qu'un défaut de terrain franc.
 
     Le mainteneur, 13/09 : « le retour au calme en fait peut dépasser de plus,
@@ -415,7 +409,7 @@ def test_les_deux_penalites_de_seance_restent_dans_le_bon_ordre():
     kilomètres équivalents par heure de trop, le second en part de séance
     manquante.
     """
-    heure_de_trop = placement.PENALITE_CALME_ALLONGE_KM_PAR_H
+    heure_de_trop = placement_note.PENALITE_CALME_ALLONGE_KM_PAR_H
     calme_supprime = placement._penalite_seance([_calme(ecart=-1.0)], ELASTICITE, ELASTICITE_CALME)
     assert heure_de_trop < calme_supprime / 10
     # Et une heure entière de trop reste sous le poids brut d'un défaut de
@@ -430,12 +424,8 @@ def test_la_fenetre_du_retour_au_calme_ne_facture_pas_le_depassement():
     change au-delà de la fenêtre, c'est le ton du message (voir `_fermer`), pas
     l'addition.
     """
-    etroite = placement._penalite_seance(
-        [_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 0.20)
-    )
-    large = placement._penalite_seance(
-        [_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 1.5)
-    )
+    etroite = placement._penalite_seance([_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 0.20))
+    large = placement._penalite_seance([_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 1.5))
     assert etroite == pytest.approx(large) == pytest.approx(0.20)
 
 
@@ -499,13 +489,12 @@ def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
         assert resultat is not None
 
 
-# --- l'invariant de continuité (Q13, lot L5.2) --------------------------------
+# --- l'invariant de continuité (Q13) ------------------------------------------
 #
-# Le cœur du lot : les emplacements se suivent sans trou ni recouvrement, du
+# Les emplacements se suivent sans trou ni recouvrement, du
 # départ à l'arrivée, et la somme de leurs longueurs vaut `distance_totale_m`
 # — au sens du parcours réellement roulé, demi-tours compris. C'est ce qui
-# prouve qu'on montre toute la séance et pas des morceaux (contrat sprint 5
-# §2.2 a)). Écrit avant le reste de l'implémentation, et rejoué sur une
+# prouve qu'on montre toute la séance et pas des morceaux. Rejoué sur une
 # séance tout droit et une séance à demi-tour.
 
 
@@ -550,8 +539,7 @@ def test_invariant_continuite_sans_demi_tour(monkeypatch):
 
     assert resultat is not None
     assert not any(e.demi_tour for e in resultat.emplacements), (
-        "cette fixture ne doit pas provoquer de demi-tour, sinon elle double ce que "
-        "l'autre test vérifie"
+        "cette fixture ne doit pas provoquer de demi-tour, sinon elle double ce que l'autre test vérifie"
     )
     _verifier_continuite(resultat, seance)
 
@@ -749,15 +737,11 @@ def test_un_mauvais_couloir_sous_un_bloc_long_pese_bien_plus_que_sous_une_activa
     court, long = _positions_courte_et_longue()
 
     _zone_sale(monkeypatch, court)
-    sous_activation = placement.placer(
-        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
-    )
+    sous_activation = placement.placer(_seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0))
     monkeypatch.undo()
 
     _zone_sale(monkeypatch, long)
-    sous_bloc_long = placement.placer(
-        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
-    )
+    sous_bloc_long = placement.placer(_seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0))
 
     assert sous_activation is not None and sous_bloc_long is not None
     assert [e.demi_tour for e in sous_activation.blocs()] == [False, False]
@@ -867,9 +851,7 @@ def _trace_de_longueur(longueur_m: float) -> Trace:
     """
     trace = _trace(longueur_m)
     if trace.points[-1].dist_m < longueur_m:
-        trace.points.append(
-            PointTrace(lat=0.0, lon=longueur_m * DEG_PAR_M, alt_m=100.0, dist_m=longueur_m)
-        )
+        trace.points.append(PointTrace(lat=0.0, lon=longueur_m * DEG_PAR_M, alt_m=100.0, dist_m=longueur_m))
         trace.distance_m = longueur_m
     return trace
 
@@ -953,17 +935,13 @@ def test_un_retour_au_calme_a_zero_se_paie_et_se_dit(monkeypatch):
     # +20 % pour forcer le placement, n'entre pas dans ce calcul : depuis Q14
     # les deux fenêtres sont distinctes.
     assert resultat.penalite_seance == pytest.approx(
-        placement.PENALITE_SEANCE_NON_TENUE * 0.95, rel=0.01
+        placement_note.PENALITE_SEANCE_NON_TENUE * 0.95, rel=0.01
     ), "la pénalité se compte hors de la fenêtre du retour au calme, au prorata"
-    assert resultat.note_totale == pytest.approx(
-        resultat.note_terrain + resultat.penalite_seance
+    assert resultat.note_totale == pytest.approx(resultat.note_terrain + resultat.penalite_seance)
+    assert any("retour au calme raccourci" in a and "-100%" in a for a in resultat.avertissements), (
+        f"l'avertissement du lot précédent doit rester, et garder son ⚠ : {resultat.avertissements}"
     )
-    assert any(
-        "retour au calme raccourci" in a and "-100%" in a for a in resultat.avertissements
-    ), f"l'avertissement du lot précédent doit rester, et garder son ⚠ : {resultat.avertissements}"
-    assert not resultat.informations, (
-        "une séance amputée n'est pas une information neutre (Q14)"
-    )
+    assert not resultat.informations, "une séance amputée n'est pas une information neutre (Q14)"
 
 
 def test_un_retour_au_calme_tres_au_dela_de_sa_fenetre_reste_un_avertissement(monkeypatch):
@@ -1078,7 +1056,7 @@ def _boucle_carree(cote_m: float = 20_000.0, pas_m: float = 500.0) -> Trace:
 
 def _point_du_parcours(parcours: Trace, distance_m_: float) -> PointTrace:
     """Le point du parcours à `distance_m_` du départ, interpolé."""
-    return placement._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
+    return pas_trace._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
 
 
 def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
@@ -1100,7 +1078,7 @@ def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
     )
     assert len(resultat.jalons_m) == 3, f"un demi-tour, donc trois jalons : {resultat.jalons_m}"
 
-    parcours = placement.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
 
     assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01), (
         f"parcours de {parcours.distance_m:.0f} m pour une séance placée sur "
@@ -1131,7 +1109,7 @@ def test_un_parcours_sans_demi_tour_redonne_le_trace(monkeypatch):
 
     assert resultat is not None
     assert [e.demi_tour for e in resultat.blocs()] == [False, False]
-    parcours = placement.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
     assert parcours.distance_m == pytest.approx(trace.distance_m, rel=0.001)
     assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01)
 
@@ -1146,7 +1124,7 @@ def test_un_placement_sans_jalons_rend_le_trace_tel_quel(monkeypatch):
         duree_totale_s=0.0,
         distance_totale_m=0.0,
     )
-    assert placement.trace_parcourue(nu, trace) is trace
+    assert placement_resultat.trace_parcourue(nu, trace) is trace
 
 
 # --- refus ----------------------------------------------------------------------
@@ -1353,9 +1331,7 @@ def test_le_defaut_de_vent_vaut_bien_none(monkeypatch):
     sans_parametre = placement.placer(_seance(), trace, P)
     avec_none = placement.placer(_seance(), _trace(), P, vent=None)
     assert sans_parametre is not None and avec_none is not None
-    assert [e.debut_m for e in avec_none.blocs()] == [
-        e.debut_m for e in sans_parametre.blocs()
-    ]
+    assert [e.debut_m for e in avec_none.blocs()] == [e.debut_m for e in sans_parametre.blocs()]
     assert avec_none.distance_totale_m == sans_parametre.distance_totale_m
     assert avec_none.duree_totale_s == sans_parametre.duree_totale_s
     assert avec_none.note_totale == sans_parametre.note_totale
@@ -1452,8 +1428,8 @@ def test_un_vent_inconnu_ne_vaut_pas_un_vent_nul(monkeypatch):
 )
 def test_le_vent_sarrondit_au_quart_de_metre_par_seconde(brut: float, attendu: float):
     """Sans arrondi, aucune clé de cache ne serait jamais réutilisée."""
-    assert placement._arrondir_vent(brut) == pytest.approx(attendu)
-    assert str(placement._arrondir_vent(brut))[0] != "-" or attendu < 0
+    assert pas_trace._arrondir_vent(brut) == pytest.approx(attendu)
+    assert str(pas_trace._arrondir_vent(brut))[0] != "-" or attendu < 0
 
 
 def test_la_cle_de_memoisation_porte_le_vent():
@@ -1535,9 +1511,7 @@ def test_un_demi_tour_change_le_vent_de_face_en_vent_de_dos(monkeypatch):
     _couloirs(monkeypatch, (0.0, borne))
     monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: True)
     monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: True)
-    resultat = placement.placer(
-        _seance(), _trace(), P, vent=vent, penalite_demi_tour=0.0, pas_s=120.0
-    )
+    resultat = placement.placer(_seance(), _trace(), P, vent=vent, penalite_demi_tour=0.0, pas_s=120.0)
     assert resultat is not None
     demi_tours = [e for e in resultat.blocs() if e.demi_tour]
     assert demi_tours, "le terrain devait rendre le demi-tour indispensable"

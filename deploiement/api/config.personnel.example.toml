@@ -1,0 +1,56 @@
+# Fichier TOML du conteneur API+front, mode `OUROULER_MODE=personnel` (un
+# seul cycliste, celui qui héberge). Toutes les valeurs sont inventées.
+#
+# Différence avec config.example.toml (usage local, racine du dépôt) :
+# **ce fichier ne porte jamais [depart] ni [intervals], et [brouter]
+# n'y a que `profil`** — ces trois-là viennent des variables d'environnement
+# `OUROULER_DEPART_*`, `OUROULER_INTERVALS_*`, `OUROULER_BROUTER_*`
+# (`config.py:_survoler_environnement`, déjà lu par l'API comme par la ligne
+# de commande). La clé Intervals et le point de départ ne doivent exister
+# nulle part ailleurs qu'en variable d'environnement.
+#
+# Ce fichier, lui, n'est pas secret : c'est celui qu'on encode en base64 dans
+# `OUROULER_CONFIG_TOML_B64` (voir deploiement/api/README.md), ou qu'on monte
+# directement pour un essai local (deploiement/api/docker-compose.yml).
+#
+# **[cycliste] et [[velos]] ne valent que pour ce mode.** Pour un déploiement
+# hébergé (plusieurs cyclistes), utiliser `config.heberge.example.toml` à la
+# place : ce sont deux modèles distincts plutôt qu'un seul à retoucher à la
+# main, parce que l'API **refuse de démarrer** en `heberge` si l'une de ces
+# deux sections figure dans son TOML (voir la docstring de
+# `config.heberge.example.toml` pour le détail et le pourquoi).
+
+[cycliste]
+masse_kg = 75.0
+ftp_w = 250
+
+[[velos]]
+nom = "Route"
+usage = "route"        # route | clm
+masse_kg = 9.0
+intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
+intervals_gear_id = "" # identifiant Intervals du vélo, plus fiable que le nom
+capteur_puissance = "" # valeur exacte du champ Intervals « power_meter »
+
+[meteo]
+directions = 8
+distances_km = [15, 25, 40]
+modele = "meteofrance_arome_france_hd"
+second_avis = "icon_seamless"
+horizon_h = 6
+
+[cache]
+dossier = "/data/cache"  # chemin **dans le conteneur**, sous le volume partagé
+
+[brouter]
+# url, utilisateur, mot_de_passe : volontairement absents, voir plus haut.
+profil = "fastbike"
+
+[boucle]
+vitesse_moyenne_kmh = 27
+sens = "horaire"
+candidates = 5
+tolerance_distance = 0.10
+
+# [seance], [tenue], [calibration] : omis ici, les défauts du code
+# s'appliquent (voir config.example.toml pour les valeurs et leur sens).

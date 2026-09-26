@@ -6,7 +6,7 @@ ouvert sur la base, l'URL publique du front, les paramètres du relais SMTP (et,
 pour les tests, sa fabrique de client), de quoi demander confirmation, de quoi
 retrouver les dépôts du serveur hébergé et de quoi effacer. Il ne lit lui-même
 ni fichier, ni variable d'environnement, ni chemin de l'utilisateur : c'est
-`cli.py` qui rassemble tout cela (règle absolue 3) et affiche le résultat par
+`cli/` qui rassemble tout cela (le cœur ne lit ni configuration ni environnement) et affiche le résultat par
 `rendu/comptes.py`.
 
 **Toute la logique d'état d'une invitation — compte déjà actif, invitation en
@@ -18,7 +18,7 @@ d'effacement qu'on lui passe — `vie_privee.effacer_donnees`, la même que
 `DELETE /moi` — avec les dépôts du serveur hébergé.
 
 `api/comptes.py` (le dépôt PostgreSQL) et `api/courriel.py` (le client SMTP)
-sont rangés, par leur rôle, au stockage et aux connecteurs dans le contrat
+sont rangés, par leur rôle, au stockage et aux connecteurs dans la règle
 d'imports (`tests/test_architecture.py`) : un service a le droit de les
 importer, pas le reste du paquet `api/`.
 """
@@ -84,7 +84,7 @@ class InvitationListee:
 class DepotsHeberges:
     """Les quatre dépôts de données personnelles du serveur hébergé, et son dossier de cache.
 
-    Le type que rend le résolveur passé à `retirer` (`cli._depots_de_l_hebergement`).
+    Le type que rend le résolveur passé à `retirer` (`cli.comptes._depots_de_l_hebergement`).
     """
 
     profils: Any
@@ -131,7 +131,7 @@ def inviter(
     envoye = False
     if not sans_courriel:
         if parametres_brevo is None:
-            raise ValueError(  # bug d'appel : cli.py doit charger service.toml avant d'appeler ceci
+            raise ValueError(  # bug d'appel : cli/comptes.py doit charger service.toml avant d'appeler ceci
                 "executer_inviter appelé sans parametres_brevo alors que --sans-courriel n'est pas posé"
             )
         message = message_invitation(
@@ -157,7 +157,7 @@ def reinitialiser(
 ) -> LienEmis:
     """Émet un lien de nouveau mot de passe pour un compte **déjà actif**.
 
-    Réservé au mainteneur, en ligne de commande : aucune route HTTP anonyme n'appelle
+    Réservé à l'exploitant, en ligne de commande : aucune route HTTP anonyme n'appelle
     `DepotComptes.reinitialiser` — voir la note de module d'`api/comptes.py`. Une adresse
     sans compte actif laisse remonter l'`ErreurCompte` du dépôt telle quelle.
     """
@@ -168,9 +168,8 @@ def reinitialiser(
     envoye = False
     if not sans_courriel:
         if parametres_brevo is None:
-            raise ValueError(  # bug d'appel : cli.py doit charger service.toml avant d'appeler ceci
-                "executer_reinitialiser appelé sans parametres_brevo alors que "
-                "--sans-courriel n'est pas posé"
+            raise ValueError(  # bug d'appel : cli/comptes.py doit charger service.toml avant d'appeler ceci
+                "executer_reinitialiser appelé sans parametres_brevo alors que --sans-courriel n'est pas posé"
             )
         message = message_reinitialisation(
             destinataire=adresse,
@@ -208,7 +207,7 @@ def retirer(
     L'ordre des vérifications est voulu : l'adresse d'abord (une adresse sans compte
     lève `ErreurCompte`), puis la confirmation (`confirmer(adresse)` reçoit l'adresse
     normalisée), et **seulement ensuite** `resoudre_depots_heberges`. C'est ce qui laisse
-    le résolveur de `cli.py` refuser proprement (dossier de données introuvable) sans
+    le résolveur de `cli/comptes.py` refuser proprement (dossier de données introuvable) sans
     avoir fait attendre une confirmation pour rien, et sans masquer un refus d'adresse
     derrière un refus d'environnement qui n'a rien à voir.
 

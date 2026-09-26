@@ -29,21 +29,17 @@ import asyncio
 from pathlib import Path
 
 import httpx
-import pytest
+from test_apprentissage_routes import LUNDI, droite
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from test_apprentissage_routes import LUNDI, droite  # noqa: E402
-
-from ourouler.api import vie_privee  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import DepotComptes  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.session import NOM_COOKIE, SessionParCookie  # noqa: E402
-from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
+from ourouler.api import vie_privee
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import NOM_COOKIE, SessionParCookie
+from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.services.apprentissage import NOM_BASE
 
 PREFIXE = "/api/v1"
 
@@ -126,9 +122,7 @@ def _zwo(nom: str) -> bytes:
 
 def _entrer(app, jeton: str) -> tuple[str, dict[str, str]]:
     """Active l'invitation, ouvre la session, rend (proprietaire, cookies)."""
-    reponse = _requete(
-        app, "POST", f"{PREFIXE}/entrer", json={"jeton": jeton, "secret": MOT_DE_PASSE}
-    )
+    reponse = _requete(app, "POST", f"{PREFIXE}/entrer", json={"jeton": jeton, "secret": MOT_DE_PASSE})
     assert reponse.status_code == 200, reponse.text
     proprietaire = reponse.json()["donnees"]["proprietaire"]
     jeton_session = reponse.cookies.get(NOM_COOKIE)
@@ -162,9 +156,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
         cookies=cookies,
         json={
             "depart": {"nom": f"depart-{MARQUE}"},
-            "velos": [
-                {"nom": f"velo-{MARQUE}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
-            ],
+            "velos": [{"nom": f"velo-{MARQUE}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}],
         },
     )
     assert profil.status_code == 200, f"le profil n'a pas pu s'écrire : {profil.text[:300]}"
@@ -176,9 +168,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
         cookies=cookies,
         files={"fichier": (f"seance-{MARQUE}.zwo", _zwo(MARQUE), "application/xml")},
     )
-    assert depot_fichier.status_code == 200, (
-        f"le fichier n'a pas pu se déposer : {depot_fichier.text[:300]}"
-    )
+    assert depot_fichier.status_code == 200, f"le fichier n'a pas pu se déposer : {depot_fichier.text[:300]}"
     id_fichier = depot_fichier.json()["fichier"]["id"]
 
     # Pas de route qui écrit le journal sans un service externe bouchonné
@@ -190,8 +180,8 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
     journal.noter_succes(qui, "openmeteo", "intervals", "brouter")
     assert journal.tout(qui), "le semis du journal n'a pas pris : le test ne prouverait rien"
 
-    # Les routes apprises : jamais exposées en écriture par l'API (contrat
-    # sprint 7), donc plantées directement sur le dépôt, comme le fait déjà
+    # Les routes apprises : jamais exposées en écriture par l'API, donc
+    # plantées directement sur le dépôt, comme le fait déjà
     # `tests/api/test_api_vie_privee.py` pour la même raison.
     chemin_base = tmp_path / "cache" / NOM_BASE
     base = BaseRoutes(chemin_base, proprietaire=proprietaire_id)

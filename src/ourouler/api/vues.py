@@ -14,7 +14,7 @@ besoin de savoir : le service est-il renseigné, oui ou non.
 de commande, un chemin sur le disque. Le front reçoit `{"id", "nom", "url"}`,
 et c'est la route des fichiers — qui vérifie le propriétaire — qui sert le
 contenu. Le GPX, lui, n'est plus un fichier du tout : chaque proposition
-porte l'adresse de sa propre trace, fabriquée à l'appel (Q40 g, voir
+porte l'adresse de sa propre trace, fabriquée à l'appel (voir
 `avec_gpx_par_proposition`).
 """
 
@@ -72,10 +72,8 @@ def avec_fichiers(donnees: dict, **fichiers: Fichier | None) -> dict:
     return sortie
 
 
-def avec_gpx_par_proposition(
-    donnees: dict, *, generation: str, noms: dict[int, str], prefixe: str
-) -> dict:
-    """Donne à **chaque** proposition l'adresse de son propre GPX (Q40 g).
+def avec_gpx_par_proposition(donnees: dict, *, generation: str, noms: dict[int, str], prefixe: str) -> dict:
+    """Donne à **chaque** proposition l'adresse de son propre GPX.
 
     Les trois propositions sont contrastées exprès : celle qu'on emporte
     n'est pas forcément la première. Tant qu'un seul GPX était exposé,
@@ -97,8 +95,7 @@ def avec_gpx_par_proposition(
             **proposition,
             "gpx": {
                 "nom": noms.get(proposition.get("numero"), ""),
-                "url": f"{prefixe}/sorties/{generation}/propositions/"
-                f"{proposition.get('numero')}/gpx",
+                "url": f"{prefixe}/sorties/{generation}/propositions/{proposition.get('numero')}/gpx",
             },
         }
         if isinstance(proposition, dict)

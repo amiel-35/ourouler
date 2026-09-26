@@ -1,6 +1,6 @@
 """La validation de la calibration : resimuler des sorties jamais vues, mesurer leur erreur.
 
-Sorti de physique/calibration.py, qui réexporte ces noms. Physique pure
+Sorti de physique/calibration.py. Physique pure
 comme lui ; mêmes calculs, dans le même ordre, avant et après le déplacement.
 """
 
@@ -34,8 +34,8 @@ from ourouler.physique.modele import (
 class ErreurSortie(NamedTuple):
     """L'écart entre le temps simulé et le temps en mouvement réel d'une sortie.
 
-    `NamedTuple` et non dataclass, et `jour` en chaîne ISO : le contrat §3
-    demande un rapport **texte et JSON**, et `json.dumps` doit pouvoir avaler
+    `NamedTuple` et non dataclass, et `jour` en chaîne ISO : le rapport est
+    **texte et JSON**, et `json.dumps` doit pouvoir avaler
     la liste telle quelle sans conversion préalable.
     """
 
@@ -84,9 +84,7 @@ class Validation:
         return max(self.sorties, key=lambda s: abs(s.erreur_relative), default=None)
 
 
-def valider(
-    sorties_test: Sequence[tuple[Activite, list[HeureArchive]]], p: Parametres
-) -> Validation:
+def valider(sorties_test: Sequence[tuple[Activite, list[HeureArchive]]], p: Parametres) -> Validation:
     """Rejoue chaque sortie à sa puissance moyenne et son vent réels, et compare les temps.
 
     La puissance injectée est la **moyenne en mouvement** de la sortie, pas son
@@ -96,7 +94,7 @@ def valider(
     zéro watt sur son élan à 35 km/h, un modèle d'équilibre répond « zéro watt,
     donc à l'arrêt » et y perd des minutes.
 
-    Mesuré sur les 100 sorties RCR réelles du mainteneur, avec les mêmes
+    Mesuré sur 100 sorties réelles d'un cycliste de référence, avec les mêmes
     paramètres (CdA 0,32, Crr 0,005, 100 kg) :
 
     | puissance injectée        | MAE   | médiane | biais  |
@@ -221,9 +219,7 @@ def temps_mouvement_s(activite: Activite) -> float | None:
     return float(activite.duree_s) if activite.duree_s else None
 
 
-def vent_le_long(
-    activite: Activite, vent: Sequence[HeureArchive]
-) -> Callable[[float, float], float] | None:
+def vent_le_long(activite: Activite, vent: Sequence[HeureArchive]) -> Callable[[float, float], float] | None:
     """`vent(dist_m, cap_deg)` pour la simulation, daté par l'heure **réelle** de passage.
 
     Utiliser l'heure réelle plutôt que l'avancement simulé évite d'avoir à
@@ -242,11 +238,9 @@ def vent_le_long(
         # Le point le plus proche en distance, le premier en cas d'égalité —
         # par dichotomie (les distances cumulées ne décroissent jamais) : un
         # parcours linéaire coûtait N par pas de simulation, et la calibration
-        # à CdA seul (L9.1) rejoue chaque sortie une dizaine de fois.
+        # à CdA seul rejoue chaque sortie une dizaine de fois.
         i = bisect.bisect_left(distances, dist_m)
-        if i >= len(distances) or (
-            i > 0 and dist_m - distances[i - 1] <= distances[i] - dist_m
-        ):
+        if i >= len(distances) or (i > 0 and dist_m - distances[i - 1] <= distances[i] - dist_m):
             i -= 1
         return instants[bisect.bisect_left(distances, distances[i])]
 

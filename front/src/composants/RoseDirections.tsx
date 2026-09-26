@@ -1,11 +1,12 @@
 /**
  * La rose des huit directions — remplace les huit boutons de texte
- * (`N NE E SE S SO O NO`) qui ne portaient aucune information avant ce lot.
+ * (`N NE E SE S SO O NO`), qui ne portaient aucune information.
  *
  * Chaque secteur dessine ce que le produit sait déjà pour cette
  * direction-là : la pluie cumulée sur l'horizon (teinte pâle, quatre
  * paliers — `meteoRose.niveauPluie`), le désaccord entre les deux modèles
- * météo (un motif hachuré, jamais une cinquième couleur — règle absolue 5),
+ * météo (un motif hachuré, jamais une cinquième couleur : deux modèles qui
+ * divergent s'affichent comme un désaccord),
  * et le vent qu'on sentirait en partant maintenant dans cette direction
  * (une flèche-girouette, la même forme et les mêmes classes que sur la
  * carte — `composants/Carte.tsx`).

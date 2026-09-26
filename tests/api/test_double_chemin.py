@@ -1,4 +1,4 @@
-"""Lot 11 : le choix du chemin, et ce que la comparaison du mode `double` dit (et tait).
+"""Le choix du chemin de l'API, et ce que la comparaison du mode `double` dit (et tait).
 
 Les références de caractérisation, rejouées sur les trois chemins, sont dans
 `test_caracterisation_api.py` ; ici, les pièces du mécanisme une à une.
@@ -7,35 +7,29 @@ Les références de caractérisation, rejouées sur les trois chemins, sont dans
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
-
-from outils_caracterisation import (  # noqa: E402
+from outils_caracterisation import (
     DOSSIER,
     JOUR,
     comparer_a_la_reference,
     preparer,
     serialiser,
 )
-from test_caracterisation_api import REGENERER, Serveur  # noqa: E402
+from test_caracterisation_api import REGENERER, Serveur
 
-from ourouler.api import exploitation  # noqa: E402
-from ourouler.api.adaptateur import Avertissement, Resultat  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.double_chemin import (  # noqa: E402
+from ourouler.api import exploitation
+from ourouler.api.adaptateur import Avertissement, Resultat
+from ourouler.api.application import creer_application
+from ourouler.api.double_chemin import (
     CHEMIN_ANCIEN,
     ecart_entre,
     executer_service,
 )
-from ourouler.api.erreurs import ErreurApi  # noqa: E402
-from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
+from ourouler.api.erreurs import ErreurApi
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 # --- la variable ----------------------------------------------------------------
 
@@ -47,7 +41,7 @@ def test_sans_variable_le_chemin_est_le_defaut():
     assert exploitation.chemin_api({"OUROULER_API_CHEMIN": "  "}) == double_chemin.CHEMIN_DEFAUT
 
 
-def test_le_defaut_de_ce_lot_est_l_ancien_chemin():
+def test_le_chemin_par_defaut_de_l_api_est_l_ancien():
     """La bascule se fait en préproduction, par `double` d'abord — pas dans le code.
 
     Lu dans la source et non sur le module : `OUROULER_API_CHEMIN` posée pour
@@ -194,9 +188,7 @@ def _comparer_au_scenario_meteo(obtenu: dict[str, Any], tmp_path: Path) -> None:
     comparer_a_la_reference(obtenu, reference, False, REGENERER)
 
 
-def test_la_mutation_du_nouveau_chemin_rougit_la_reference_en_nouveau(
-    tmp_path: Path, rejeu, meteo_faussee
-):
+def test_la_mutation_du_nouveau_chemin_rougit_la_reference_en_nouveau(tmp_path: Path, rejeu, meteo_faussee):
     obtenu = _appel_meteo(tmp_path, rejeu, "nouveau")
     with pytest.raises(pytest.fail.Exception, match="changement de comportement"):
         _comparer_au_scenario_meteo(obtenu, tmp_path)

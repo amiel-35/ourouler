@@ -5,8 +5,7 @@ même endroit pour les deux : la ligne de commande imprime `profil_json`, l'API
 (`api/vues.py`) en retire ensuite ce qui décrit la machine.
 
 Ce module reçoit une `Config` déjà chargée ; il ne lit ni fichier ni
-environnement. `config.py` réexporte `MASQUE` et `en_dict_public` à leur
-ancien chemin.
+environnement.
 """
 
 from __future__ import annotations
@@ -78,7 +77,7 @@ def info_vitesse_compteur(config: Config) -> dict | None:
     `ourouler config` doit rester utilisable sans vélo déclaré.
     """
     # Import différé : `config.py` réexporte ce module, et `seance.ecran_ftp`
-    # importe encore `config.py` (dette du lot 7) ; l'importer au chargement
+    # importe encore `config.py` ; l'importer au chargement
     # fermerait une boucle d'import à l'exécution.
     from ourouler.seance.ecran_ftp import valeurs_liees
 

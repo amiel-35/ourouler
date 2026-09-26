@@ -9,9 +9,9 @@ quelqu'un qui passera à 14 h.
 
 Ce module porte ce que `evaluer` reçoit maintenant à la place de `depart` et
 `vitesse_kmh` : un `Horaire`, la fonction « à quelle heure suis-je au
-kilomètre X », construite par l'appelant (`cli.py`/`boucle.commande` ou
-`physique.commande`) et reçue telle quelle — le cœur ne lit ni configuration
-ni ligne de commande (règle absolue 2).
+kilomètre X », construite par l'appelant (`cli/`/`services.boucle` ou
+`services.physique`) et reçue telle quelle — le cœur ne lit ni configuration
+ni ligne de commande (le cœur ne lit ni configuration ni environnement).
 
 **Pas de modèle de fatigue.** Une pause déclarée est une donnée (le cycliste
 a dit qu'il s'arrêterait) ; une vitesse qui décroît avec la distance serait un
@@ -41,9 +41,7 @@ class Pause:
     duree_s: float
 
 
-def construire_horaire(
-    depart: datetime, vitesse_kmh: float, pauses: Sequence[Pause] = ()
-) -> Horaire:
+def construire_horaire(depart: datetime, vitesse_kmh: float, pauses: Sequence[Pause] = ()) -> Horaire:
     """Construit l'horaire : `heure(km) = départ + km / vitesse + pauses avant km`.
 
     Une pause compte pour un échantillon si elle est **strictement avant**
@@ -62,7 +60,7 @@ def construire_horaire(
     (la vitesse vient de la configuration ou d'une simulation, jamais d'une
     lecture faite ici).
     """
-    if not _strictement_positif(vitesse_kmh):
+    if not strictement_positif(vitesse_kmh):
         raise ErreurUtilisateur(
             f"vitesse_kmh = {vitesse_kmh} : une vitesse strictement positive est attendue "
             "(l'heure de passage vaut départ + distance / vitesse)"
@@ -78,9 +76,14 @@ def construire_horaire(
     return horaire
 
 
-def _strictement_positif(valeur: float) -> bool:
+def strictement_positif(valeur: float) -> bool:
     """Vrai pour un nombre fini et > 0. NaN et l'infini sont des refus, pas des vitesses."""
     return math.isfinite(valeur) and valeur > 0
+
+
+def duree_pauses_s(pauses: Sequence[Pause]) -> float:
+    """Le temps passé à l'arrêt, toutes pauses confondues, en secondes."""
+    return sum(p.duree_s for p in pauses)
 
 
 # --- lecture des options --pause ----------------------------------------------
@@ -116,9 +119,7 @@ def analyser_duree(texte: str) -> float:
     m = _RE_DUREE_HHMM.match(brut)
     if m:
         return float(int(m.group(1)) * 3600 + int(m.group(2)) * 60)
-    raise ErreurUtilisateur(
-        f"durée {texte!r} illisible : attendu 4h30, 45min ou 1:30 (heures:minutes)"
-    )
+    raise ErreurUtilisateur(f"durée {texte!r} illisible : attendu 4h30, 45min ou 1:30 (heures:minutes)")
 
 
 def analyser_pause(texte: str) -> Pause:
@@ -129,27 +130,21 @@ def analyser_pause(texte: str) -> Pause:
     à `analyser_duree`.
 
     Refuse, en nommant le champ fautif : un kilomètre négatif ou illisible,
-    une durée nulle ou négative (une pause de zéro n'en est pas une, et son
-    absence complète du contrat plutôt qu'un refus silencieux serait la même
-    erreur cachée qu'une donnée inventée — règle absolue 5).
+    une durée nulle ou négative (une pause de zéro n'en est pas une, et
+    l'ignorer en silence plutôt que la refuser serait la même
+    erreur cachée qu'une donnée inventée — on n'affirme rien sans mesure).
     """
     brut = (texte or "").strip()
     if ":" not in brut:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : forme attendue KM:DUREE, par exemple 180:0h45"
-        )
+        raise ErreurUtilisateur(f"--pause {texte!r} : forme attendue KM:DUREE, par exemple 180:0h45")
     km_texte, duree_texte = brut.split(":", 1)
     km_texte = km_texte.strip()
     try:
         km = float(km_texte.replace(",", "."))
     except ValueError as e:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : kilomètre {km_texte!r} illisible"
-        ) from e
+        raise ErreurUtilisateur(f"--pause {texte!r} : kilomètre {km_texte!r} illisible") from e
     if not math.isfinite(km) or km < 0:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : kilomètre {km_texte!r} négatif ou invalide"
-        )
+        raise ErreurUtilisateur(f"--pause {texte!r} : kilomètre {km_texte!r} négatif ou invalide")
     duree_s = analyser_duree(duree_texte)
     if duree_s <= 0:
         raise ErreurUtilisateur(f"--pause {texte!r} : durée nulle ou négative")
@@ -169,17 +164,14 @@ def valider_pauses(pauses: Sequence[Pause], distance_m: float | None = None) -> 
     for p in pauses:
         cle = round(p.dist_m, 3)
         if cle in vus:
-            raise ErreurUtilisateur(
-                f"--pause : deux pauses au même kilomètre ({p.dist_m / 1000.0:g} km)"
-            )
+            raise ErreurUtilisateur(f"--pause : deux pauses au même kilomètre ({p.dist_m / 1000.0:g} km)")
         vus[cle] = p
     if distance_m is None:
         return
     for p in pauses:
         if p.dist_m > distance_m:
             raise ErreurUtilisateur(
-                f"--pause à {p.dist_m / 1000.0:g} km : au-delà des "
-                f"{distance_m / 1000.0:g} km du parcours"
+                f"--pause à {p.dist_m / 1000.0:g} km : au-delà des {distance_m / 1000.0:g} km du parcours"
             )
 
 

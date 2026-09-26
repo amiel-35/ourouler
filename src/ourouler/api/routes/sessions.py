@@ -17,7 +17,7 @@ from ourouler.api.session import NOM_COOKIE, SessionParCookie
 routeur = nouveau_routeur()
 
 
-# --- comptes et sessions (lot L7.2-C) ------------------------------------------
+# --- comptes et sessions ------------------------------------------------------
 #
 # Quatre routes qui **précèdent** l'existence d'une session : on ne peut pas
 # leur demander la clause de propriétaire que `Qui` porte, puisque c'est
@@ -97,13 +97,13 @@ def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, m
 #: Ce que les trois routes qui consomment un jeton de la table `invitations`
 #: répondent quand il ne vaut rien — **le même texte, quel que soit le
 #: motif, et quel que soit le flux**. Distinguer « n'existe pas », « a
-#: expiré le 02/09 » et « a déjà servi » renseigne qui tient un jeton périmé
-#: sur le fait qu'il a bel et bien été émis, et sur sa date exacte. `GET
-#: /invitation` avait été écrite ainsi ; `POST /entrer` laissait passer le
-#: message détaillé de `comptes._invitation_refusee`, et rouvrait donc la
-#: porte qu'on venait de fermer (relecture du 19/09/2026).
+#: expiré le 2 septembre » et « a déjà servi » renseigne qui tient un jeton
+#: périmé sur le fait qu'il a bel et bien été émis, et sur sa date exacte.
+#: `POST /entrer` ne doit donc pas laisser passer le message détaillé de
+#: `comptes._invitation_refusee`, sans quoi il rouvrirait la porte que
+#: `GET /invitation` ferme.
 #:
-#: **Neutre, pas « d'invitation »** (relecture du 25/09/2026, point 2) :
+#: **Neutre, pas « d'invitation »** :
 #: `POST /reinitialiser` consomme un jeton de la même table pour un usage
 #: différent (choisir un nouveau mot de passe, pas créer un compte) — un
 #: texte qui parle d'« invitation » à quelqu'un qui réinitialise son mot de
@@ -112,8 +112,8 @@ def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, m
 #: choisi dans le message change.
 #:
 #: Les messages détaillés ne disparaissent pas pour autant : ils restent ce
-#: que `DepotComptes` lève, et ce que la ligne de commande affiche au
-#: mainteneur — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
+#: que `DepotComptes` lève, et ce que la ligne de commande affiche à
+#: l'exploitant — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
 #: émis le lien.
 MESSAGE_LIEN_INVALIDE = "ce lien n'est plus valable — inconnu, expiré ou déjà utilisé"
 
@@ -125,7 +125,7 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
     `DepotComptes.activer` pose le secret, active le compte et consomme
     l'invitation dans une seule transaction (`api/comptes.py`) ; le
     propriétaire qu'elle rend est celui que `inviter` a déjà rattaché au
-    compte, dans `comptes_proprietaires` ([[Q46]]) — cette route n'a donc
+    compte, dans `comptes_proprietaires` (décision Q46) — cette route n'a donc
     rien de plus à créer, elle ouvre la session qui en découle. Deux appels
     concurrents avec le même jeton : un seul passe l'activation (transaction
     atomique de `activer`), donc une seule session s'ouvre.
@@ -137,9 +137,7 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
             acces = depot.activer(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
             # Le motif est perdu **exprès** : voir MESSAGE_LIEN_INVALIDE.
-            raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
-            ) from e
+            raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400) from e
         except Exception as e:
             raise classer(e) from e
         jeton_session = depot.ouvrir_session(acces.compte.identifiant)
@@ -153,9 +151,10 @@ def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -
     toutes les sessions déjà ouvertes du compte, en ouvre une neuve pour celle-ci.
 
     **Jamais atteinte sans un jeton déjà émis** — il n'existe aucune route qui en émette
-    un depuis une simple adresse (« mot de passe oublié » en libre-service, exclu par
-    décision du mainteneur : voir la note de module de `DepotComptes.reinitialiser`,
-    `api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en émet un ;
+    un depuis une simple adresse (« mot de passe oublié » en libre-service,
+    exclu : voir la note de module de `DepotComptes.reinitialiser`,
+    `api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en
+    émet un ;
     cette route-ci ne fait que le consommer — même mécanique que `POST /entrer` pour un
     jeton d'invitation, même refus indistinguable (`MESSAGE_LIEN_INVALIDE`) pour un
     jeton inconnu, expiré ou déjà utilisé.
@@ -166,9 +165,7 @@ def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -
         try:
             acces = depot.changer_mot_de_passe_par_jeton(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
-            raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
-            ) from e
+            raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400) from e
         except Exception as e:
             raise classer(e) from e
         jeton_session = depot.ouvrir_session(acces.compte.identifiant)

@@ -40,7 +40,7 @@ def seances(
     Sans plage, les sept jours à partir d'aujourd'hui — ce que demande
     l'écran « Ma semaine ».
     """
-    from ourouler.seance import commande as seance_commande
+    from ourouler.services import seance as seance_commande
 
     config = _config(ctx, qui)
     debut = depuis or date.today()
@@ -75,7 +75,7 @@ def seance_du_jour(
     Pas de séance ce jour-là **n'est pas une erreur** : la réponse vaut 200 et
     porte `seance: null`, comme la ligne de commande sort en 0.
     """
-    from ourouler.seance import commande as seance_commande
+    from ourouler.services import seance as seance_commande
 
     config = _config(ctx, qui)
     resultat = _avec_journal(
@@ -114,7 +114,7 @@ async def deposer_seance(
     L'identifiant rendu se repasse à `POST /sorties` dans `fichier_seance` :
     le fichier reste chez son propriétaire, le front ne le renvoie pas.
     """
-    from ourouler.seance import commande as seance_commande
+    from ourouler.services import seance as seance_commande
 
     config = _config(ctx, qui)
     nom = fichier.filename or "seance"
@@ -130,8 +130,7 @@ async def deposer_seance(
     if len(contenu) > TAILLE_MAX_SEANCE:
         raise ErreurApi(
             code="fichier_trop_gros",
-            message=f"{nom} : {len(contenu)} octets — une séance n'en fait pas plus de "
-            f"{TAILLE_MAX_SEANCE}",
+            message=f"{nom} : {len(contenu)} octets — une séance n'en fait pas plus de {TAILLE_MAX_SEANCE}",
             statut=413,
         )
     try:

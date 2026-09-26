@@ -1,4 +1,4 @@
-"""Tests de `seance.tenue` (sprint 4, lot L4.3).
+"""Tests de `seance.tenue` : la tenue conseillée.
 
 Aucune coordonnée réelle : les échantillons sont posés en mer au large du
 golfe de Guinée (0, 0), comme les autres tracés synthétiques du dépôt.
@@ -86,9 +86,7 @@ def test_categories_d_humidite_aux_bornes_exactes():
 
 def test_la_base_se_decide_au_depart_pas_sur_la_suite():
     # Départ froid, parcours qui se réchauffe : on part couvert, on prévoit d'enlever.
-    tenue = conseiller(
-        _meteo((0.0, 5.0, 0.0, 10.0), (20.0, 16.0, 0.0, 10.0), (40.0, 24.0, 0.0, 10.0)), P
-    )
+    tenue = conseiller(_meteo((0.0, 5.0, 0.0, 10.0), (20.0, 16.0, 0.0, 10.0), (40.0, 24.0, 0.0, 10.0)), P)
     assert tenue.categorie_temp == "froid"
     assert tenue.base == list(TENUES_DEFAUT["froid"])
     # « chaud » ne garde ni le collant, ni le gilet, ni les gants : à enlever.
@@ -100,9 +98,7 @@ def test_la_base_se_decide_au_depart_pas_sur_la_suite():
 
 def test_ressenti_qui_redescend_fait_emporter_et_garder():
     # Départ doux, fin de sortie franchement plus fraîche (retour tardif).
-    tenue = conseiller(
-        _meteo((0.0, 16.0, 0.0, 10.0), (30.0, 14.0, 0.0, 10.0), (60.0, 7.0, 0.0, 10.0)), P
-    )
+    tenue = conseiller(_meteo((0.0, 16.0, 0.0, 10.0), (30.0, 14.0, 0.0, 10.0), (60.0, 7.0, 0.0, 10.0)), P)
     assert tenue.categorie_temp == "modéré"
     assert "gants longs" in tenue.a_emporter
     assert any("redescend à 7" in m for m in tenue.motifs)
@@ -133,7 +129,7 @@ def test_le_vent_seul_declenche_la_veste():
 
 
 def test_un_gilet_coupe_vent_ne_remplace_pas_la_veste():
-    """À 35 km/h de vent, ce sont les bras qui prennent (contrat §3)."""
+    """À 35 km/h de vent, ce sont les bras qui prennent."""
     tenue = conseiller(_meteo((0.0, 14.0, 0.0, 35.0)), P)
     assert "gilet coupe-vent" in tenue.base  # tenue « frais »
     assert VESTE_VENT in tenue.a_emporter
@@ -220,8 +216,7 @@ def test_les_onze_lignes_de_config_example_font_ce_qu_elles_promettent():
         tenue = conseiller(_meteo((0.0, ressenti, 0.0, 5.0)), config.tenue)
         assert tenue.categorie_temp == categorie
         assert tenue.base == list(attendue), (
-            f"[tenue.tenues] {categorie} : l'exemple promet {list(attendue)}, "
-            f"la commande rend {tenue.base}"
+            f"[tenue.tenues] {categorie} : l'exemple promet {list(attendue)}, la commande rend {tenue.base}"
         )
 
 

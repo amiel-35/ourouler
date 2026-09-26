@@ -63,17 +63,13 @@ def client_bouchon(evenements: list[dict], *, code: int = 200) -> ClientInterval
         assert "/events" in requete.url.path
         return httpx.Response(code, json=evenements)
 
-    return ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    return ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
 
 
 # --- la forme de référence, dans les trois unités ------------------------------
 
 
-@pytest.mark.parametrize(
-    "fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"]
-)
+@pytest.mark.parametrize("fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"])
 def test_la_forme_de_reference_donne_dix_etapes(fabrique):
     """1 échauffement + 4 × (bloc + récup) + 1 calme = 10 étapes développées."""
     seance = lire(getattr(W, fabrique)())
@@ -84,25 +80,19 @@ def test_la_forme_de_reference_donne_dix_etapes(fabrique):
     assert types[9] == "calme"
 
 
-@pytest.mark.parametrize(
-    "fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"]
-)
+@pytest.mark.parametrize("fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"])
 def test_quatre_blocs_et_leurs_indices(fabrique):
     seance = lire(getattr(W, fabrique)())
     assert [i for i, _ in seance.blocs()] == [1, 3, 5, 7]
 
 
-@pytest.mark.parametrize(
-    "fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"]
-)
+@pytest.mark.parametrize("fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"])
 def test_seules_les_deux_extremites_sont_elastiques(fabrique):
     seance = lire(getattr(W, fabrique)())
     assert [i for i, e in enumerate(seance.etapes) if e.elastique] == [0, 9]
 
 
-@pytest.mark.parametrize(
-    "fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"]
-)
+@pytest.mark.parametrize("fabrique", ["groupes_hr_zone", "groupes_pourcent_ftp", "groupes_watts"])
 def test_la_duree_est_la_somme_des_etapes(fabrique):
     seance = lire(getattr(W, fabrique)())
     assert seance.duree_s == sum(e.duree_s for e in seance.etapes)
@@ -338,9 +328,7 @@ def test_une_rampe_est_lue_d_apres_sa_borne_haute():
     assert (fraction.puissance_min_w, fraction.puissance_max_w) == (0.50 * FTP, 0.75 * FTP)
 
 
-@pytest.mark.parametrize(
-    ("valeur", "lecture"), [(80, "pourcentage"), (0.80, "fraction")]
-)
+@pytest.mark.parametrize(("valeur", "lecture"), [(80, "pourcentage"), (0.80, "fraction")])
 def test_l_interpretation_retenue_est_ecrite_dans_meta(valeur, lecture):
     meta = lire(_une_consigne(valeur)).meta
     assert meta["convention_pourcent_ftp"]["lecture"] == lecture
@@ -402,9 +390,7 @@ def test_groupes_imbriques_sur_trois_niveaux():
                             {
                                 "reps": 2,
                                 "text": "C",
-                                "steps": [
-                                    {"duration": 60, "power": {"units": "watts", "value": 250}}
-                                ],
+                                "steps": [{"duration": 60, "power": {"units": "watts", "value": 250}}],
                             }
                         ],
                     }
@@ -649,9 +635,7 @@ def test_la_reponse_du_service_est_bien_appelee_sur_le_bon_jour():
         urls.append(requete.url)
         return httpx.Response(200, json=[])
 
-    client = ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     assert seance_du_jour(client, JOUR, ftp_w=FTP) is None
     assert len(urls) == 1
     assert urls[0].params["oldest"] == urls[0].params["newest"] == "2026-09-08"
@@ -715,9 +699,7 @@ def test_les_deux_familles_sont_comptees_dans_meta():
 
 def test_la_part_de_ftp_visee_est_reglable():
     doc = {"steps": [{"hr": {"units": "hr_zone", "value": 1}, "duration": 60}]}
-    seance = depuis_workout_doc(
-        doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=0.70
-    )
+    seance = depuis_workout_doc(doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=0.70)
     assert seance.etapes[0].puissance_cible_w == 140.0
     assert seance.meta["puissance_endurance_pct"] == 0.70
 
@@ -725,9 +707,7 @@ def test_la_part_de_ftp_visee_est_reglable():
 @pytest.mark.parametrize("mauvais", [0.0, -0.5, 3.0, "beaucoup", None, True])
 def test_une_part_de_ftp_inutilisable_revient_au_defaut(mauvais):
     doc = {"steps": [{"hr": {"units": "hr_zone", "value": 1}, "duration": 60}]}
-    seance = depuis_workout_doc(
-        doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=mauvais
-    )
+    seance = depuis_workout_doc(doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=mauvais)
     assert seance.etapes[0].puissance_cible_w == 0.60 * FTP
 
 
@@ -927,9 +907,7 @@ def test_un_seuil_plus_haut_fait_basculer_des_blocs_en_recuperation():
 
 @pytest.mark.parametrize("mauvais", [0.0, -1.0, 5.0, "haut", None])
 def test_un_seuil_inutilisable_revient_au_defaut(mauvais):
-    seance = depuis_workout_doc(
-        W.coach_muet(), nom="s", jour=JOUR, ftp_w=FTP, seuil_recuperation_pct=mauvais
-    )
+    seance = depuis_workout_doc(W.coach_muet(), nom="s", jour=JOUR, ftp_w=FTP, seuil_recuperation_pct=mauvais)
     assert seance.meta["seuil_recuperation_pct"] == 0.75
 
 
@@ -999,9 +977,7 @@ def test_periode_un_seul_appel_reseau_pour_toute_la_plage():
         urls.append(requete.url)
         return httpx.Response(200, json=[])
 
-    client = ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     depuis, jusqua = date(2026, 9, 7), date(2026, 9, 13)
     resultats = seances_periode(client, depuis, jusqua, ftp_w=FTP)
     assert len(urls) == 1
@@ -1065,9 +1041,7 @@ def test_periode_plage_inversee_refusee():
 
 def test_periode_un_seul_jour_se_comporte_comme_seance_du_jour():
     evenements = [W.evenement(W.groupes_watts(), nom="4x8 fabriquée", jour="2026-09-08")]
-    unique = seances_periode(
-        client_bouchon(evenements), date(2026, 9, 8), date(2026, 9, 8), ftp_w=FTP
-    )
+    unique = seances_periode(client_bouchon(evenements), date(2026, 9, 8), date(2026, 9, 8), ftp_w=FTP)
     seance_jour = seance_du_jour(client_bouchon(evenements), date(2026, 9, 8), ftp_w=FTP)
     assert list(unique) == [date(2026, 9, 8)]
     assert unique[date(2026, 9, 8)] is not None and seance_jour is not None

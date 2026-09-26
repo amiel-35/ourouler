@@ -25,8 +25,7 @@ PAS_M = 100.0
 def droite(longueur_m: float) -> list[PointTrace]:
     nombre = int(round(longueur_m / PAS_M)) + 1
     return [
-        PointTrace(lat=0.0, lon=(i * PAS_M) / DEGRE_M, alt_m=100.0, dist_m=i * PAS_M)
-        for i in range(nombre)
+        PointTrace(lat=0.0, lon=(i * PAS_M) / DEGRE_M, alt_m=100.0, dist_m=i * PAS_M) for i in range(nombre)
     ]
 
 
@@ -74,10 +73,7 @@ def test_un_ralentisseur_sans_effet_sur_un_cycliste_ne_compte_pas():
 
 def test_un_feu_pose_sur_un_plateau_ne_compte_qu_une_fois():
     """`highway` gagne : se compter deux fois serait pire que de se manquer."""
-    assert (
-        nature_du_noeud({"highway": "traffic_signals", CLE_RALENTISSEUR: "table"})
-        == "traffic_signals"
-    )
+    assert nature_du_noeud({"highway": "traffic_signals", CLE_RALENTISSEUR: "table"}) == "traffic_signals"
 
 
 def test_un_noeud_sans_tag_ne_porte_aucun_marqueur():

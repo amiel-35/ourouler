@@ -7,7 +7,7 @@
  *
  * Le choix de l'écran se fait sur le **code** de la panne, jamais sur son
  * message : le message vient du cœur et peut être reformulé, le code est une
- * valeur du contrat (`docs/ux/api_contrat.md`).
+ * valeur du contrat (`docs/journal/ux/api_contrat.md`).
  *
  * Le cadre et les replis sont dans `echec/Cadre.tsx`, les titres du
  * générique dans `echec/titres.ts`, le bandeau « pas de météo » dans
@@ -120,14 +120,11 @@ export function Echec({
 
   // --- Le serveur a répondu, et il refuse : il ne sait pas qui parle.
   //
-  // Trouvé le 18/09/2026 (lot L7.A) : un service exposé répond 401
-  // `session_absente` à **toute** route de données, y compris `/systeme` —
-  // le tout premier appel de l'application. `session_absente` n'a plus
-  // d'écran dédié ici depuis le lot L7.2-D (19/09/2026) : `App.tsx`
-  // intercepte ce code **avant** qu'`Echec` ne soit atteint, et affiche
+  // Un service exposé répond 401 `session_absente` à **toute** route de
+  // données, y compris `/systeme` — le tout premier appel de l'application.
+  // `session_absente` n'a pas d'écran dédié ici : `App.tsx` intercepte ce code **avant** qu'`Echec` ne soit atteint, et affiche
   // l'écran de connexion à la place (`écrans/Connexion.tsx`) — se
-  // reconnecter est redevenu un geste qui aboutit, maintenant qu'il existe
-  // un compte et un mot de passe. Le code garde tout de même son entrée
+  // reconnecter est un geste qui aboutit. Le code garde tout de même son entrée
   // dans le tableau générique ci-dessous, en filet : si un appel échappait
   // un jour à cette interception, mieux vaut un titre nommé que le
   // générique.
@@ -140,9 +137,8 @@ export function Echec({
         <div className="encart alerte">
           <b>On n'a rien trouvé qui tienne.</b> {erreur.message}
         </div>
-        {/* Les leviers de repli étaient dessinés avec des valeurs que rien ne
-            soutenait. Ils ont maintenant leur chiffre : celui de
-            l'élargissement qu'il aurait fallu, mesuré, pas supposé (Q41 d). */}
+        {/* Les leviers de repli portent leur chiffre : celui de
+            l'élargissement qu'il aurait fallu, mesuré, pas supposé. */}
         {mesures ? (
           <div className="bloc doux">
             <div className="bloc-tete">
@@ -168,10 +164,9 @@ export function Echec({
   //
   // À distinguer de `intervals_refuse` juste en dessous, qui dit « votre clé
   // a cessé de marcher » : celui-ci s'adresse à quelqu'un qui n'en a jamais
-  // eu. L'API rendait `requete_invalide` pour les deux, donc le premier
-  // compte invité lisait « Cette demande n'est pas valide » et se voyait
-  // renvoyé vers une section `[intervals]` d'un fichier TOML qu'il ne verra
-  // jamais (constaté le 19/09/2026, sur le premier parcours complet).
+  // eu. Avec `requete_invalide` pour les deux, un compte invité lirait
+  // « Cette demande n'est pas valide » et se verrait renvoyé vers une section
+  // `[intervals]` d'un fichier TOML qu'il ne verra jamais.
   if (erreur.code === "intervals_absent") {
     return (
       <Cadre titre={contexte ?? "Vos séances"}>
@@ -199,7 +194,7 @@ export function Echec({
         <div className="encart alerte">
           <b>intervals.icu ne nous répond plus.</b> Votre clé a sans doute été changée ou
           retirée.
-          {/* C2 : « depuis le 2026-09-12 » est une date de machine. E15 fait
+          {/* « depuis le 2026-09-12 » serait une date de machine. E15 fait
               de cette phrase le point de l'écran — « plus lues depuis le
               12 septembre » dit à quelqu'un ce qu'il a manqué. */}
           {dernierSucces

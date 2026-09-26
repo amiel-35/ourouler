@@ -12,7 +12,7 @@ Ce que ces tests gardent :
    donnée en même temps que `--puissance`.
 
 Aucun appel réseau : BRouter et Open-Meteo sont les bouchons de
-`test_boucle_commande`. Aucune coordonnée réelle : tout part du point (0, 0),
+`outils_boucle_commande`. Aucune coordonnée réelle : tout part du point (0, 0),
 à 5 000 km de toute ville — l'invariant `test_invariants` le vérifie.
 
 Les CdA et Crr du mainteneur employés ici ne sont pas des données
@@ -27,7 +27,7 @@ import json
 from pathlib import Path
 
 import pytest
-from test_boucle_commande import (
+from outils_boucle_commande import (
     args,
     config_avec_velo_calibrable,
     moteur_brouter,
@@ -40,13 +40,13 @@ from ourouler.commandes.boucle import executer_depuis_namespace as executer
 from ourouler.commandes.physique import simuler_depuis_namespace as executer_simuler
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique import litterature
-from ourouler.physique.commande import (
+from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
+from ourouler.services.physique import (
     VITESSE_A_PLAT_MAXI_KMH,
     chemin_calibration,
     ecrire_calibration,
     puissance_voulue,
 )
-from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
 
 #: La calibration mesurée du vélo de route du mainteneur (campagne du
 #: 17/09/2026, `docs/journal/questions/questions_mainteneur.md`). Sa `MAE` valait 4,23 %.
@@ -68,9 +68,7 @@ CALIBRATION_ROUTE = {
 def test_chaque_f27_consigne_se_recalcule(usage: str):
     """Les newtons cités dans la table ne sont pas recopiés : ils se refont."""
     choix = litterature.PAR_USAGE[usage]
-    assert choix.jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(
-        choix.f27_jeu_n, abs=0.01
-    )
+    assert choix.jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(choix.f27_jeu_n, abs=0.01)
     for jeu, f27, _derive in choix.ecartes:
         assert jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(f27, abs=0.01)
 
@@ -163,9 +161,7 @@ def test_avec_sa_calibration_rien_ne_change(tmp_path: Path, monkeypatch, capsys)
     assert retenue["temps_source"] == "modele"
 
 
-def test_avec_sa_calibration_l_ecran_ne_parle_pas_de_litterature(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_avec_sa_calibration_l_ecran_ne_parle_pas_de_litterature(tmp_path: Path, monkeypatch, capsys):
     config = config_avec_velo_calibrable(tmp_path)
     ecrire_calibration(chemin_calibration(config), "RCR", CALIBRATION_ROUTE)
     monkeypatch.chdir(tmp_path)
@@ -237,13 +233,11 @@ def test_les_deux_options_ensemble_sont_refusees_et_le_disent(tmp_path: Path):
     config = config_de_test(tmp_path / "cache")
     gpx = gpx_plat(tmp_path / "boucle.gpx")
     with pytest.raises(ErreurUtilisateur, match="n'en donner qu'une"):
-        executer_simuler(
-            args_simuler(gpx=str(gpx), puissance=200.0, vitesse_a_plat=30.0), config
-        )
+        executer_simuler(args_simuler(gpx=str(gpx), puissance=200.0, vitesse_a_plat=30.0), config)
 
 
 def test_boucle_refuse_les_deux_options_avant_tout_appel(tmp_path: Path, monkeypatch):
-    """Le refus coûte un message, pas douze appels BRouter (contrat §6).
+    """Le refus coûte un message, pas douze appels BRouter.
 
     Les moteurs ne sont **pas** passés : si la commande les construisait, elle
     tenterait une vraie connexion — et le test échouerait au lieu de lever
@@ -288,9 +282,7 @@ def test_une_vitesse_a_plat_absurde_est_refusee(tmp_path: Path, vitesse: float):
     config = config_de_test(tmp_path / "cache")
     gpx = gpx_plat(tmp_path / "boucle.gpx")
     with pytest.raises(ErreurUtilisateur, match="vitesse-a-plat"):
-        executer_simuler(
-            args_simuler(gpx=str(gpx), puissance=None, vitesse_a_plat=vitesse), config
-        )
+        executer_simuler(args_simuler(gpx=str(gpx), puissance=None, vitesse_a_plat=vitesse), config)
 
 
 def test_simuler_distingue_le_modele_calibre_du_modele_de_litterature(tmp_path: Path, capsys):

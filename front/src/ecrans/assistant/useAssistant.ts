@@ -31,9 +31,8 @@ export function useAssistant({ profil, surProfil, surZones }: Entrees) {
   const [nomVelo, setNomVelo] = useState(profil.velos[0]?.nom ?? "");
   const [usageVelo, setUsageVelo] = useState(profil.velos[0]?.usage ?? "route");
   // Vide tant qu'aucun poids réel n'est connu — jamais `8` ni aucun autre
-  // chiffre inventé côté front (constaté le 25/09/2026 : le texte d'aide
-  // disait « on suppose 9 kg » pendant que le champ en préremplissait un
-  // autre). Le `placeholder` montre `MASSE_VELO_DEFAUT_KG`, et un champ vide
+  // chiffre inventé côté front (sinon le texte d'aide dirait « on suppose
+  // 9 kg » pendant que le champ en préremplirait un autre). Le `placeholder` montre `MASSE_VELO_DEFAUT_KG`, et un champ vide
   // part `null` : c'est le serveur, seul, qui applique le défaut.
   const [poidsVelo, setPoidsVelo] = useState(
     profil.velos[0]?.masse_kg != null ? String(profil.velos[0].masse_kg) : "",

@@ -51,7 +51,7 @@ class StatsVelo:
     capteurs: list[str] = field(default_factory=list)
     """Valeurs distinctes de `power_meter` vues sur ce vélo, dans l'ordre
     d'apparition : c'est sur elles que repose la règle 2 du rattachement, le
-    mainteneur doit pouvoir les lire sans ouvrir le cache."""
+    cycliste doit pouvoir les lire sans ouvrir le cache."""
 
     @property
     def part_puissance(self) -> float:
@@ -87,9 +87,9 @@ class Inventaire:
     simplement pas comptées comme des sorties."""
     autres_sports_par_libelle: dict[str, int] = field(default_factory=dict)
     """Les libellés écartés et leur compte, du plus fréquent au moins
-    fréquent. Le nombre seul ne suffisait pas : avec « Triathlon » parmi les
-    libellés, le mainteneur ne pouvait pas savoir que quatre sorties vélo
-    réelles venaient d'en sortir."""
+    fréquent. Le nombre seul ne suffit pas : avec « Triathlon » parmi les
+    libellés, le cycliste ne pourrait pas savoir que quatre sorties vélo
+    réelles viennent d'en sortir."""
 
 
 # --- rattachement -------------------------------------------------------------
@@ -98,8 +98,7 @@ class Inventaire:
 def rattacher_velo(entree: EntreeCache, config: PorteVelos) -> str:
     """Nom du vélo auquel rattacher une sortie.
 
-    Ordre du contrat du sprint 2, §7 (lot L2.7) — il a changé depuis le
-    sprint 1, où l'équipement primait sur tout :
+    Ordre de rattachement (décision Q7, `docs/journal/questions/questions_mainteneur.md`) :
 
     1. sortie en **intérieur** (`VirtualRide`, `meta["trainer"]`, appareil
        Zwift/Rouvy, `meta["interieur"]`) → « home-trainer » ;
@@ -131,7 +130,7 @@ def rattachement_explicite(entree: EntreeCache, config: PorteVelos) -> str | Non
 
     Capteur, équipement Intervals ou période : un signal que la sortie porte,
     par opposition au repli « premier vélo de route » qui n'en est pas un.
-    Sert à la calibration depuis l'écran (L9.4) : un compte à plusieurs vélos
+    Sert à la calibration depuis l'écran : un compte à plusieurs vélos
     qui dépose des fichiers sans équipement ne doit pas voir toutes ses
     sorties créditées au premier vélo sans qu'on le lui dise.
     """
@@ -203,8 +202,8 @@ def en_interieur(entree: EntreeCache) -> bool:
 def inventaire(cache: Cache, config: PorteVelos, depuis: date) -> Inventaire:
     """Ce que le cache contient en **vélo**, par vélo et par mois.
 
-    Le cache peut contenir d'autres sports (le compte Intervals du mainteneur
-    mêle course à pied, natation et musculation aux sorties) : ces entrées
+    Le cache peut contenir d'autres sports (un compte Intervals mêle souvent
+    course à pied, natation et musculation aux sorties) : ces entrées
     restent stockées mais sont écartées ici et comptées dans `autres_sports`,
     sans quoi « RCR : 697 sorties » additionnerait les footings.
     """
@@ -286,8 +285,7 @@ def rendre_texte(inv: Inventaire) -> str:
     lignes.append("")
     lignes.append("Par vélo")
     lignes.append(
-        f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}"
-        f"  {'capteur':<22}période"
+        f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}  {'capteur':<22}période"
     )
     for s in inv.par_velo:
         plage = f"{s.premiere or '?'} → {s.derniere or '?'}"
@@ -300,15 +298,11 @@ def rendre_texte(inv: Inventaire) -> str:
     lignes.append("Par mois (sorties extérieures)")
     lignes.append(f"  {'mois':<10}{'sorties':>8}{'km':>10}{'dont puiss.':>13}")
     for m in inv.par_mois:
-        lignes.append(
-            f"  {m.mois:<10}{m.sorties:>8}{m.km:>10.0f}{m.sorties_avec_puissance:>13}"
-        )
+        lignes.append(f"  {m.mois:<10}{m.sorties:>8}{m.km:>10.0f}{m.sorties_avec_puissance:>13}")
 
     lignes.append("")
     if inv.autres_sports:
-        lignes.append(
-            f"{inv.autres_sports} activité(s) d'autres sports ignorée(s){_libelles_ecartes(inv)}."
-        )
+        lignes.append(f"{inv.autres_sports} activité(s) d'autres sports ignorée(s){_libelles_ecartes(inv)}.")
         lignes.append("")
     if inv.anomalies:
         lignes.append(f"Anomalies ({len(inv.anomalies)})")
@@ -324,7 +318,7 @@ def _libelles_ecartes(inv: Inventaire) -> str:
 
     Avec « Triathlon » parmi les libellés écartés, le nombre seul ne permet
     pas de voir que des sorties vélo réelles viennent de sortir de
-    l'inventaire (point 16 de la relecture du sprint 2).
+    l'inventaire.
     """
     comptes = list(inv.autres_sports_par_libelle.items())
     if not comptes:

@@ -249,7 +249,7 @@ export function ventDepart(options?: {
  * direction.
  *
  * Les chiffres reprennent **ceux de la proposition retenue** le 19/09/2026
- * (`front/directions/suisse-vivante.html`, la table accessible de la rose) :
+ * (`docs/journal/ux/directions/suisse-vivante.html`, la table accessible de la rose) :
  * pas une coïncidence, la continuité entre la maquette qui a fait choisir
  * cette direction et la fixture qui la teste. Toute la pluie est posée sur
  * la couronne des 15 km ; celle des 25 km reste sèche et en accord partout

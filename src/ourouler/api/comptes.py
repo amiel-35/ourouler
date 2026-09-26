@@ -1,22 +1,17 @@
 """Les comptes, les invitations, et le lien vers le propriétaire pseudonyme.
 
-Doctrine §10.2, et décision produit du mainteneur du 18/09/2026 : **l'entrée
-se fait sur invitation, définitivement, y compris pour la version publique.**
-Il n'y a pas de création de compte à la demande, donc pas de formulaire
-d'inscription, pas de demande d'accès, pas de liste d'attente. Le seul chemin
-vers un compte est un lien envoyé par le mainteneur — et son propre compte
-passe par ce chemin-là, sans trappe d'amorçage.
+Doctrine §10.2 : **l'entrée se fait sur invitation, définitivement, y compris
+pour la version publique.** Il n'y a pas de création de compte à la demande,
+donc pas de formulaire d'inscription, pas de demande d'accès, pas de liste
+d'attente. Le seul chemin vers un compte est un lien envoyé par l'exploitant
+du service — et son propre compte passe par ce chemin-là, sans trappe
+d'amorçage.
 
-## Révision du même jour : « c'est pas une banque »
+## Des choix simples, assumés
 
-Une première version de ce module condensait le jeton d'invitation (SHA-256)
-et le faisait vivre sept jours. Le mainteneur a demandé un retour en arrière
-avant que rien n'en dépende : « je trouve que tu compliques les choses, on va
-revenir au basique. » Ce qui change, et pourquoi c'est assumé plutôt que subi :
-
-- **Le jeton d'invitation est en clair.** Le mainteneur veut pouvoir le
-  relire et le renvoyer par le canal qu'il veut — un condensé l'en empêchait.
-  Le risque est borné par la durée, ramenée de sept à **trois jours**
+- **Le jeton d'invitation est en clair.** L'exploitant doit pouvoir le
+  relire et le renvoyer par le canal qu'il veut — un condensé l'en
+  empêcherait. Le risque est borné par la durée, **trois jours**
   (`DUREE_INVITATION`), et par ce qu'un lien ouvre : un compte vide, rien de
   plus. Il ne doit en revanche **jamais partir dans un journal** : c'est ce
   que masquent les `__repr__` d'`Invitation` et d'`InvitationEmise`.
@@ -30,7 +25,7 @@ revenir au basique. » Ce qui change, et pourquoi c'est assumé plutôt que subi
   passkey, plus tard. Cette abstraction-là s'arrête à deux colonnes : il n'y
   a pas de passkey aujourd'hui, et ce module n'en écrit pas l'ombre.
 
-## Le cycle de vie, décidé par le mainteneur
+## Le cycle de vie
 
 1. **`inviter(email)`** crée un compte **inactif** — aucun moyen de s'y
    authentifier n'est posé — et une invitation qui le vise. Le jeton est
@@ -51,9 +46,9 @@ est refusé (« il a déjà un compte ») ; un compte inactif dont l'invitation
 court encore **rend le jeton existant**, ce que le jeton en clair rend enfin
 possible ; une invitation périmée est remplacée par une neuve. Il n'y a donc
 qu'une seule commande, qui lit l'état et agit en conséquence — pas de geste
-séparé « relancer » ([[Q59]], close le 18/09/2026).
+séparé « relancer » (décision Q59, `docs/journal/questions/questions_mainteneur.md`).
 
-## Les sessions (lot L7.2-C, 19/09/2026)
+## Les sessions
 
 `activer` ouvre l'accès ; encore fallait-il un moyen de **rester** connecté,
 et d'y **revenir**. La table `sessions` (`migrations/0002_sessions.sql`) porte
@@ -87,7 +82,8 @@ Les opérations d'ici sont d'une autre nature : inviter et activer un compte
 **précèdent** l'existence d'un propriétaire. Leur demander une clause de
 propriétaire serait circulaire, exactement comme pour les fonctions
 `_migrer` dispensées par l'invariant SQL. Le choix retenu est donc : **un
-module séparé, une frontière nommée**. C'est la ligne de [[Q46]] — le compte
+module séparé, une frontière nommée**. C'est la ligne de la décision Q46
+(`docs/journal/questions/questions_mainteneur.md`) — le compte
 porte l'identité et l'accès, le `Proprietaire` est la clé pseudonyme sous
 laquelle vivent les données.
 
@@ -115,9 +111,8 @@ import psycopg
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
-#: Combien de temps une invitation reste valable. **Trois jours** (et non
-#: sept) : c'est la contrepartie du jeton en clair — décision du mainteneur,
-#: voir la note de module. L'argument `duree` de `inviter` peut la changer ;
+#: Combien de temps une invitation reste valable. **Trois jours** : c'est la
+#: contrepartie du jeton en clair, voir la note de module. L'argument `duree` de `inviter` peut la changer ;
 #: cette constante n'en est que le défaut.
 DUREE_INVITATION = timedelta(days=3)
 
@@ -134,9 +129,9 @@ METHODE_MOT_DE_PASSE = "mot_de_passe"
 #: Paramètres de `hashlib.scrypt`, rangés en constantes nommées plutôt qu'en
 #: dur dans l'appel. Ce sont les valeurs de l'exemple de la documentation de
 #: la bibliothèque standard — un coût mémoire dominant (`n`), qui rend une
-#: attaque GPU ou ASIC chère. Ce projet n'est « pas une banque » (le
-#: mainteneur) : ces valeurs, pas les plus hautes recommandées pour un
-#: service bancaire, restent largement au-dessus de ce qu'un mot de passe de
+#: attaque GPU ou ASIC chère. Ce projet n'est pas une banque : ces valeurs, pas
+#: les plus hautes recommandées pour un service bancaire, restent largement
+#: au-dessus de ce qu'un mot de passe de
 #: cycliste entre amis mérite.
 SCRYPT_N = 2**14
 SCRYPT_R = 8
@@ -149,7 +144,7 @@ SEL_OCTETS = 16
 #: Combien de temps une session reste valable après sa création. Pas de
 #: renouvellement glissant (voir la note de `0002_sessions.sql`) : l'échéance
 #: est posée une fois, à l'ouverture, et l'usage ne la repousse pas. Trente
-#: jours — choix du mainteneur faute de mieux tranché : ourouler sert un
+#: jours : ourouler sert un
 #: cycliste et quelques proches sur leur propre navigateur, pas un guichet
 #: public, et il n'y a pas encore de récupération de secret pour rattraper
 #: une session perdue trop tôt.
@@ -161,7 +156,7 @@ OCTETS_JETON_SESSION = 32
 
 
 class ErreurCompte(ErreurUtilisateur):
-    """Ce que le mainteneur doit lire quand une invitation ou une activation échoue."""
+    """Ce que l'exploitant doit lire quand une invitation ou une activation échoue."""
 
 
 class ErreurCompteExistant(ErreurCompte):
@@ -173,7 +168,7 @@ class ErreurCompteExistant(ErreurCompte):
     en cours, ou lui en pose une neuve si la sienne a expiré.
 
     **La limite, écrite avant qu'elle morde.** Aujourd'hui, la seule façon
-    d'atteindre cette erreur est que **le mainteneur** invite quelqu'un
+    d'atteindre cette erreur est que **l'exploitant** invite quelqu'un
     depuis sa propre ligne de commande. Le jour où ce chemin devient une
     **réponse HTTP** ouverte à d'autres que lui, cette erreur devient un
     oracle — « est-ce que cette adresse a un compte chez vous ? », posée par
@@ -201,8 +196,8 @@ class Compte:
     """L'identité et l'accès : un identifiant opaque, une adresse, l'état, une date.
 
     Le `repr` **masque l'adresse** : un `repr` finit dans un journal, dans un
-    `print` de mise au point, dans la sortie d'un échec de test — et une
-    relecture l'y a vu apparaître en clair. L'identifiant, lui, reste
+    `print` de mise au point, dans la sortie d'un échec de test, et l'adresse
+    y apparaîtrait en clair. L'identifiant, lui, reste
     visible : il est opaque, il ne désigne personne hors de la base.
     """
 
@@ -223,9 +218,9 @@ class Compte:
 class Invitation:
     """Une invitation telle qu'elle vit en base, jeton compris.
 
-    Le jeton est en clair en base — décision du mainteneur, voir la note de
-    module — mais un `repr` finit dans un journal aussi facilement qu'une
-    ligne SQL : il reste masqué ici comme partout ailleurs dans ce module.
+    Le jeton est en clair en base — voir la note de module — mais un `repr`
+    finit dans un journal aussi facilement qu'une ligne SQL : il reste masqué
+    ici comme partout ailleurs dans ce module.
     """
 
     jeton: str
@@ -297,7 +292,7 @@ class Acces:
     """Ce qu'une activation ouvre : un compte, et son propriétaire.
 
     Les deux voyagent ensemble et restent distincts : c'est toute la décision
-    de [[Q46]], et les fondre en un seul objet serait la défaire au premier
+    Q46, et les fondre en un seul objet serait la défaire au premier
     appel.
 
     Le `repr` reste celui de la dataclass : il n'a pas de champ sensible à
@@ -453,7 +448,7 @@ class DepotComptes:
     ) -> InvitationEmise:
         """Invite une adresse — ou relance l'invitation en cours, ou refuse.
 
-        **Une seule commande, qui lit l'état** ([[Q59]], close le 18/09/2026) :
+        **Une seule commande, qui lit l'état** (décision Q59) :
 
         - l'adresse n'a pas encore de compte → un compte **inactif** est
           créé, une invitation neuve l'accompagne ;
@@ -528,8 +523,7 @@ class DepotComptes:
         jeton = secrets.token_urlsafe(OCTETS_JETON)
         with self.cx.transaction():
             self.cx.execute(
-                "DELETE FROM invitations "
-                "WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
+                "DELETE FROM invitations WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
                 (identifiant_compte, maintenant),
             )
             ligne = self.cx.execute(
@@ -548,17 +542,14 @@ class DepotComptes:
             ).fetchone()
         if en_cours is None:  # pragma: no cover - la ligne a disparu entre-temps
             raise ErreurCompte(
-                f"impossible de poser une invitation pour le compte "
-                f"{identifiant_compte!r} — réessayer"
+                f"impossible de poser une invitation pour le compte {identifiant_compte!r} — réessayer"
             )
         invitation = _invitation(en_cours)
         return InvitationEmise(invitation, jeton=invitation.jeton, deja_en_cours=True)
 
     # -- activer --------------------------------------------------------------
 
-    def activer(
-        self, jeton: str, mot_de_passe: str, *, maintenant: datetime | None = None
-    ) -> Acces:
+    def activer(self, jeton: str, mot_de_passe: str, *, maintenant: datetime | None = None) -> Acces:
         """Pose le mot de passe, active le compte, consomme l'invitation — atomique.
 
         **Une seule transaction pour les trois.** L'invitation se consomme
@@ -576,7 +567,7 @@ class DepotComptes:
         Le jeton n'apparaît dans aucun message d'erreur : ce qui est refusé
         est nommé (inconnu, expiré, déjà utilisé), pas montré.
 
-        **Le compte visé doit être inactif** (lot L9.6, [[B2]] de la relecture) :
+        **Le compte visé doit être inactif** :
         `AND compte IN (SELECT id FROM comptes WHERE NOT actif)` — sans ce filtre, un
         jeton de *réinitialisation* (`reinitialiser`, qui vise un compte déjà actif)
         présenté ici se consommait quand même : le mot de passe changeait, mais
@@ -612,15 +603,13 @@ class DepotComptes:
         if compte is None:  # pragma: no cover - la clé étrangère l'interdit
             raise ErreurCompte("invitation rattachée à un compte disparu")
         return Acces(
-            compte=Compte(
-                identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]
-            ),
+            compte=Compte(identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]),
             proprietaire=proprietaire,
         )
 
     # -- réinitialiser : un nouveau mot de passe pour un compte déjà actif ----
     #
-    # Lot L9.6. Le trou que `inviter` laisse volontairement ouvert : un
+    # Le trou que `inviter` laisse volontairement ouvert : un
     # compte **actif** qui a perdu son mot de passe n'a aucun moyen d'en
     # poser un autre. Plutôt qu'un second système de jetons, `reinitialiser`
     # pose une invitation sur la **même** table `invitations`, avec la même
@@ -632,13 +621,12 @@ class DepotComptes:
     # `changer_mot_de_passe_par_jeton` ne touche ni l'un ni l'autre (déjà en
     # place) et referme toutes les sessions ouvertes du compte à la place.
     #
-    # **Aucune route HTTP anonyme n'appelle `reinitialiser`** — décision du
-    # mainteneur, lot L9.6 : un « mot de passe oublié » en libre-service
+    # **Aucune route HTTP anonyme n'appelle `reinitialiser`** : un « mot de passe oublié » en libre-service
     # ouvrirait un relais de spam (poster une adresse au hasard fait partir
     # un courriel) et un oracle d'énumération (la réponse dirait si l'adresse
     # a un compte, comme `ErreurCompteExistant` le documente déjà pour
-    # `inviter`). Seul le mainteneur, en ligne de commande
-    # (`ourouler reinitialiser`), émet ce lien — voir `cli.py` et
+    # `inviter`). Seul l'exploitant, en ligne de commande
+    # (`ourouler reinitialiser`), émet ce lien — voir `cli/` et
     # `deploiement/api/README.md`.
 
     def reinitialiser(
@@ -686,12 +674,12 @@ class DepotComptes:
         gagnée par une seule des deux tentatives concurrentes), hache et pose le nouveau
         secret — mais, à la différence d'`activer`, ne touche ni `actif` (déjà vrai) ni
         `comptes_proprietaires` (déjà rempli depuis l'activation d'origine : reposer une
-        ligne recréerait la correspondance de [[Q46]] sur un identifiant neuf, ce qui
+        ligne recréerait la correspondance compte-propriétaire sur un identifiant neuf, ce qui
         casserait le rattachement aux données existantes).
 
         **Toutes les sessions ouvertes du compte sont fermées ici, à la consommation du
         jeton — pas avant.** Un lien émis mais pas encore utilisé ne doit déconnecter
-        personne (le mainteneur qui vient d'émettre un lien reste connecté) ; c'est la
+        personne (l'exploitant qui vient d'émettre un lien reste connecté) ; c'est la
         perte du mot de passe, actée par la pose du nouveau, qui rend caduque toute
         confiance dans les sessions déjà ouvertes — quelqu'un qui aurait volé l'ancien
         mot de passe et laissé une session active ne doit pas la garder après coup. Les
@@ -699,7 +687,7 @@ class DepotComptes:
         la **même transaction** qu'`activer` : un incident au milieu laisse tout en
         arrière, jeton compris.
 
-        **Le compte visé doit être actif** (lot L9.6, [[B2]] de la relecture) :
+        **Le compte visé doit être actif** :
         `AND compte IN (SELECT id FROM comptes WHERE actif)` — sans ce filtre, un
         jeton *d'invitation* (qui vise un compte encore inactif) présenté ici posait
         quand même un secret et ouvrait une session, sans jamais activer le compte ni
@@ -732,9 +720,7 @@ class DepotComptes:
         if compte is None:  # pragma: no cover - la clé étrangère l'interdit
             raise ErreurCompte("invitation de réinitialisation rattachée à un compte disparu")
         return Acces(
-            compte=Compte(
-                identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]
-            ),
+            compte=Compte(identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]),
             proprietaire=proprietaire,
         )
 
@@ -768,7 +754,7 @@ class DepotComptes:
     def compte_par_email(self, email: str) -> Compte | None:
         """Le compte pour cette adresse, actif ou non — ou `None` si l'adresse n'a pas de compte.
 
-        Sert `ourouler retirer` (lot L9.6) : trouver le compte visé avant d'en chercher
+        Sert `ourouler retirer` : trouver le compte visé avant d'en chercher
         le propriétaire (`proprietaire_du_compte`) et d'effacer ses données.
         """
         normalise = normaliser_email(email)
@@ -797,22 +783,6 @@ class DepotComptes:
             return None
         return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
 
-    # -- fermer toutes les sessions d'un compte --------------------------------
-
-    def fermer_sessions_du_compte(self, identifiant_compte: str) -> int:
-        """Révoque toutes les sessions ouvertes de ce compte — combien l'étaient.
-
-        Publique pour rester appelable seule (un futur « déconnecter tous mes appareils »,
-        par exemple) ; `changer_mot_de_passe_par_jeton` ne l'appelle pas directement — il
-        fait le même `DELETE` **dans sa propre transaction**, pour que fermeture des
-        sessions et pose du nouveau secret réussissent ou échouent ensemble.
-        """
-        with self.cx.transaction():
-            lignes = self.cx.execute(
-                "DELETE FROM sessions WHERE compte = %s RETURNING jeton", (identifiant_compte,)
-            ).fetchall()
-        return len(lignes)
-
     # -- ce qui est commun aux deux --------------------------------------------
 
     def proprietaire_du_compte(self, identifiant_compte: str) -> Proprietaire:
@@ -836,8 +806,8 @@ class DepotComptes:
     def supprimer_compte_du_proprietaire(self, proprietaire: Proprietaire) -> bool:
         """Efface le compte lié à ce propriétaire — vrai si un compte a été effacé.
 
-        C'est la fermeture de [[Q46]] côté effacement RGPD (`api/vie_privee.py`,
-        lot qui branche `comptes_proprietaires`) : « c'est **elle** qu'on
+        C'est l'autre face de la décision Q46, côté effacement RGPD
+        (`api/vie_privee.py`) : « c'est **elle** qu'on
         efface à la suppression d'un compte » (doctrine §10.2). Un seul
         `DELETE`, sur une sous-requête qui retrouve le compte via
         `comptes_proprietaires` (colonne `proprietaire`) : la cascade du
@@ -867,9 +837,9 @@ class DepotComptes:
         """Les invitations non consommées et non expirées, adresse et jeton compris.
 
         C'est ce qui rend le jeton **retrouvable** sans fouiller un historique de
-        terminal ou de messagerie — demande nommée du mainteneur pour `ourouler
-        invitations` (lot L7.2-B). Triée par `cree_le` : les plus anciennes, donc les
-        plus urgentes à relancer ou à relire, en tête.
+        terminal ou de messagerie : c'est ce que sert `ourouler invitations`.
+        Triée par `cree_le` : les plus anciennes, donc les plus urgentes à
+        relancer ou à relire, en tête.
         """
         maintenant = _instant(maintenant)
         lignes = self.cx.execute(
@@ -884,6 +854,7 @@ class DepotComptes:
             InvitationAvecAdresse(jeton=jeton, email=email, cree_le=cree_le, expire_le=expire_le)
             for jeton, email, cree_le, expire_le in lignes
         ]
+
     # -- l'état d'un jeton, sans le consommer ------------------------------------
 
     def invitation_ouverte(
@@ -891,7 +862,7 @@ class DepotComptes:
     ) -> InvitationOuverte | None:
         """L'adresse et l'échéance d'un jeton encore valable — ou `None`.
 
-        **Indistinguable par construction** (lot L7.2-C) : un jeton inconnu,
+        **Indistinguable par construction** : un jeton inconnu,
         un jeton expiré et un jeton déjà consommé rendent tous les trois
         `None`, par la même requête — une seule ligne ne remonte que si les
         trois conditions (`jeton = …`, `consomme_le IS NULL`,
@@ -916,8 +887,7 @@ class DepotComptes:
         """Le compte si l'adresse a un compte actif et que le mot de passe convient.
 
         **Une adresse sans compte actif et un mot de passe faux rendent la
-        même chose, dans le même temps** — choix du mainteneur (lot L7.2-C) :
-        une différence de comportement entre « cette adresse n'a pas de
+        même chose, dans le même temps** : une différence de comportement entre « cette adresse n'a pas de
         compte » et « ce mot de passe est faux » est un oracle offert à qui
         cherche des adresses valides. Le hachage tourne même quand l'adresse
         n'existe pas ou que le compte n'est pas actif, comparé au bouche-trou
@@ -957,8 +927,7 @@ class DepotComptes:
         jeton = secrets.token_urlsafe(OCTETS_JETON_SESSION)
         with self.cx.transaction():
             self.cx.execute(
-                "INSERT INTO sessions (jeton, compte, cree_le, expire_le) "
-                "VALUES (%s, %s, %s, %s)",
+                "INSERT INTO sessions (jeton, compte, cree_le, expire_le) VALUES (%s, %s, %s, %s)",
                 (jeton, compte, maintenant, maintenant + duree),
             )
         return jeton
@@ -1004,7 +973,7 @@ class DepotComptes:
 
         `attendu_actif` distingue un jeton d'invitation (`False` : vise un compte
         encore inactif) d'un jeton de réinitialisation (`True` : vise un compte déjà
-        actif) — lot L9.6, [[B2]] de la relecture. Sans cette distinction, un jeton
+        actif). Sans cette distinction, un jeton
         présenté au mauvais flux (invitation à la réinitialisation, ou l'inverse)
         retombait sur le message « a expiré », qui n'était pas la vraie raison du
         refus : le jeton n'a ni expiré ni servi, il ne vaut simplement pas pour ce

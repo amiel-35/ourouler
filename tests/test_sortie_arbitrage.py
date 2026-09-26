@@ -26,16 +26,16 @@ import json
 from dataclasses import replace
 
 import pytest
-from test_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
+from outils_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
 from test_sortie_contraste import droite, profil, selection_de
 
-from ourouler.rendu.sortie import rendre_json
-from ourouler.sortie import contraste
-from ourouler.sortie.commande import (
+from ourouler.rendu.sortie_json import rendre_json
+from ourouler.services.sortie import (
     ETAPE_DISTANCE,
     ETAPE_PLACEMENT,
     Ecartee,
 )
+from ourouler.sortie import contraste
 from ourouler.sortie.contraste import (
     SORT_PLACE_PRISE,
     SORT_RETENUE,
@@ -70,9 +70,7 @@ def test_une_candidate_ecartee_dit_le_pourcentage_et_contre_laquelle():
     """
     commune = droite(50_000.0, lat=0.0)
     chevauchante = droite(50_000.0, lat=0.0, depart_m=25_000.0)
-    selection, _ = selection_de(
-        [profil(), profil()], traces=[commune, chevauchante]
-    )
+    selection, _ = selection_de([profil(), profil()], traces=[commune, chevauchante])
     assert sorts(selection) == [SORT_RETENUE, SORT_TROP_PROCHE]
     perdante = selection.verdicts[1]
     assert perdante.contre_numero == 1
@@ -202,8 +200,7 @@ def test_le_json_publie_le_sort_de_chaque_candidate(tmp_path, monkeypatch, capsy
     assert [c["numero"] for c in arbitrage["candidates"]] == [1, 2, 3]
     assert all(c["motif"] for c in arbitrage["candidates"])
     assert all(
-        c["sort"] in {SORT_RETENUE, SORT_TROP_PROCHE, SORT_PLACE_PRISE}
-        for c in arbitrage["candidates"]
+        c["sort"] in {SORT_RETENUE, SORT_TROP_PROCHE, SORT_PLACE_PRISE} for c in arbitrage["candidates"]
     )
     # Toutes les paires, pas seulement celles des retenues.
     assert {(p["a"], p["b"]) for p in arbitrage["paires"]} == {(1, 2), (1, 3), (2, 3)}

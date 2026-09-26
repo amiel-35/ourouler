@@ -10,6 +10,7 @@ from datetime import date, datetime
 
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.rendu.carte_dessin import (
     _FORME_FLECHE_VENT,
@@ -23,30 +24,29 @@ from ourouler.rendu.carte_dessin import (
     _blocs,
     _charge_json,
     _cumuls,
-    _fr,
     _liaisons,
     _profil_svg,
     _section_vent,
     _vent_fleches,
 )
-from ourouler.seance.placement import Placement
+from ourouler.seance.placement_resultat import Placement
 
-# --- la page du jour (lot L5.4) -------------------------------------------------
+# --- la page du jour -----------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class PropositionCarte:
     """Une proposition contrastée telle que la page du jour la dessine.
 
-    Construit par `sortie.commande` à partir d'une `contraste.Retenue` : ce
+    Construit par `services.sortie` à partir d'une `contraste.Retenue` : ce
     module ne sait toujours ni trier ni contraster, seulement dessiner ce
     qu'on lui donne. `distinction` et `chiffres` sont déjà en langage de
     cycliste (`sortie.contraste.phrase`, `rendu.sortie._details_proposition`)
     — recopiés tels quels, jamais reformulés ici. `gpx_texte` est le GPX du
     **parcours placé** (demi-tours compris, comme `_ecrire_gpx`) : ce module
     ne l'écrit pas sur disque, il l'embarque dans la page pour un
-    téléchargement `blob:` côté navigateur (§4.2 du contrat — « le fichier
-    suit le choix du cycliste, pas le classement »).
+    téléchargement `blob:` côté navigateur : le fichier suit le choix du
+    cycliste, pas le classement.
     """
 
     numero: int
@@ -76,14 +76,14 @@ def construire_page_jour(
     La sélectionnée est **pleine de bout en bout** : ses blocs en couleurs
     vives et ses flèches de vent comme avant, ses liaisons (échauffement,
     récupérations, retour au calme) en couleur franche plutôt qu'en
-    pointillé, et sa boucle non parcourue en fond, sous ses blocs — Q20 a et
-    c, la correction du 16/09/2026 : sans ce fond, la portion au-delà d'un
-    demi-tour n'était peinte par personne, et une séance sans bloc (le cas
-    courant du mainteneur) n'avait que des liaisons pâles et pointillées.
+    pointillé, et sa boucle non parcourue en fond, sous ses blocs : sans ce fond,
+    la portion au-delà d'un demi-tour ne serait peinte par personne, et une
+    séance sans bloc (un cas courant) n'aurait que des liaisons pâles et
+    pointillées.
     Les autres propositions passent en **pointillé gris**
     (`COULEUR_AUTRE_PROPOSITION`) — le pointillé ne veut plus dire « ce
-    n'est pas un bloc » mais « ce n'est pas la sélection », et rien d'autre
-    (Q20 b) : on ne demande jamais à l'œil de suivre plusieurs choses à la
+    n'est pas un bloc » mais « ce n'est pas la sélection », et rien d'autre :
+    on ne demande jamais à l'œil de suivre plusieurs choses à la
     fois. Sous la carte, une miniature par proposition sert de sélecteur :
     cliquer en allume une, sans jamais en cacher une autre (pas d'onglet).
 
@@ -94,7 +94,7 @@ def construire_page_jour(
     (aucune comparaison n'a de sens, la page le montre sans sélecteur inutile
     à comparer).
 
-    `motif_equivalence` est la phrase de Q45 : trois tracés différents dont
+    `motif_equivalence` est la phrase « elles se valent » : trois tracés différents dont
     aucun ne se détache sur un axe mesuré. Elle s'affiche au même endroit que
     l'autre motif, et les deux peuvent tenir ensemble.
     """
@@ -173,7 +173,7 @@ def _panneau_proposition(prop: PropositionCarte, blocs: Sequence[dict], avec_ven
     propositions dans un même paragraphe.
     """
     puces = "".join(
-        f'<li><i style="background:{b["couleur"]}"></i>bloc {b["n"]} — note {_fr(b["note"], 2)}</li>'
+        f'<li><i style="background:{b["couleur"]}"></i>bloc {b["n"]} — note {nombre_fr(b["note"], 2)}</li>'
         for b in blocs
     )
     lignes_notes = "".join(f'<p class="note">{html.escape(str(n))}</p>' for n in prop.notes)
@@ -479,9 +479,8 @@ def _page_jour(
     n = len(propositions)
     premiere = propositions[0]
     accord = "s" if n != 1 else ""
-    sous_titre = (
-        f"{n} proposition{accord} contrastée{accord}"
-        + (" — cliquez une miniature pour l'afficher sur la carte" if n > 1 else "")
+    sous_titre = f"{n} proposition{accord} contrastée{accord}" + (
+        " — cliquez une miniature pour l'afficher sur la carte" if n > 1 else ""
     )
     items = [_item_selecteur(prop, actif=prop is premiere, seule=n == 1) for prop in propositions]
     panneaux_html = "".join(
@@ -527,8 +526,8 @@ const D = {charge};
 def _item_selecteur(prop: PropositionCarte, *, actif: bool, seule: bool) -> str:
     """La miniature d'une proposition dans le sélecteur de la page du jour."""
     recommandee = ' <span class="badge badge-reco">recommandée</span>' if actif else ""
-    return f"""<div class="carte-item{' actif' if actif else ''}" role="button" tabindex="0"
-     aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
+    return f"""<div class="carte-item{" actif" if actif else ""}" role="button" tabindex="0"
+     aria-pressed="{"true" if actif else "false"}" data-prop="{prop.numero}">
 <div class="mini-carte" aria-hidden="true"></div>
 <p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
 {html.escape(prop.distinction or ("la seule candidate" if seule else ""))}</p>

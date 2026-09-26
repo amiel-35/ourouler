@@ -5,7 +5,7 @@ Deux façons de la construire :
 - `creer_application(...)` — tout est injecté, et **tout est facultatif** :
   une `Config` déjà construite (ou un fichier, ou rien), un dossier de
   données, les clients externes. C'est ce que font les tests, et c'est ce qui
-  garantit qu'aucun d'eux ne touche le réseau ni le disque du mainteneur.
+  garantit qu'aucun d'eux ne touche le réseau ni le disque de la machine.
 - `application()` — la fabrique de service, qui lit l'environnement par
   `exploitation.py` et n'injecte rien : chaque commande fabrique alors ses
   vrais clients, exactement comme depuis la ligne de commande.
@@ -74,15 +74,15 @@ from ourouler.noyau.erreurs import ErreurConfig
 NOM_DOSSIER_DONNEES = "api"
 
 #: Les deux routes dont le corps peut être gros, et leur plafond —
-#: `LimiteTailleCorps` (relecture du 25/09/2026, suite) refuse **avant**
+#: `LimiteTailleCorps` refuse **avant**
 #: que Starlette n'écrive quoi que ce soit sur disque, même si `Content-Length`
 #: ment ou manque (`Transfer-Encoding: chunked`).
 BORNES_CORPS = {
     "/api/v1/activites/import": TAILLE_MAX_REQUETE,
     "/api/v1/seances/fichier": TAILLE_MAX_SEANCE,
-    # L9.8 : sans cette ligne, un envoi en `chunked` (ou au `Content-Length`
-    # menteur) passait la garde de la route et s'écrivait en entier sur disque
-    # puis en mémoire avant d'être compté (relecture du 25/09/2026).
+    # Sans cette ligne, un envoi en `chunked` (ou au `Content-Length`
+    # menteur) passerait la garde de la route et s'écrirait en entier sur
+    # disque puis en mémoire avant d'être compté.
     "/api/v1/parcours/fichier": TAILLE_MAX_PARCOURS,
 }
 
@@ -116,17 +116,17 @@ class _StaticFilesAvecCache(StaticFiles):
         return reponse
 
 
-#: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
-#: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
-#: schéma publié. Large exprès sur `/api/` plutôt que le seul `/api/v1/` du
+#: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` : toute route
+#: de l'API, la sonde de santé, et les deux chemins du schéma publié. Large
+#: exprès sur `/api/` plutôt que le seul `/api/v1/` du
 #: routeur actuel — un `/api/v2` futur doit rester du JSON sans qu'on ait à y
 #: repenser.
 #:
 #: `"/api"` y figure **en plus** de `"/api/"`, et ce n'est pas un doublon :
-#: `"/api".startswith("/api/")` est faux, donc le chemin `/api` tout court
-#: passait la garde et rendait `index.html` en 200. Une base d'URL mal
-#: construite ou une sonde générique recevait du HTML là où elle attendait une
-#: erreur (relecture du 19/09/2026).
+#: `"/api".startswith("/api/")` est faux, donc sans lui le chemin `/api` tout
+#: court passerait la garde et rendrait `index.html` en 200 : une base d'URL
+#: mal construite ou une sonde générique recevrait du HTML là où elle attend
+#: une erreur.
 PREFIXES_HORS_FRONT = ("/api", "/sante", "/openapi.json", "/docs", "/redoc")
 
 
@@ -156,7 +156,7 @@ L'API d'ourouler. Elle expose ce que la ligne de commande rend déjà en JSON
 
 Les routes qui calculent rendent `{{donnees, avertissements, duree_ms,
 budget}}` ; les pannes rendent `{{erreur: {{code, message, service, details}}}}`.
-Le contrat complet est dans `docs/ux/api_contrat.md`.
+Le contrat complet est dans `docs/journal/ux/api_contrat.md`.
 
 ## Les états d'échec, et le code qui les nomme
 
@@ -188,13 +188,13 @@ def _ressemble_a_un_fichier(chemin: str) -> bool:
     un fichier. Pas d'extension (`/entrer`, `/connexion`, `/reglages`) : c'est
     une page, que le front dessine lui-même une fois `index.html` chargé.
 
-    Sans cette distinction, un fichier absent recevait `index.html` en 200
-    (relecture du 19/09/2026). Le cas n'est pas théorique : après un
-    déploiement, `vite` change les empreintes des fichiers, et un onglet resté
-    ouvert sur l'ancien `index.html` redemande un `assets/index-<ancienne
-    empreinte>.js` qui n'existe plus. Il recevait alors du HTML étiqueté
-    JavaScript — une erreur de syntaxe muette dans la console, au lieu d'un
-    404 que le navigateur sait nommer.
+    Sans cette distinction, un fichier absent recevrait `index.html` en 200.
+    Le cas n'est pas théorique : après un déploiement, `vite` change les
+    empreintes des fichiers, et un onglet resté ouvert sur l'ancien
+    `index.html` redemande un `assets/index-<ancienne empreinte>.js` qui
+    n'existe plus. Il recevrait alors du HTML étiqueté JavaScript — une erreur
+    de syntaxe muette dans la console, au lieu d'un 404 que le navigateur sait
+    nommer.
     """
     return "." in chemin.rsplit("/", 1)[-1]
 
@@ -226,7 +226,7 @@ def creer_application(
 
     **Tout est facultatif, et c'est le point.** `creer_application()` sans
     argument construit une application complète, qui publie son contrat et
-    n'ouvre ni fichier ni socket. C'est ce que la règle absolue 3 exige : un
+    n'ouvre ni fichier ni socket. C'est ce qu'exige « pas de réseau dans les tests » : un
     test qui devrait d'abord écrire un TOML pour obtenir une application
     n'est pas un test sans disque, et un test qui devrait lancer le serveur
     pour lire le schéma n'est pas un test sans réseau.
@@ -253,14 +253,14 @@ def creer_application(
     Le défaut est `SessionPersonnelle()` : cette fabrique-ci sert **un**
     cycliste — c'est ce que font `ourouler api` et tous les tests, qui
     construisent une application entière pour un seul profil. Ce n'est pas le
-    « défaut implicite d'un service exposé » que le lot L7.A supprime : un
+    « défaut implicite d'un service exposé », qui n'existe pas : un
     service, lui, passe par `application()`, qui lit `OUROULER_MODE` et
     **refuse** en son absence. La distinction est la seule qui compte, et
     elle est là — le défaut d'une fabrique qu'on appelle en nommant ses
     arguments n'est pas le défaut d'un processus qu'on expose.
 
     **`dossier_front` sert le front construit (`npm run build`) depuis la
-    même origine que l'API** (lot L7.E). Facultatif : sans lui, l'application
+    même origine que l'API**. Facultatif : sans lui, l'application
     ne sert que `/api/v1` — c'est ce que font tous les tests, et ce que fait
     `ourouler api` avant que quelqu'un ait construit `front/dist`. Donné, il
     monte ce dossier à la racine (`/`), **après** les routes de l'API : un
@@ -270,20 +270,20 @@ def creer_application(
     développement par le proxy Vite, en production par ce montage.
 
     **`quotas` et `quotas_meteo` portent les deux plafonds journaliers par
-    compte** (L9.3, `api/quotas.py`) : générations (`POST /sorties`,
+    compte** (`api/quotas.py`) : générations (`POST /sorties`,
     `POST /boucles`) pour l'un, consultations météo (`GET /meteo`) pour
     l'autre — deux postes de coût différents, deux compteurs. Sans eux,
     `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
     n'exercent pas le quota. Sans objet en mode personnel : voir
-    `routes.commun._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
+    `routes.commun._verifier_quota`. `quotas_calibration` est le troisième
     compteur, une calibration par jour et par compte par défaut
     (`quotas.CALIBRATIONS_PAR_JOUR_DEFAUT`).
 
-    **`client_archive`** (L9.4) : l'archive météo Open-Meteo que la
+    **`client_archive`** : l'archive météo Open-Meteo que la
     calibration interroge, un jour de sortie à la fois — un `httpx.Client`
     bouchonné, ou un client déjà construit, comme les cinq autres.
 
-    **`chemin_api`** (lot 11) : par où les routes de calcul appellent le
+    **`chemin_api`** : par où les routes de calcul appellent le
     cœur — `ancien`, `nouveau` ou `double` (`api/double_chemin.py`). Absent,
     `double_chemin.CHEMIN_DEFAUT`. Le service le lit dans
     `OUROULER_API_CHEMIN`, par `application()`.
@@ -296,8 +296,11 @@ def creer_application(
             f"creer_application : chemin_api {chemin_api!r} inconnu — attendu "
             + ", ".join(double_chemin.CHEMINS)
         )
-    donnes = [nom for nom, v in (("socle", socle), ("config", config),
-                                 ("chemin_config", chemin_config)) if v is not None]
+    donnes = [
+        nom
+        for nom, v in (("socle", socle), ("config", config), ("chemin_config", chemin_config))
+        if v is not None
+    ]
     if len(donnes) > 1:
         raise ValueError(
             f"creer_application : {' et '.join(donnes)} donnés ensemble — le profil vient "
@@ -313,7 +316,7 @@ def creer_application(
     if dossier_donnees is None:
         # Une application construite sans dossier garde quand même ses
         # fichiers quelque part : un dossier temporaire, qui disparaît avec la
-        # machine et n'a rien à voir avec le cache du mainteneur.
+        # machine et n'a rien à voir avec le cache de la ligne de commande.
         dossier_donnees = Path(tempfile.mkdtemp(prefix="ourouler-api-"))
     app = FastAPI(
         title="ourouler",
@@ -324,10 +327,11 @@ def creer_application(
         profils=DepotProfils(socle, dossier_donnees),
         fichiers=DepotFichiers(dossier_donnees),
         # Aucun dossier : les GPX des propositions ne touchent pas le disque
-        # (Q40 g). Ils vivent dans ce processus, bornés, jusqu'au choix.
+        # (décision Q40 g, `docs/journal/questions/questions_mainteneur.md`).
+        # Ils vivent dans ce processus, bornés, jusqu'au choix.
         generations=DepotGenerations(),
         journal=JournalServices(dossier_donnees),
-        # Un réglage serveur (Q35), pas un profil : `socle.dossier_cache()`
+        # Un réglage serveur, pas un profil : `socle.dossier_cache()`
         # ne demande la surcharge de personne (`api/depots.py`), à la
         # différence de `socle.config(...)` — voir `Contexte.dossier_cache`.
         dossier_cache=socle.dossier_cache(),
@@ -364,7 +368,7 @@ def creer_application(
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:
-        """La sonde de santé (lot L7.E) : jamais de session, jamais de donnée.
+        """La sonde de santé : jamais de session, jamais de donnée.
 
         Hors `/api/v1` et hors du schéma publié, à dessein : toute route sous
         `/api/v1` sert par construction les données d'un cycliste
@@ -430,9 +434,8 @@ def creer_application(
         client, et un front qui l'afficherait tel quel rendrait une chaîne
         choisie par qui a formé la requête.
 
-        **Sauf pour un chemin du front** (lot L7.2-D, panne constatée en vrai
-        le 19/09/2026 : `/entrer` rendait ce 404 JSON, et le lien
-        d'invitation n'ouvrait jamais l'écran d'activation). `StaticFiles`
+        **Sauf pour un chemin du front** : sinon `/entrer` rendrait ce 404
+        JSON, et le lien d'invitation n'ouvrirait jamais l'écran d'activation. `StaticFiles`
         lève ce même 404 pour tout chemin où elle ne trouve pas de fichier —
         c'est aussi ce qui arrive à `/entrer` ou `/connexion`, que le front
         gère lui-même une fois `index.html` chargé (`front/src/App.tsx`, pas
@@ -468,9 +471,7 @@ def creer_application(
             erreur.status_code,
             ("requete_invalide", "la requête a été refusée par le serveur"),
         )
-        return _reponse_erreur_utf8(
-            ErreurApi(code=code, message=message, statut=erreur.status_code or 400)
-        )
+        return _reponse_erreur_utf8(ErreurApi(code=code, message=message, statut=erreur.status_code or 400))
 
     @app.exception_handler(Exception)
     async def _erreur_inattendue(requete: Request, erreur: Exception) -> JSONResponse:
@@ -509,7 +510,7 @@ def _publier_les_modeles_de_reponse(app: FastAPI) -> None:
             app.openapi_schema = publier_modeles(produire())
         return app.openapi_schema
 
-    app.openapi = openapi  # type: ignore[method-assign]
+    app.openapi = openapi
 
 
 def application() -> FastAPI:
@@ -517,18 +518,19 @@ def application() -> FastAPI:
 
     C'est **ici**, et nulle part ailleurs dans la fabrique, que le socle
     devient celui d'un fichier et hérite des variables de la machine — par
-    `exploitation.py`, la seule porte du paquet (règle absolue 2). Le TOML du
-    serveur est le profil du mainteneur : le socle le dit, et `DepotProfils`
+    `exploitation.py`, la seule porte du paquet (le cœur ne lit ni
+    configuration ni environnement). En mode personnel, le TOML du serveur est
+    le profil de son cycliste : le socle le dit, et `DepotProfils`
     refuse de le servir à un autre propriétaire.
 
     **Et c'est ici que le produit se décide** : `OUROULER_MODE=personnel` sert
     un cycliste, tout le reste — y compris l'absence de variable — sert
     `SessionHebergee`, qui n'ouvre aucune session et fait répondre 401 à
     chaque route de données. Un processus exposé sans qu'on ait dit qui il
-    sert ne sert personne ; c'est le sens du lot L7.A.
+    sert ne sert personne.
 
-    **`dossier_front` vient de `OUROULER_FRONT_DIST`** (lot L7.E), absente par
-    défaut : `ourouler api` sur la machine du mainteneur n'a pas construit
+    **`dossier_front` vient de `OUROULER_FRONT_DIST`**, absente par
+    défaut : `ourouler api` sur un poste personnel n'a pas construit
     `front/dist` et n'a pas à le faire pour servir l'API. C'est le paquetage
     (`deploiement/api/Dockerfile`) qui pose cette variable, vers le dossier où
     il a copié `npm run build`.
@@ -539,24 +541,23 @@ def application() -> FastAPI:
 
     session = exploitation.fournisseur_session()
     # Les copies de dépôt qu'un import interrompu par l'arrêt du processus a
-    # laissées (contre-lecture Fable du 25/09/2026) — au démarrage du service
+    # laissées — au démarrage du service
     # seulement, jamais dans `creer_application`, que les tests appellent à
     # côté d'imports qui tournent encore.
     imports_fond.balayer_temporaires_orphelins(Path(tempfile.gettempdir()))
 
     # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
     #
-    # En personnel, c'est le profil du mainteneur : le socle le porte, et
+    # En personnel, c'est le profil de son cycliste : le socle le porte, et
     # `DepotProfils` refuse de le servir à un autre. En hébergé, il n'est le
     # profil de personne — c'est la **base commune** sur laquelle chacun pose
-    # la sienne. Sans ça, un compte tout juste activé se heurtait à « le socle
+    # la sienne. Sans ça, un compte tout juste activé se heurterait à « le socle
     # de ce serveur est le profil de "local" et ne se partage pas » : il
-    # entrait, et ne voyait rien (constaté en vrai le 19/09/2026, sur la
-    # première activation).
+    # entrerait, et ne verrait rien.
     #
-    # C'est la réponse à [[Q35]] (« trois tiers, et le vide n'existe pas »,
-    # tranché le 17/09/2026) qui dit désormais quelles sections sont communes
-    # et lesquelles appartiennent au cycliste — et `SocleTOML.config`
+    # Le découpage en trois tiers (décision Q35,
+    # `docs/journal/questions/questions_mainteneur.md`) dit quelles sections
+    # sont communes et lesquelles appartiennent au cycliste — et `SocleTOML.config`
     # (`api/depots.py`) applique ce découpage à chaque construction de
     # `Config` : le tiers 3 (perso pur) n'est jamais hérité du socle commun.
     partage = session.mode != MODE_PERSONNEL
@@ -570,7 +571,7 @@ def application() -> FastAPI:
         # sections perso pur (`depart`, `cycliste`), `socle.config({})`
         # n'a plus de raison de réussir à construire une `Config` — le
         # tiers 3 y manque toujours. Le dossier de cache, lui, ne dépend
-        # d'aucune section perso pur (Q35 : `cache` est un réglage
+        # d'aucune section perso pur (`cache` est un réglage
         # serveur) ; il se lit donc dans le TOML brut, sans passer par une
         # `Config` complète.
         brut = exploitation.lire_toml(chemin)
@@ -579,11 +580,11 @@ def application() -> FastAPI:
     else:
         dossier_cache = socle.config({}).cache.dossier
 
-    # **Cache météo mutualisé et quotas par compte (L9.3), en mode hébergé
+    # **Cache météo mutualisé et quotas par compte, en mode hébergé
     # seulement.** En personnel, un seul cycliste appelle depuis sa propre
     # adresse (doctrine §10.1) : ni l'un ni l'autre n'a d'objet, et
     # `client_meteo=None` laisse le cœur fabriquer son `ClientOpenMeteo`
-    # ordinaire, exactement comme avant ce lot.
+    # ordinaire.
     client_meteo = None
     quotas = Quotas()
     quotas_meteo = Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo")
@@ -616,9 +617,9 @@ def _refuser_une_base_partagee(brut: dict, variables: Mapping[str, str]) -> None
     Le garde-fou qui accompagne la décision du dessus. Servir une base commune
     veut dire que **tout le monde** la reçoit : une clé Intervals ou un point
     de départ qui y traînent sont remis à chaque personne invitée, ce qu'aucun
-    message d'erreur ne rattrape après coup — c'était la fuite mesurée en
-    relecture le 21/09/2026, pour `depart`/`cycliste`/`velos`, alors que ce
-    contrôle-ci n'existait que pour `[intervals]`.
+    message d'erreur ne rattrape après coup. Le contrôle couvre donc toutes les
+    sections perso pur (`depart`, `cycliste`, `velos`, `intervals`), pas la
+    seule clé Intervals.
 
     On refuse au démarrage plutôt qu'à la requête : un déploiement mal
     configuré doit échouer là où quelqu'un regarde, pas servir la moitié de
@@ -633,8 +634,8 @@ def _refuser_une_base_partagee(brut: dict, variables: Mapping[str, str]) -> None
     """
     depuis_toml = [section for section in SECTIONS_PERSO_PUR if brut.get(section)]
     # `historique_depuis` est un champ scalaire à la racine, pas une section
-    # (`CHAMPS_RACINE_MODIFIABLES`) — perso pur lui aussi (Q35), oublié une
-    # première fois dans `SocleTOML.config` (mesuré le 22/09/2026).
+    # (`CHAMPS_RACINE_MODIFIABLES`) — perso pur lui aussi, et facile à
+    # oublier puisqu'il n'est pas une section.
     depuis_racine = [champ for champ in CHAMPS_RACINE_MODIFIABLES if brut.get(champ)]
     depuis_env = [
         f"{PREFIXE_ENV}{suffixe}"

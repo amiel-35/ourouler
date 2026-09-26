@@ -1,4 +1,4 @@
-"""`ourouler retirer` : le câblage complet de `cli.py`, jusqu'au chemin RGPD partagé (lot L9.6).
+"""`ourouler retirer` : le câblage complet de `cli/`, jusqu'au chemin RGPD partagé (lot L9.6).
 
 Deux niveaux de preuve, comme le brief du lot le demande :
 
@@ -25,16 +25,13 @@ from pathlib import Path
 import httpx
 import pytest
 
+from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application
 from ourouler.api.base_de_donnees import ouvrir
 from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import DepotFichiers, SocleTOML
 from ourouler.api.exploitation import VARIABLE_CONFIG, VARIABLE_DATABASE_URL
+from ourouler.api.session import NOM_COOKIE, SessionParCookie
 from ourouler.cli import main
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application  # noqa: E402
-from ourouler.api.depots import DepotFichiers, SocleTOML  # noqa: E402
-from ourouler.api.session import NOM_COOKIE, SessionParCookie  # noqa: E402
 
 CONFIG_CYCLISTE = (
     '[depart]\nnom="Test"\nlatitude=48.0\nlongitude=2.0\n'
@@ -52,10 +49,10 @@ def _toml_partage(tmp_path: Path) -> Path:
     chemin = tmp_path / "service_partage.toml"
     chemin.write_text(
         "[depart]\n"
-        "nom = \"Départ d'essai\"\n"
+        'nom = "Départ d\'essai"\n'
         "latitude = 0.0009\nlongitude = 0.0004\n"
         "\n[cycliste]\nmasse_kg = 70.0\nftp_w = 200\n"
-        f"\n[cache]\ndossier = \"{tmp_path / 'cache'}\"\n",
+        f'\n[cache]\ndossier = "{tmp_path / "cache"}"\n',
         encoding="utf-8",
     )
     return chemin
@@ -93,7 +90,7 @@ def test_retirer_marche_avec_un_toml_de_commande_sans_depart_ni_cycliste(
     même constat que pour `inviter`/`reinitialiser` (25/09/2026)."""
     monkeypatch.setenv(VARIABLE_CONFIG, str(_toml_partage(tmp_path)))
     config_toml_hebergement = tmp_path / "hebergement.toml"
-    config_toml_hebergement.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+    config_toml_hebergement.write_text("[meteo]\ndirections=8\n", encoding="utf-8")
 
     code = main(
         [
@@ -163,9 +160,7 @@ def test_retirer_refuse_proprement_quand_le_dossier_du_serveur_est_introuvable(
     with ouvrir(url_base) as connexion:
         emise = DepotComptes(connexion).inviter("mauvaise-machine@exemple.invalid")
 
-    entree = _requete_http(
-        app, "POST", "/api/v1/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
-    )
+    entree = _requete_http(app, "POST", "/api/v1/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE})
     assert entree.status_code == 200, entree.text
     proprietaire_id = entree.json()["donnees"]["proprietaire"]
     jeton_session = entree.cookies.get(NOM_COOKIE)
@@ -251,16 +246,12 @@ def test_retirer_efface_bien_les_donnees_par_le_chemin_partage(
     # --- une vraie requête HTTP : invitation, activation, dépôt d'un fichier ---
 
     socle = SocleTOML(chemin_toml, proprietaire=None)
-    app = creer_application(
-        socle=socle, dossier_donnees=dossier_donnees, session=SessionParCookie(url_base)
-    )
+    app = creer_application(socle=socle, dossier_donnees=dossier_donnees, session=SessionParCookie(url_base))
 
     with ouvrir(url_base) as connexion:
         emise = DepotComptes(connexion).inviter(COURRIEL)
 
-    entree = _requete_http(
-        app, "POST", "/api/v1/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
-    )
+    entree = _requete_http(app, "POST", "/api/v1/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE})
     assert entree.status_code == 200, entree.text
     proprietaire_id = entree.json()["donnees"]["proprietaire"]
     jeton_session = entree.cookies.get(NOM_COOKIE)

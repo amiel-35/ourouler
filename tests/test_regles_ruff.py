@@ -1,10 +1,14 @@
-"""Vérifie les exceptions datées de `[tool.ruff.lint.per-file-ignores]`.
+"""Vérifie les exceptions de `[tool.ruff.lint.per-file-ignores]`.
 
-Lot 2 du plan de restructuration : les seuils de complexité et de taille
-(`C901`, `PLR0912`, `PLR0915`, `PLR0917`) sont désormais des règles ruff
-vérifiées. L'existant qui les dépasse est listé en exceptions datées dans
-`pyproject.toml`, chacune précédée d'un commentaire
-« exception datée : n fonction(s), à retirer au lot 12 (AAAA-MM-JJ) ».
+Les seuils de complexité et de taille (`C901`, `PLR0912`, `PLR0915`,
+`PLR0917`) sont des règles ruff vérifiées. Ce qui les dépasse est listé en
+exceptions dans `pyproject.toml`, chacune précédée d'un commentaire de l'une
+de ces deux formes :
+
+- « exception datée : n fonction(s), à retirer avant AAAA-MM-JJ » :
+  une dette à rembourser avant l'échéance ;
+- « exception permanente : <raison> » : assumée, pour une raison écrite
+  (un script de mesure hors produit, par exemple).
 
 Ce test :
 - relit `pyproject.toml` (aucun réseau) ;
@@ -12,7 +16,7 @@ Ce test :
   exceptés, avec les mêmes seuils que la configuration du dépôt ;
 - échoue si une exception ne sert plus (le fichier est redevenu conforme
   pour ce code : il faut retirer l'exception) ;
-- échoue si la date d'échéance du commentaire est dépassée.
+- échoue si la date d'échéance d'une exception datée est dépassée.
 """
 
 from __future__ import annotations
@@ -32,7 +36,13 @@ CODES_BORNES = ["C901", "PLR0912", "PLR0915", "PLR0917"]
 # Un commentaire d'exception, immédiatement suivi de la ligne
 # `"chemin" = ["CODE", ...]`.
 MOTIF_EXCEPTION = re.compile(
-    r"# exception datée : \d+ fonction\(s\), à retirer au lot 12 \((?P<date>\d{4}-\d{2}-\d{2})\)\n"
+    r"# exception datée : \d+ fonction\(s\), à retirer avant (?P<date>\d{4}-\d{2}-\d{2})\n"
+    r'"(?P<chemin>[^"]+)" = \[(?P<codes>[^\]]*)\]'
+)
+
+# Un commentaire d'exception permanente : une raison non vide, puis la ligne.
+MOTIF_PERMANENTE = re.compile(
+    r"# exception permanente : (?P<raison>\S[^\n]*)\n"
     r'"(?P<chemin>[^"]+)" = \[(?P<codes>[^\]]*)\]'
 )
 
@@ -51,14 +61,23 @@ def charger_exceptions_commentees() -> dict[str, str]:
     return dates_par_chemin
 
 
-def test_chaque_exception_a_un_commentaire_date() -> None:
+def charger_exceptions_permanentes() -> dict[str, str]:
+    """Associe chaque chemin excepté pour de bon à la raison écrite."""
+    texte = PYPROJECT.read_text(encoding="utf-8")
+    return {m.group("chemin"): m.group("raison") for m in MOTIF_PERMANENTE.finditer(texte)}
+
+
+def test_chaque_exception_a_un_commentaire_date_ou_une_raison() -> None:
     config = charger_config()
     per_file_ignores = config["tool"]["ruff"]["lint"]["per-file-ignores"]
-    dates_par_chemin = charger_exceptions_commentees()
+    datees = charger_exceptions_commentees()
+    permanentes = charger_exceptions_permanentes()
 
-    assert set(per_file_ignores) == set(dates_par_chemin), (
-        "Chaque entrée de [tool.ruff.lint.per-file-ignores] doit être précédée "
-        "d'un commentaire « exception datée : n fonction(s), à retirer au lot 12 (AAAA-MM-JJ) »."
+    assert not set(datees) & set(permanentes), "une exception est à la fois datée et permanente"
+    assert set(per_file_ignores) == set(datees) | set(permanentes), (
+        "Chaque entrée de [tool.ruff.lint.per-file-ignores] doit être précédée d'un "
+        "commentaire « exception datée : n fonction(s), à retirer avant AAAA-MM-JJ » "
+        "ou « exception permanente : <raison> »."
     )
 
 
@@ -73,7 +92,8 @@ def test_aucune_echeance_depassee() -> None:
             depassees[chemin] = texte_date
 
     assert not depassees, (
-        f"Échéance(s) d'exception dépassée(s), à traiter au lot 12 : {depassees}"
+        "Échéance(s) d'exception dépassée(s) : découper la fonction, ou repousser "
+        f"la date en le justifiant : {depassees}"
     )
 
 
@@ -129,9 +149,7 @@ def test_exceptions_encore_necessaires() -> None:
         timeout=30,
     )
 
-    assert resultat.returncode in (0, 1), (
-        f"ruff a échoué à s'exécuter : {resultat.stderr}"
-    )
+    assert resultat.returncode in (0, 1), f"ruff a échoué à s'exécuter : {resultat.stderr}"
 
     import json
 
@@ -161,4 +179,4 @@ def test_per_file_ignores_ne_depasse_pas_les_codes_bornes() -> None:
 
     for chemin, codes in per_file_ignores.items():
         inconnus = set(codes) - set(CODES_BORNES)
-        assert not inconnus, f"{chemin} : code(s) hors périmètre du lot 2 : {inconnus}"
+        assert not inconnus, f"{chemin} : code(s) hors des règles de taille et de complexité : {inconnus}"

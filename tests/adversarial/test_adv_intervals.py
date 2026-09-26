@@ -1,10 +1,10 @@
-"""L1.4 — connecteur Intervals.icu, mis à l'épreuve.
+"""Connecteur Intervals.icu, mis à l'épreuve.
 
-Cible : contrat §3. Tout passe par `httpx.MockTransport` : aucune socket
-n'est ouverte (fixture `reseau_interdit`). La clé utilisée est une chaîne
-inventée (`outils.CLE_BIDON`) et le fil rouge du fichier est qu'elle ne doit
-apparaître **nulle part** dans ce qui sort du connecteur : message, `repr`,
-exception chaînée, rapport de synchronisation.
+Tout passe par `httpx.MockTransport` : aucune socket n'est ouverte (fixture
+`reseau_interdit`). La clé utilisée est une chaîne inventée
+(`outils.CLE_BIDON`) et le fil rouge du fichier est qu'elle ne doit apparaître
+**nulle part** dans ce qui sort du connecteur : message, `repr`, exception
+chaînée, rapport de synchronisation.
 """
 
 from __future__ import annotations
@@ -18,10 +18,9 @@ import httpx
 import outils
 import pytest
 
+from ourouler.activites import cache as module_cache
+from ourouler.connecteurs import intervals as module_intervals
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L1.4 absent (ourouler.connecteurs.intervals)"
-MOTIF_CACHE = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"
 
 AUTORISATION_ATTENDUE = "Basic " + base64.b64encode(f"API_KEY:{outils.CLE_BIDON}".encode()).decode()
 JETONS_SECRETS = (outils.CLE_BIDON, AUTORISATION_ATTENDUE, AUTORISATION_ATTENDUE.removeprefix("Basic "))
@@ -37,14 +36,6 @@ ACTIVITE = {
     "device_name": "Compteur Fictif 1000",
     "gear": {"id": "b1", "name": "Alpha"},
 }
-
-
-def _module():
-    return pytest.importorskip("ourouler.connecteurs.intervals", reason=MOTIF_ABSENT)
-
-
-def _cache_module():
-    return pytest.importorskip("ourouler.activites.cache", reason=MOTIF_CACHE)
 
 
 class Espion:
@@ -93,7 +84,7 @@ def _verifier_sans_cle(objet: Any, quoi: str) -> None:
 
 
 def test_auth_basique_et_endpoints():
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, httpx.Response(200, json=[ACTIVITE]))
     resultat = client.activites(date(2026, 4, 1), date(2026, 4, 30))
     assert isinstance(resultat, list) and resultat and isinstance(resultat[0], dict)
@@ -109,7 +100,7 @@ def test_auth_basique_et_endpoints():
 
 def test_fenetre_demandee_couverte_et_sans_doublon():
     """Si le connecteur découpe par mois, il doit couvrir la fenêtre et dédoublonner."""
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, httpx.Response(200, json=[ACTIVITE]))
     activites = client.activites(date(2026, 1, 1), date(2026, 3, 31))
     bornes_basses = [r.url.params["oldest"][:10] for r in espion.requetes]
@@ -123,7 +114,7 @@ def test_fenetre_demandee_couverte_et_sans_doublon():
 
 
 def test_base_url_respectee_et_sans_double_slash():
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, httpx.Response(200, json=[]), base_url="https://exemple.invalide/")
     client.activites(date(2026, 4, 1))
     url = espion.requetes[0].url
@@ -132,7 +123,7 @@ def test_base_url_respectee_et_sans_double_slash():
 
 
 def test_evenements_du_jour():
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, httpx.Response(200, json=[]))
     assert client.evenements(date(2026, 4, 12)) == []
     requete = espion.requetes[0]
@@ -146,7 +137,7 @@ def test_evenements_du_jour():
 
 @pytest.mark.parametrize("code", [400, 401, 403, 404, 429, 500, 502, 503])
 def test_erreur_http_devient_erreur_connecteur(code):
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, httpx.Response(code, text="refusé"))
     with pytest.raises(ErreurConnecteur) as capture:
         client.activites(date(2026, 4, 1))
@@ -167,7 +158,7 @@ def test_erreur_http_devient_erreur_connecteur(code):
 )
 def test_la_cle_ne_fuit_pas_meme_si_le_service_la_renvoie(reponse):
     """Cas classique : `raise ErreurConnecteur(f"… {reponse.text}")`."""
-    module = _module()
+    module = module_intervals
     corps = reponse.text.replace("CLE", outils.CLE_BIDON).replace("AUTORISATION", AUTORISATION_ATTENDUE)
     client, _ = _client(module, httpx.Response(reponse.status_code, text=corps))
     with pytest.raises(ErreurConnecteur) as capture:
@@ -176,7 +167,7 @@ def test_la_cle_ne_fuit_pas_meme_si_le_service_la_renvoie(reponse):
 
 
 def test_pas_de_tempete_de_reessais_sur_429():
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, httpx.Response(429, text="trop de requêtes"))
     with pytest.raises(ErreurConnecteur):
         client.activites(date(2026, 4, 1))
@@ -185,7 +176,7 @@ def test_pas_de_tempete_de_reessais_sur_429():
 
 def test_erreur_reseau_transformee():
     """Une panne de transport doit devenir une erreur utilisateur, pas une httpx.HTTPError."""
-    module = _module()
+    module = module_intervals
 
     def tomber(_requete):
         raise httpx.ConnectError("service injoignable")
@@ -205,7 +196,7 @@ def test_erreur_reseau_transformee():
     ids=["vide", "blancs", "null", "html", "json tronque", "json casse"],
 )
 def test_json_inattendu_devient_erreur_connecteur(corps):
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, httpx.Response(200, content=corps))
     with pytest.raises(ErreurConnecteur):
         client.activites(date(2026, 4, 1))
@@ -219,7 +210,7 @@ def test_un_objet_au_lieu_d_une_liste(corps):
     élément. Ce qui n'est pas défendable, c'est de rendre autre chose qu'une
     liste de dictionnaires : le reste du lot compte dessus.
     """
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, httpx.Response(200, json=corps))
     resultat, erreur = outils.robuste(
         lambda: client.activites(date(2026, 4, 1)),
@@ -232,14 +223,14 @@ def test_un_objet_au_lieu_d_une_liste(corps):
 
 @pytest.mark.parametrize("contenu", [[42, "x"], [None], [[]], [{"id": "i1"}, 7]], ids=str)
 def test_liste_d_elements_non_dict(contenu):
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, httpx.Response(200, json=contenu))
     with pytest.raises(ErreurConnecteur):
         client.activites(date(2026, 4, 1))
 
 
 def test_liste_vide_est_une_reponse_valide():
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, httpx.Response(200, json=[]))
     assert client.activites(date(2026, 4, 1)) == []
     assert client.evenements(date(2026, 4, 12)) == []
@@ -260,7 +251,7 @@ def _reponse_fichier(contenu: bytes, *, nom: str | None = "activite.fit", code: 
     [("activite.fit", "fit"), ("activite.FIT", "fit"), ("trace.gpx", "gpx"), ("trace.tcx", "tcx")],
 )
 def test_telecharger_fichier_extension(hostiles, nom, extension_attendue):
-    module = _module()
+    module = module_intervals
     octets = hostiles["nominal.fit"].read_bytes()
     client, espion = _client(module, _reponse_fichier(octets, nom=nom))
     contenu, extension = client.telecharger_fichier("i1")
@@ -271,7 +262,7 @@ def test_telecharger_fichier_extension(hostiles, nom, extension_attendue):
 
 def test_telecharger_fichier_sans_content_disposition(hostiles):
     """Sans nom de fichier annoncé, l'extension doit rester une extension connue."""
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, _reponse_fichier(hostiles["nominal.fit"].read_bytes(), nom=None))
     resultat, erreur = outils.robuste(
         lambda: client.telecharger_fichier("i1"),
@@ -285,7 +276,7 @@ def test_telecharger_fichier_sans_content_disposition(hostiles):
 
 @pytest.mark.parametrize("code", [401, 404, 429, 500])
 def test_telecharger_fichier_en_erreur(code):
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, _reponse_fichier(b"", code=code))
     with pytest.raises(ErreurConnecteur) as capture:
         client.telecharger_fichier("i1")
@@ -295,14 +286,14 @@ def test_telecharger_fichier_en_erreur(code):
 
 def test_telecharger_fichier_vide_refuse():
     """Un fichier de 0 octet mis en cache est un déchet : il faut le refuser."""
-    module = _module()
+    module = module_intervals
     client, _ = _client(module, _reponse_fichier(b""))
     with pytest.raises(ErreurConnecteur):
         client.telecharger_fichier("i1")
 
 
 def test_telecharger_fichier_identifiant_hostile():
-    module = _module()
+    module = module_intervals
     client, espion = _client(module, _reponse_fichier(b"\x00" * 10))
     outils.robuste(
         lambda: client.telecharger_fichier("../athlete/i1/activities"),
@@ -317,7 +308,7 @@ def test_telecharger_fichier_identifiant_hostile():
 
 
 def _synchro(module, tmp_path, reponses, *, depuis=date(2026, 4, 1)):
-    cache_module = _cache_module()
+    cache_module = module_cache
     cache = cache_module.Cache(tmp_path / "cache")
     client, espion = _client(module, reponses)
     rapport = module.synchroniser(client, cache, depuis)
@@ -325,7 +316,7 @@ def _synchro(module, tmp_path, reponses, *, depuis=date(2026, 4, 1)):
 
 
 def test_synchroniser_ajoute_et_rapporte(tmp_path, hostiles):
-    module = _module()
+    module = module_intervals
     octets = hostiles["nominal.gpx"].read_bytes()
     activites = [dict(ACTIVITE, id="i1"), dict(ACTIVITE, id="i2")]
 
@@ -344,8 +335,8 @@ def test_synchroniser_ajoute_et_rapporte(tmp_path, hostiles):
 
 
 def test_synchroniser_ne_retelecharge_pas_ce_qui_est_en_cache(tmp_path, hostiles):
-    module = _module()
-    cache_module = _cache_module()
+    module = module_intervals
+    cache_module = module_cache
     octets = hostiles["nominal.gpx"].read_bytes()
     cache = cache_module.Cache(tmp_path / "cache")
     cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={})
@@ -386,7 +377,7 @@ def test_synchroniser_ne_retelecharge_pas_ce_qui_est_en_cache(tmp_path, hostiles
 )
 def test_synchroniser_survit_aux_activites_mal_formees(tmp_path, hostiles, activite):
     """Chaque champ peut manquer, être nul ou d'un type inattendu : pas de trace."""
-    module = _module()
+    module = module_intervals
     octets = hostiles["nominal.gpx"].read_bytes()
 
     def repondre(requete: httpx.Request) -> httpx.Response:
@@ -410,7 +401,7 @@ def test_synchroniser_survit_aux_activites_mal_formees(tmp_path, hostiles, activ
 
 def test_synchroniser_compte_les_echecs_et_continue(tmp_path, hostiles):
     """Un téléchargement qui casse ne doit pas emporter les autres."""
-    module = _module()
+    module = module_intervals
     octets = hostiles["nominal.gpx"].read_bytes()
     activites = [dict(ACTIVITE, id="i1"), dict(ACTIVITE, id="i2"), dict(ACTIVITE, id="i3")]
 
@@ -432,7 +423,7 @@ def test_synchroniser_compte_les_echecs_et_continue(tmp_path, hostiles):
 
 
 def test_synchroniser_sur_liste_vide(tmp_path):
-    module = _module()
+    module = module_intervals
     rapport, cache, espion = _synchro(module, tmp_path, httpx.Response(200, json=[]))
     assert outils.champ(rapport, "vues") == 0
     assert outils.champ(rapport, "ajout") == 0
@@ -441,6 +432,6 @@ def test_synchroniser_sur_liste_vide(tmp_path):
 
 
 def test_synchroniser_remonte_l_erreur_de_liste(tmp_path):
-    module = _module()
+    module = module_intervals
     with pytest.raises(ErreurConnecteur):
         _synchro(module, tmp_path, httpx.Response(500, text="panne"))

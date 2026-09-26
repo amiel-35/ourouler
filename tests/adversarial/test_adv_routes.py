@@ -1,6 +1,4 @@
-"""L3.2 — routes connues (apprentissage), mises à l'épreuve.
-
-Cible : contrat du sprint 3 §2 et §4.
+"""Routes connues (apprentissage), mises à l'épreuve.
 
 Ce qui est traqué :
 
@@ -35,12 +33,11 @@ import fabriques
 import pytest
 from outils import robuste, sans_accents
 
+from ourouler.apprentissage import routes as module_routes
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import Trace
 
-MOTIF_ABSENT = "module attendu par le contrat L3.2 absent (ourouler.apprentissage.routes)"
-
-#: Maille du contrat §2 : ~30 m à l'équateur.
+#: Maille de l'apprentissage : ~30 m à l'équateur.
 FACTEUR_MAILLE = 3000
 
 #: Lundi et dimanche de la même semaine : « part semaine » = lundi-vendredi.
@@ -48,10 +45,6 @@ LUNDI = date(2024, 5, 13)
 DIMANCHE = date(2024, 5, 19)
 
 ERREURS = (ErreurUtilisateur,)
-
-
-def _module():
-    return pytest.importorskip("ourouler.apprentissage.routes", reason=MOTIF_ABSENT)
 
 
 def _base(module, tmp_path, nom: str = "routes_connues.sqlite"):
@@ -114,29 +107,25 @@ def _verifier_statistiques(stats: Any, quoi: str) -> None:
 
 def _valeur_pour(stats: Any, classe: str) -> dict[str, float]:
     """Toutes les entrées `classe` des tables de `stats`, par nom de table."""
-    return {
-        nom: table[classe] for nom, table in _dicts_numeriques(stats).items() if classe in table
-    }
+    return {nom: table[classe] for nom, table in _dicts_numeriques(stats).items() if classe in table}
 
 
 # --- la base -----------------------------------------------------------------
 
 
 def test_la_base_se_cree_et_se_rouvre(tmp_path):
-    module = _module()
+    module = module_routes
     chemin = tmp_path / "routes_connues.sqlite"
     base = _base(module, tmp_path)
     assert chemin.is_file(), f"BaseRoutes n'a pas créé {chemin}"
     base.ajouter_trace(_trace(), jour=LUNDI, id_sortie="s1")
     autre = module.BaseRoutes(chemin)
-    assert "s1" in autre.sorties_apprises(), (
-        "ce qui est appris ne survit pas à la réouverture de la base"
-    )
+    assert "s1" in autre.sorties_apprises(), "ce qui est appris ne survit pas à la réouverture de la base"
 
 
 def test_la_base_cree_les_dossiers_parents_manquants(tmp_path):
     """Le cache du mainteneur peut être un dossier tout neuf : pas de `FileNotFoundError`."""
-    module = _module()
+    module = module_routes
     chemin = tmp_path / "cache" / "routes_connues.sqlite"
     resultat, _ = robuste(
         lambda: module.BaseRoutes(chemin), quoi="BaseRoutes(dossier absent)", erreurs_acceptees=ERREURS
@@ -146,8 +135,8 @@ def test_la_base_cree_les_dossiers_parents_manquants(tmp_path):
 
 
 def test_une_base_corrompue_donne_une_erreur_utilisateur(tmp_path):
-    """Contrat §4 : « base corrompue ». Un fichier qui n'est pas du SQLite appartient à l'utilisateur."""
-    module = _module()
+    """Base corrompue : un fichier qui n'est pas du SQLite appartient à l'utilisateur."""
+    module = module_routes
     chemin = tmp_path / "routes_connues.sqlite"
     chemin.write_bytes(b"ceci n'est pas une base sqlite\x00\x01\x02" * 40)
     base, erreur = robuste(
@@ -166,8 +155,8 @@ def test_une_base_corrompue_donne_une_erreur_utilisateur(tmp_path):
 
 
 def test_ajouter_deux_fois_la_meme_sortie_ne_compte_qu_une_fois(tmp_path):
-    """Contrat §2 : « idempotent par id_sortie »."""
-    module = _module()
+    """L'apprentissage est idempotent par `id_sortie`."""
+    module = module_routes
     base = _base(module, tmp_path)
     trace = _trace()
     base.ajouter_trace(trace, jour=LUNDI, id_sortie="s1")
@@ -185,7 +174,7 @@ def test_ajouter_deux_fois_la_meme_sortie_ne_compte_qu_une_fois(tmp_path):
 
 def test_deux_sorties_sur_la_meme_route_cumulent_les_passages(tmp_path):
     """Le pendant du test précédent : l'idempotence ne doit pas devenir de la déduplication."""
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     trace = _trace()
     base.ajouter_trace(trace, jour=LUNDI, id_sortie="s1")
@@ -201,7 +190,7 @@ def test_deux_sorties_sur_la_meme_route_cumulent_les_passages(tmp_path):
 
 def test_ajouter_une_trace_sans_segment(tmp_path):
     """Un GPX relu n'a pas de segment : pas de tags OSM, donc rien à apprendre, mais pas de trace."""
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     coords = fabriques.ligne(20, pas_m=100.0)
     resultat, _ = robuste(
@@ -218,7 +207,7 @@ def test_ajouter_une_trace_sans_segment(tmp_path):
 
 @pytest.mark.parametrize("nb", [0, 1, 2])
 def test_ajouter_une_trace_minuscule(tmp_path, nb):
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     trace = _trace(nb) if nb >= 2 else Trace("minuscule", [], [], 0.0, None, None, {})
     robuste(
@@ -230,19 +219,17 @@ def test_ajouter_une_trace_minuscule(tmp_path, nb):
 
 def test_statistiques_sur_une_base_vide(tmp_path):
     """Aucune sortie apprise : des zéros, pas un NaN ni un `ZeroDivisionError`."""
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
-    stats, _ = robuste(
-        lambda: base.statistiques(), quoi="statistiques(base vide)", erreurs_acceptees=ERREURS
-    )
+    stats, _ = robuste(lambda: base.statistiques(), quoi="statistiques(base vide)", erreurs_acceptees=ERREURS)
     assert stats is not None, "statistiques() doit répondre sur une base vide"
     _verifier_statistiques(stats, "statistiques(base vide)")
     assert base.sorties_apprises() == set()
 
 
 def test_les_kilometres_sont_bien_des_kilometres(tmp_path):
-    """Contrat §2 : « km par highway ». Une table en mètres fausse toutes les parts affichées."""
-    module = _module()
+    """Des km par `highway` : une table en mètres fausse toutes les parts affichées."""
+    module = module_routes
     base = _base(module, tmp_path)
     trace = _trace(51, highway="tertiary", pas_m=200.0)  # 10 km
     attendu_km = trace.distance_m / 1000.0
@@ -273,8 +260,8 @@ def _verifier_part(part: Any, quoi: str) -> float:
 
 
 def test_part_connue_d_un_trace_vide(tmp_path):
-    """Contrat §4 : « part_connue sur tracé vide ». Le dénominateur vaut zéro."""
-    module = _module()
+    """`part_connue` sur un tracé vide : le dénominateur vaut zéro."""
+    module = module_routes
     base = _base(module, tmp_path)
     vide = Trace("vide", [], [], 0.0, None, None, {})
     part, _ = robuste(
@@ -285,17 +272,15 @@ def test_part_connue_d_un_trace_vide(tmp_path):
 
 
 def test_part_connue_sur_une_base_vide_vaut_zero(tmp_path):
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     part = _verifier_part(base.part_connue(_trace()), "part_connue(base vide)")
-    assert part == pytest.approx(0.0, abs=1e-9), (
-        f"part_connue = {part} alors que rien n'a jamais été appris"
-    )
+    assert part == pytest.approx(0.0, abs=1e-9), f"part_connue = {part} alors que rien n'a jamais été appris"
 
 
 def test_part_connue_d_une_route_apprise_vaut_un(tmp_path):
     """Ce qui vient d'être appris doit se relire : c'est le test de la clé de maille."""
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     trace = _trace(40, pas_m=100.0)
     base.ajouter_trace(trace, jour=LUNDI, id_sortie="s1")
@@ -307,7 +292,7 @@ def test_part_connue_d_une_route_apprise_vaut_un(tmp_path):
 
 
 def test_part_connue_d_une_route_jamais_vue_vaut_zero(tmp_path):
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     base.ajouter_trace(_trace(40, pas_m=100.0), jour=LUNDI, id_sortie="s1")
     ailleurs = _trace(40, pas_m=100.0, depart=(fabriques.LAT0 + 0.5, fabriques.LON0 + 0.5))
@@ -324,7 +309,7 @@ def test_une_maille_pile_sur_la_borne_se_relit(tmp_path):
     écriture et une lecture qui ne passent pas par la même fonction rangent le
     même point dans deux mailles voisines.
     """
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     # Deux latitudes dont le produit par 3000 vaut exactement k + 0,5, de part
     # et d'autre de la parité : le cas où « arrondi au pair » se voit.
@@ -350,7 +335,7 @@ def test_deux_points_du_meme_arrondi_tombent_dans_la_meme_maille(tmp_path):
     que rien ne le signale, puisque l'écriture et la lecture seraient d'accord
     entre elles.
     """
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     k = 10
     ici = (k + 0.6) / FACTEUR_MAILLE
@@ -369,15 +354,13 @@ def test_deux_points_du_meme_arrondi_tombent_dans_la_meme_maille(tmp_path):
 
 def test_part_connue_est_bornee_sur_une_route_mi_connue(tmp_path):
     """Moitié apprise, moitié neuve : une part intermédiaire, jamais 0 ni plus de 1."""
-    module = _module()
+    module = module_routes
     base = _base(module, tmp_path)
     connue = _trace(41, pas_m=100.0)  # 4 km
     base.ajouter_trace(connue, jour=LUNDI, id_sortie="s1")
     prolongee = _trace(81, pas_m=100.0)  # les 4 mêmes km, puis 4 km neufs
     part = _verifier_part(base.part_connue(prolongee), "part_connue(mi-connue)")
-    assert 0.2 < part < 0.8, (
-        f"part_connue = {part:.2f} pour un tracé connu sur la moitié de ses kilomètres"
-    )
+    assert 0.2 < part < 0.8, f"part_connue = {part:.2f} pour un tracé connu sur la moitié de ses kilomètres"
 
 
 # --- poids_appris -------------------------------------------------------------
@@ -424,8 +407,8 @@ def _appeler_poids(module, stats, exposition=None):
 
 
 def test_poids_appris_sans_exposition(tmp_path):
-    """Contrat §2 : « Sans exposition (tests), `poids_appris` sur `stats` seule … »."""
-    module = _module()
+    """Sans exposition, `poids_appris` se calcule sur `stats` seule."""
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 40, "secondary": 10}, nom="sorties.sqlite")
     poids, _ = robuste(
         lambda: _appeler_poids(module, stats),
@@ -440,20 +423,18 @@ def test_poids_appris_sans_exposition(tmp_path):
 
 def test_poids_appris_avec_une_exposition_identique_ne_penalise_rien(tmp_path):
     """`log2(part / part) = 0` : rouler exactement ce qu'on rencontre ne coûte rien."""
-    module = _module()
+    module = module_routes
     classes = {"tertiary": 40, "secondary": 20, "unclassified": 20}
     stats = _stats(module, tmp_path, classes, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, classes, nom="expo.sqlite")
     poids = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(identiques)")
     non_nuls = {c: v for c, v in poids.items() if v > 0.05}
-    assert not non_nuls, (
-        f"poids non nuls alors que sorties et exposition ont les mêmes parts : {non_nuls}"
-    )
+    assert not non_nuls, f"poids non nuls alors que sorties et exposition ont les mêmes parts : {non_nuls}"
 
 
 def test_poids_appris_penalise_une_classe_evitee(tmp_path):
     """Une classe quatre fois plus offerte que roulée vaut `log2(4) = 2`."""
-    module = _module()
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 90, "secondary": 10}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 60, "secondary": 40}, nom="expo.sqlite")
     poids = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(classe évitée)")
@@ -466,7 +447,7 @@ def test_poids_appris_penalise_une_classe_evitee(tmp_path):
 
 def test_poids_appris_ne_recompense_pas_une_classe_sur_roulee(tmp_path):
     """`max(0, …)` : une classe plus roulée qu'offerte a un poids nul, jamais négatif."""
-    module = _module()
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 20, "secondary": 80}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 80, "secondary": 20}, nom="expo.sqlite")
     poids = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(sur-roulée)")
@@ -476,8 +457,8 @@ def test_poids_appris_ne_recompense_pas_une_classe_sur_roulee(tmp_path):
 
 
 def test_poids_appris_avec_une_classe_jamais_roulee(tmp_path):
-    """Contrat §4 : « part 0, log2 de 0/0, plafond 4 » — la division interdite."""
-    module = _module()
+    """Part 0, log2 de 0/0, plafond 4 : la division interdite."""
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 100}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 50, "track": 50}, nom="expo.sqlite")
     poids = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(classe jamais roulée)")
@@ -488,8 +469,8 @@ def test_poids_appris_avec_une_classe_jamais_roulee(tmp_path):
 
 
 def test_poids_appris_quand_toutes_les_parts_des_sorties_sont_nulles(tmp_path):
-    """Contrat §4 : « log2 de 0/0 ». Chaque classe a 0 km roulé **et** 0 km au total."""
-    module = _module()
+    """log2 de 0/0 : chaque classe a 0 km roulé **et** 0 km au total."""
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 50, "secondary": 50}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 50, "secondary": 50}, nom="expo.sqlite")
     poids, _ = robuste(
@@ -503,7 +484,7 @@ def test_poids_appris_quand_toutes_les_parts_des_sorties_sont_nulles(tmp_path):
 
 def test_poids_appris_avec_des_statistiques_vides(tmp_path):
     """Deux bases vides : `0/0` partout. Erreur utilisateur ou dict borné, jamais un NaN."""
-    module = _module()
+    module = module_routes
     vide = _base(module, tmp_path, nom="vide.sqlite").statistiques()
     autre = _base(module, tmp_path, nom="vide2.sqlite").statistiques()
     poids, _ = robuste(
@@ -522,8 +503,10 @@ def _mettre_a_echelle(stats: Any, facteur: float):
     remplacements = {}
     for champ in dataclasses.fields(stats):
         valeur = getattr(stats, champ.name)
-        if isinstance(valeur, dict) and valeur and all(
-            isinstance(v, (int, float)) and not isinstance(v, bool) for v in valeur.values()
+        if (
+            isinstance(valeur, dict)
+            and valeur
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in valeur.values())
         ):
             remplacements[champ.name] = {c: v * facteur for c, v in valeur.items()}
     if not remplacements:
@@ -539,32 +522,27 @@ def test_poids_appris_avec_des_parts_qui_ne_somment_pas_a_un(tmp_path, facteur):
     bruts sans normaliser, changer l'échelle d'un des deux jeux change tous les
     poids — et une base plus fournie pénaliserait tout.
     """
-    module = _module()
+    module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 60, "secondary": 40}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 30, "secondary": 70}, nom="expo.sqlite")
     reference = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(référence)")
     mis_a_echelle = _mettre_a_echelle(stats, facteur)
-    obtenus = _verifier_poids(
-        _appeler_poids(module, mis_a_echelle, expo), f"poids_appris(stats × {facteur})"
-    )
+    obtenus = _verifier_poids(_appeler_poids(module, mis_a_echelle, expo), f"poids_appris(stats × {facteur})")
     assert set(obtenus) == set(reference), (
         f"les classes changent quand les parts ne somment plus à 1 : {sorted(obtenus)} "
         f"contre {sorted(reference)}"
     )
-    ecarts = {
-        c: (reference[c], obtenus[c]) for c in reference if abs(reference[c] - obtenus[c]) > 0.05
-    }
+    ecarts = {c: (reference[c], obtenus[c]) for c in reference if abs(reference[c] - obtenus[c]) > 0.05}
     assert not ecarts, (
         f"multiplier les kilomètres des sorties par {facteur} change les poids {ecarts} : "
         "le contrat compare des parts, pas des kilomètres"
     )
 
 
-# --- socle du sprint 3 déjà livré : [[evitements]] -----------------------------
+# --- la section [[evitements]] ------------------------------------------------
 #
-# Contrat §2 : « Évitements : `Config.evitements` → paramètre
-# `nogos=lon,lat,rayon|…` passé par `ClientBrouter.boucle/itineraire` ». La
-# configuration, elle, est déjà livrée : cette section ne saute pas.
+# Évitements : `Config.evitements` → paramètre `nogos=lon,lat,rayon|…` passé
+# par `ClientBrouter.boucle/itineraire`.
 
 
 def _charger(sections: dict):
@@ -610,7 +588,7 @@ def test_un_evitement_sans_nom_en_recoit_un():
     ],
 )
 def test_un_evitement_invalide_nomme_la_section(evitement):
-    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ, jamais une trace et un code 1."""
+    """`ErreurConfig` nomme le champ, jamais une pile d'appels et un code 1."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:

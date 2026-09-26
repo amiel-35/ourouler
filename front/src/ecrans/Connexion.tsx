@@ -1,11 +1,11 @@
 /** E5 · connexion — revenir sur un compte déjà actif, sans jeton.
  *
- * Deux usages du même écran (lot L7.2-D) : ouvert directement sur
+ * Deux usages du même écran : ouvert directement sur
  * `/connexion` (lu au démarrage, `App.tsx`), et affiché à la place de
  * l'application dès qu'une route de données répond 401 `session_absente` —
  * la session a expiré ou n'a jamais existé, et ce serveur ne peut montrer
  * les données de personne tant qu'il ne sait pas qui parle
- * (`docs/ux/api_contrat.md`, « La session, et les deux produits »). Les deux
+ * (`docs/journal/ux/api_contrat.md`, « La session, et les deux produits »). Les deux
  * cas passent `surConnecte`, qui diffère selon d'où l'écran est montré : une
  * navigation complète depuis `/connexion`, une reprise en place depuis
  * l'application.
@@ -13,7 +13,8 @@
  * **Pas d'inscription ici.** Il n'y a jamais de création de compte à la
  * demande (décision définitive) — un compte s'ouvre par invitation
  * (`/entrer`), jamais depuis cet écran. Pas de récupération de mot de passe
- * non plus : lot à part, à trancher par le mainteneur.
+ * en libre-service non plus : un nouveau lien s'émet en ligne de commande
+ * (`ourouler reinitialiser`).
  *
  * Le serveur rend le **même** refus pour une adresse inconnue et un mot de
  * passe faux (`identifiants_refuses`) : cet écran ne le décore pas, il

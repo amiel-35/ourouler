@@ -1,14 +1,14 @@
-"""Les tâches lourdes en tâche de fond : import d'historique (L9.2) et calibration (L9.4).
+"""Les tâches lourdes en tâche de fond : import d'historique et calibration.
 
 Deux gestes durent bien au-delà des 180 s où le front abandonne une requête
 (`front/src/api/client.ts`, `DELAI_CALCUL_MS`) : importer une archive Strava
-réelle (≈16 minutes pour ≈2 900 sorties, mesuré sur le cache du mainteneur)
+réelle (≈16 minutes pour ≈2 900 sorties, mesuré sur un historique réel)
 et calibrer un vélo (relire chaque FIT, une archive météo par jour de sortie).
 Leur route **lance** le travail et rend un identifiant tout de suite (202) ;
 une route `GET …/{id}` dit où il en est.
 
-Ce module est le registre commun, extrait d'`api/imports_fond.py` le
-25/09/2026 quand la calibration (L9.4) en a eu besoin à son tour.
+Ce module est le registre commun à l'import (`api/imports_fond.py`) et à la
+calibration.
 
 **Une seule tâche lourde à la fois, pour le serveur entier** — import *ou*
 calibration, quel que soit le propriétaire. Le serveur est petit, partagé
@@ -28,11 +28,11 @@ et appelle le cœur par une fonction qui rend un objet (`services.calibrer.calib
 lancé la tâche ; `trouver()` ne rend jamais le job d'un autre — même refus
 que `DepotFichiers.trouver` pour un identifiant qui n'est pas le sien.
 
-**Annulable, pour la suppression d'un compte** (contre-lecture Fable du
-25/09/2026). `DELETE /moi` pendant un import effaçait les lignes du compte…
-puis l'import en cours en réécrivait cinq, fichiers bruts compris, pour un
-compte qui n'existait plus. `annuler_et_attendre` lève le drapeau d'annulation
-des tâches du propriétaire, que chaque tâche regarde à chaque pas
+**Annulable, pour la suppression d'un compte.** Sans annulation, `DELETE /moi`
+pendant un import effacerait les lignes du compte… puis l'import en cours en
+réécrirait, fichiers bruts compris, pour un compte qui n'existe plus.
+`annuler_et_attendre` lève le drapeau d'annulation des tâches du propriétaire,
+que chaque tâche regarde à chaque pas
 (`Job.avancer`, `Job.verifier_annulation`), **attend qu'elles aient rendu la
 main**, et bloque tout nouveau lancement pour ce propriétaire jusqu'à la fin
 de l'effacement (`suspendre`).
@@ -72,9 +72,9 @@ NATURE_CALIBRATION = "calibration"
 _journal = logging.getLogger(__name__)
 
 #: Le code d'une tâche tombée sur autre chose qu'un échec prévu : un bug, ou
-#: une panne du serveur. Le message ne dit rien de plus — contre-lecture
-#: Fable du 25/09/2026 : `str(e)` renvoyait au cycliste le texte interne de
-#: l'exception (un chemin du serveur, un nom de module…). La trace complète
+#: une panne du serveur. Le message ne dit rien de plus : `str(e)` renverrait
+#: au cycliste le texte interne de l'exception (un chemin du serveur, un nom
+#: de module…). La trace complète
 #: reste au journal.
 CODE_ERREUR_INTERNE = "erreur_interne"
 MESSAGE_ERREUR_INTERNE = (
@@ -94,7 +94,7 @@ class ErreurTacheEnCours(Exception):
         self.nature = nature
 
 
-class EchecLisible(Exception):  # noqa: N818 — « échec », pas « erreur » : c'est le cycliste qui le lit
+class EchecLisible(Exception):  # « échec », pas « erreur » : c'est le cycliste qui le lit
     """Un échec qu'on peut montrer tel quel au cycliste : le message est déjà assaini.
 
     Tout autre exception d'un travail devient un message générique — la trace
@@ -113,7 +113,7 @@ class TacheAnnulee(EchecLisible):
         super().__init__("annulée : le compte a été supprimé pendant la tâche")
 
 
-class SuppressionDejaEnCours(Exception):  # noqa: N818 — un refus, pas une erreur du serveur
+class SuppressionDejaEnCours(Exception):  # un refus, pas une erreur du serveur
     """`DELETE /moi` du même compte tourne déjà : celui-ci refuse plutôt que d'attendre à son tour.
 
     Levée par `debuter_effacement` refusé — voir `api/vie_privee.effacer_donnees`,
@@ -178,8 +178,8 @@ class Job:
             "code_erreur": self.code_erreur,
         }
         if self.nature != NATURE_IMPORT:
-            # La forme d'un job d'import est figée depuis L9.2 (le front la
-            # lit) ; les champs propres aux autres natures s'y ajoutent.
+            # La forme d'un job d'import est figée (le front la lit) ; les
+            # champs propres aux autres natures s'y ajoutent.
             charge.update({"nature": self.nature, "etape": self.etape, "sujet": self.sujet})
         return charge
 
@@ -219,10 +219,10 @@ def lancer(
     toujours, après — c'est là que des fichiers temporaires s'effacent.
     """
     # Contrôle de suspension, prise du verrou et entrée au registre **d'un
-    # seul tenant** (relecture du 25/09/2026) : séparés, un lancement qui
-    # avait passé le contrôle juste avant `suspendre` entrait au registre
-    # juste après `annuler_et_attendre`, qui ne l'avait donc pas attendu — et
-    # la tâche écrivait pour un compte effacé. `VERROU.acquire` ne bloque
+    # seul tenant** : séparés, un lancement qui aurait passé le contrôle juste
+    # avant `suspendre` entrerait au registre juste après
+    # `annuler_et_attendre`, qui ne l'aurait donc pas attendu — et la tâche
+    # écrirait pour un compte effacé. `VERROU.acquire` ne bloque
     # pas : le tenir sous `_verrou_registre` ne fait attendre personne.
     with _verrou_registre:
         if _suspendus.get(proprietaire):
@@ -242,7 +242,7 @@ def lancer(
             job.erreur = str(e)
             job.code_erreur = e.code
             job.statut = STATUT_ECHOUE
-        except Exception:  # noqa: BLE001 — une tâche de fond ne doit jamais planter en silence
+        except Exception:  # une tâche de fond ne doit jamais planter en silence
             _journal.exception("tâche de fond %s (%s) en échec", job.id, nature)
             job.erreur = MESSAGE_ERREUR_INTERNE
             job.code_erreur = CODE_ERREUR_INTERNE
@@ -261,10 +261,9 @@ def lancer(
     try:
         threading.Thread(target=executer, daemon=True, name=f"{nature}-{job.id[:8]}").start()
     except BaseException:
-        # Contre-lecture Fable du 25/09/2026 : un fil qui ne démarre pas
-        # (plus de fils disponibles, mémoire) gardait le verrou pour toujours —
-        # plus aucun import ni calibration sur ce serveur jusqu'au
-        # redémarrage. Le job est retiré, le verrou rendu, l'erreur remonte.
+        # Un fil qui ne démarre pas (plus de fils disponibles, mémoire) garderait
+        # sinon le verrou pour toujours — plus aucun import ni calibration sur
+        # ce serveur jusqu'au redémarrage. Le job est retiré, le verrou rendu, l'erreur remonte.
         with _verrou_registre:
             _jobs.pop(job.id, None)
         _occupant[0] = None
@@ -282,22 +281,19 @@ def annuler_et_attendre(proprietaire: str, delai_s: float = 120.0) -> bool:
     la tâche peut encore écrire. Un import s'arrête au fichier suivant (un
     tiers de seconde) ; une calibration au prochain pas, ou à la fin de son
     ajustement, qui ne s'interrompt pas (au plus une ou deux minutes sur
-    l'historique du mainteneur).
+    un historique réel de plusieurs années).
     """
     with _verrou_registre:
         # `_termine` et non `statut` : un job « fini » n'a pas encore rendu
         # la main tant que son `au_echec` et son `enfin` tournent.
-        en_cours = [
-            j for j in _jobs.values()
-            if j.proprietaire == proprietaire and not j._termine.is_set()
-        ]
+        en_cours = [j for j in _jobs.values() if j.proprietaire == proprietaire and not j._termine.is_set()]
     for job in en_cours:
         job._annule.set()
     echeance = time.monotonic() + delai_s
     return all(job._termine.wait(max(0.0, echeance - time.monotonic())) for job in en_cours)
 
 
-class suspendre:  # noqa: N801 — s'emploie comme une fonction : `with suspendre(qui):`
+class suspendre:  # s'emploie comme une fonction : `with suspendre(qui):`
     """Aucune nouvelle tâche pour ce propriétaire tant que le bloc dure (suppression du compte).
 
     Une classe et non un `@contextmanager` : une `ErreurApi` (dataclass figée)
@@ -366,9 +362,7 @@ def dernier(proprietaire: str, nature: str, sujet: str | None = None) -> Job | N
         candidats = [
             j
             for j in _jobs.values()
-            if j.proprietaire == proprietaire
-            and j.nature == nature
-            and (sujet is None or j.sujet == sujet)
+            if j.proprietaire == proprietaire and j.nature == nature and (sujet is None or j.sujet == sujet)
         ]
     return max(candidats, key=lambda j: j.demarre_le, default=None)
 
@@ -381,9 +375,7 @@ def _purger() -> None:
     """
     if len(_jobs) <= JOBS_GARDES:
         return
-    termines = sorted(
-        (j for j in _jobs.values() if j.statut != STATUT_EN_COURS), key=lambda j: j.demarre_le
-    )
+    termines = sorted((j for j in _jobs.values() if j.statut != STATUT_EN_COURS), key=lambda j: j.demarre_le)
     for job in termines[: len(_jobs) - JOBS_GARDES]:
         _jobs.pop(job.id, None)
 
