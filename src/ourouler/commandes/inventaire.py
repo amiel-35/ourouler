@@ -14,7 +14,7 @@ from ourouler.noyau.profil import Profil
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeInventaire:
-    return demande(
+    return interpreter(
         profil,
         depuis=getattr(args, "depuis", None),
         importer=getattr(args, "importer", None),
@@ -23,7 +23,7 @@ def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeInventaire:
     )
 
 
-def demande(
+def interpreter(
     profil: Profil,
     *,
     depuis: str | None = None,

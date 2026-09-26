@@ -142,13 +142,13 @@ def vent_depuis_namespace(
     lieu_depart: Depart | None = None,
 ) -> int:
     """Le vent au départ, **avant** de chercher quoi que ce soit (Q44) : toujours en JSON."""
-    demande = demande_vent(jour=getattr(args, "jour", None), depart=getattr(args, "depart", None))
+    demande = interpreter_vent(jour=getattr(args, "jour", None), depart=getattr(args, "depart", None))
     r = service.executer_vent(demande, contexte(config, lieu_depart=lieu_depart), client_meteo=client_meteo)
     imprimer_json(rendu.vent_depart_json(r.question, r.jour, r.depart))
     return 0
 
 
-def demande_vent(*, jour: str | None = None, depart: str | None = None) -> DemandeVent:
+def interpreter_vent(*, jour: str | None = None, depart: str | None = None) -> DemandeVent:
     """Le jour, puis l'heure de départ de ce jour-là."""
     jour_lu = jour_option(jour)
     return DemandeVent(jour=jour_lu, depart=heure_depart_du_jour(depart, jour_lu))
@@ -158,8 +158,8 @@ def demande_vent(*, jour: str | None = None, depart: str | None = None) -> Deman
 
 
 def lire_options(args: argparse.Namespace, config: Config) -> Demande:
-    """Les options de la ligne de commande, passées à `demande`."""
-    return demande(
+    """Les options de la ligne de commande, passées à `interpreter`."""
+    return interpreter(
         config,
         jour=getattr(args, "jour", None),
         distance=getattr(args, "distance", None),
@@ -176,7 +176,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
     )
 
 
-def demande(
+def interpreter(
     config: Config,
     *,
     jour: str | None = None,

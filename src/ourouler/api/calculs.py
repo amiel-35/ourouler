@@ -6,7 +6,7 @@ commande, la sortie standard capturée sous un verrou global), écrit
 directement :
 
 1. la `Demande` du service, construite par la **même** fonction que la
-   ligne de commande (`commandes.<commande>.demande`) sur les **mêmes**
+   ligne de commande (`commandes.<commande>.interpreter`) sur les **mêmes**
    valeurs brutes — mêmes refus, mêmes messages, dans le même ordre ;
 2. le `Contexte` du service, dont le canal `avertir` est celui que
    `double_chemin.executer_service` lui passe : les avertissements
@@ -58,7 +58,7 @@ def geocoder(
 
     del config, avertir  # le géocodage ne lit aucun réglage et n'avertit de rien
     resultat = service.executer(
-        cmd_geocoder.demande(adresse, maximum=max), None, ban=ban, nominatim=nominatim
+        cmd_geocoder.interpreter(adresse, maximum=max), None, ban=ban, nominatim=nominatim
     )
     return rendre_json(resultat.adresse, resultat.candidats)
 
@@ -76,7 +76,7 @@ def vent_depart(
     from ourouler.rendu.sortie import vent_depart_json
     from ourouler.sortie import commande as service
 
-    demande = cmd_sortie.demande_vent(jour=jour, depart=depart)
+    demande = cmd_sortie.interpreter_vent(jour=jour, depart=depart)
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
     r = service.executer_vent(demande, ctx, client_meteo=client_meteo)
     return vent_depart_json(r.question, r.jour, r.depart)
@@ -100,7 +100,7 @@ def meteo(
 
     del distance  # ne sert qu'au texte de la ligne de commande
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
-    demande = cmd_meteo.demande(
+    demande = cmd_meteo.interpreter(
         ctx.profil, depart=depart, horizon=horizon, modele=modele, second_avis=second_avis
     )
     return rendre_json(service.executer(demande, ctx, client=client))
@@ -117,7 +117,7 @@ def inventaire(
     from ourouler.activites import commande as service
 
     ctx = contexte(config, avertir=avertir)
-    demande = cmd_inventaire.demande(ctx.profil, depuis=depuis)
+    demande = cmd_inventaire.interpreter(ctx.profil, depuis=depuis)
     return cmd_inventaire.json_inventaire(service.executer(demande, ctx, cache=cache))
 
 
@@ -133,7 +133,7 @@ def routes(
     """`GET /routes/{action}` : `stats` ou `poids`, en lecture seule."""
     from ourouler.apprentissage import commande as service
 
-    demande = cmd_routes.demande(action, appliquer=appliquer)
+    demande = cmd_routes.interpreter(action, appliquer=appliquer)
     resultat = service.executer(
         demande, contexte(config, avertir=avertir), client_brouter=client_brouter, base=base
     )
@@ -153,7 +153,7 @@ def seance(
     """`GET /seances`, `GET /seances/{jour}`, `POST /seances/fichier`."""
     from ourouler.seance import commande as service
 
-    demande = cmd_seance.demande(
+    demande = cmd_seance.interpreter(
         jour=jour, depuis=depuis, jusqua=jusqua, fichier_seance=fichier_seance
     )
     resultat = service.executer(demande, contexte(config, avertir=avertir), client=client)
@@ -173,7 +173,7 @@ def simuler(
     """`POST /simulations` : le temps d'un GPX à puissance constante."""
     from ourouler.physique import commande as service
 
-    demande = cmd_physique.demande_simulation(
+    demande = cmd_physique.interpreter_simulation(
         gpx=gpx, velo=velo, puissance=puissance, depart=depart
     )
     r = service.executer_simuler(
@@ -195,7 +195,7 @@ def analyser(
     """`POST /parcours/analyser` : météo et durée porte à porte d'un parcours en main."""
     from ourouler.physique import commande as service
 
-    demande = cmd_physique.demande_analyse(
+    demande = cmd_physique.interpreter_analyse(
         gpx=gpx, depart=depart, velo=velo, puissance=puissance
     )
     r = service.executer_analyser(
@@ -235,7 +235,7 @@ def sortie(
     from ourouler.sortie import commande as service
 
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
-    demande = cmd_sortie.demande(
+    demande = cmd_sortie.interpreter(
         config,
         jour=jour,
         distance=distance,
@@ -284,7 +284,7 @@ def boucle(
     from ourouler.boucle import commande as service
 
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
-    demande = cmd_boucle.demande(
+    demande = cmd_boucle.interpreter(
         ctx.profil,
         distance=distance,
         direction=direction,

@@ -12,10 +12,10 @@ from ourouler.geocodage.commande import DemandeGeocodage, rendre_json, rendre_te
 
 
 def lire_options(args: argparse.Namespace) -> DemandeGeocodage:
-    return demande(args.adresse, maximum=getattr(args, "max", None))
+    return interpreter(args.adresse, maximum=getattr(args, "max", None))
 
 
-def demande(adresse: str, *, maximum: int | None = None) -> DemandeGeocodage:
+def interpreter(adresse: str, *, maximum: int | None = None) -> DemandeGeocodage:
     """L'adresse et le nombre de candidats voulus (`--max`), le défaut sinon."""
     return DemandeGeocodage(adresse=adresse, limite=maximum or LIMITE_DEFAUT)
 

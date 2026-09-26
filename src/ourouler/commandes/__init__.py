@@ -13,7 +13,7 @@ chaque sous-commande, un module de ce paquet :
 `cli.py` appelle ces fonctions. L'API, depuis le lot 11, a deux chemins
 (`api/double_chemin.py`) : l'ancien construit un `Namespace` et capture la
 sortie standard (`api/adaptateur.py`) ; le nouveau (`api/calculs.py`)
-appelle les pièces sans impression de ce paquet — `demande(...)` sur les
+appelle les pièces sans impression de ce paquet — `interpreter(...)` sur les
 valeurs brutes, puis le service, puis les `json_*` — et le service
 directement.
 `executer_depuis_namespace` est ce point d'entrée de compatibilité : il

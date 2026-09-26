@@ -14,8 +14,8 @@ from ourouler.noyau.profil import Depart, Profil
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeMeteo:
-    """Les options de la ligne de commande, passées à `demande`."""
-    return demande(
+    """Les options de la ligne de commande, passées à `interpreter`."""
+    return interpreter(
         profil,
         depart=getattr(args, "depart", None),
         horizon=getattr(args, "horizon", None),
@@ -24,7 +24,7 @@ def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeMeteo:
     )
 
 
-def demande(
+def interpreter(
     profil: Profil,
     *,
     depart: str | None = None,

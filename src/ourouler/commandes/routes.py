@@ -21,7 +21,7 @@ from ourouler.rendu import routes as rendu
 
 
 def lire_options(args: argparse.Namespace) -> DemandeRoutes:
-    return demande(
+    return interpreter(
         getattr(args, "action", None),
         depuis=getattr(args, "depuis", None),
         max_sorties=getattr(args, "max_sorties", None),
@@ -29,7 +29,7 @@ def lire_options(args: argparse.Namespace) -> DemandeRoutes:
     )
 
 
-def demande(
+def interpreter(
     action: str | None,
     *,
     depuis: str | None = None,

@@ -84,8 +84,8 @@ def json_boucle(r: ResultatBoucle) -> dict:
 
 
 def lire_options(args: argparse.Namespace, config: Profil) -> Demande:
-    """Les options de la ligne de commande, passées à `demande`."""
-    return demande(
+    """Les options de la ligne de commande, passées à `interpreter`."""
+    return interpreter(
         config,
         gpx=getattr(args, "gpx", None),
         puissance=getattr(args, "puissance", None),
@@ -102,7 +102,7 @@ def lire_options(args: argparse.Namespace, config: Profil) -> Demande:
     )
 
 
-def demande(
+def interpreter(
     config: Profil,
     *,
     gpx: str | None = None,

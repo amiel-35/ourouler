@@ -24,7 +24,7 @@ from ourouler.seance.commande import (
 
 
 def lire_options(args: argparse.Namespace) -> DemandeSeance:
-    return demande(
+    return interpreter(
         jour=getattr(args, "jour", None),
         depuis=getattr(args, "depuis", None),
         jusqua=getattr(args, "jusqua", None),
@@ -32,7 +32,7 @@ def lire_options(args: argparse.Namespace) -> DemandeSeance:
     )
 
 
-def demande(
+def interpreter(
     *,
     jour: str | None = None,
     depuis: str | None = None,

@@ -80,7 +80,7 @@ def _gpx_obligatoire(gpx: str | None, commande: str) -> Path:
 
 
 def options_simulation(args: argparse.Namespace) -> DemandeSimulation:
-    return demande_simulation(
+    return interpreter_simulation(
         gpx=getattr(args, "gpx", None),
         velo=getattr(args, "velo", None),
         puissance=getattr(args, "puissance", None),
@@ -90,7 +90,7 @@ def options_simulation(args: argparse.Namespace) -> DemandeSimulation:
     )
 
 
-def demande_simulation(
+def interpreter_simulation(
     *,
     gpx: str | None,
     velo: str | None = None,
@@ -134,7 +134,7 @@ def simuler_depuis_namespace(
 
 
 def options_analyse(args: argparse.Namespace) -> DemandeAnalyse:
-    return demande_analyse(
+    return interpreter_analyse(
         gpx=getattr(args, "gpx", None),
         depart=getattr(args, "depart", None),
         velo=getattr(args, "velo", None),
@@ -143,7 +143,7 @@ def options_analyse(args: argparse.Namespace) -> DemandeAnalyse:
     )
 
 
-def demande_analyse(
+def interpreter_analyse(
     *,
     gpx: str | None,
     depart: str | None,
