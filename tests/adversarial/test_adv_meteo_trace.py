@@ -1,16 +1,16 @@
-"""L2.5 — pluie et vent le long du tracé, mis à l'épreuve.
+"""Pluie et vent le long du tracé, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §5 et §8. Le client Open-Meteo est le vrai
-(`ourouler.meteo.openmeteo.ClientOpenMeteo`, livré au sprint 1) branché sur un
+Le client Open-Meteo est le vrai
+(`ourouler.meteo.openmeteo.ClientOpenMeteo`) branché sur un
 `MockTransport` qui fabrique la réponse **à partir de la requête reçue** : un
 bloc par point demandé, les heures de la fenêtre demandée. C'est ce qui permet
-de vérifier en aveugle les promesses coûteuses du contrat :
+de vérifier en aveugle les promesses coûteuses :
 
 * **un seul appel** Open-Meteo pour tous les échantillons ;
 * l'heure de passage `depart + dist / vitesse`, et l'**interpolation linéaire**
   entre les deux heures encadrantes (pas la valeur de l'heure la plus proche) ;
-* `vent_relatif` calculé sur le **cap local**, avec la règle ±45° du sprint 1
-  et non une seconde règle recopiée ;
+* `vent_relatif` calculé sur le **cap local**, avec la règle ±45° de
+  `meteo.rapport` et non une seconde règle recopiée ;
 * aucune division par zéro (`vitesse_kmh = 0`) ni boucle infinie (`pas_m = 0`).
 """
 
@@ -160,7 +160,7 @@ def _verifier(meteo: Any, quoi: str) -> None:
 
 
 def test_un_seul_appel_open_meteo_pour_tout_le_trace():
-    """Contrat §5 : « un **seul** appel Open-Meteo pour tous les échantillons »."""
+    """Un **seul** appel Open-Meteo pour tous les échantillons."""
     module = module_meteo_trace
     client, espion = _client()
     meteo = _evaluer(module, _trace(40.0, pas_m=200.0), client, pas_m=2000.0)
@@ -207,7 +207,7 @@ def test_l_heure_de_passage_suit_la_vitesse():
 
 
 def test_la_valeur_horaire_est_interpolee_lineairement():
-    """Contrat §5 : « valeur horaire interpolée linéairement entre les deux heures encadrantes »."""
+    """La valeur horaire s'interpole linéairement entre les deux heures encadrantes."""
     module = module_meteo_trace
     client, _ = _client(pluie=lambda _ip, ih: 2.0 * ih)  # 0 mm à H, 2 mm à H+1, 4 mm à H+2
     meteo = _evaluer(module, _trace(10.0), client, vitesse_kmh=10.0, pas_m=5000.0)
@@ -395,7 +395,7 @@ def test_une_pluie_absente_ne_devient_pas_zero():
 
 
 def test_un_trace_plus_long_que_l_horizon_ne_ment_pas():
-    """Contrat §8 : « trace plus longue que l'horizon »."""
+    """Une trace plus longue que l'horizon météo le dit au lieu d'inventer."""
     module = module_meteo_trace
     client, _ = _client(heures_max=3)  # trois heures de prévision pour vingt heures de vélo
     trace = _trace(400.0, pas_m=5000.0)
@@ -426,7 +426,7 @@ def test_un_depart_naif_ne_provoque_pas_de_comparaison_impossible():
 
 
 def test_le_point_de_depart_ne_part_pas_dans_un_message_d_erreur():
-    """Règle du sprint 1 : les messages Open-Meteo ne publient jamais les coordonnées."""
+    """Les messages Open-Meteo ne publient jamais les coordonnées."""
     module = module_meteo_trace
     espion = EspionHttp(httpx.Response(500, text="boom"))
     client = ClientOpenMeteo(http=espion.client(), base_url=BASE_URL)

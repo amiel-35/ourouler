@@ -1,7 +1,7 @@
-"""L2.4 — coûts d'un tracé, mis à l'épreuve.
+"""Coûts d'un tracé, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §4 et §8. Rien à brancher ici : `evaluer` est une
-fonction pure sur un `Trace`, donc les tests sont directs et exigeants.
+Rien à brancher ici : `evaluer` est une fonction pure sur un `Trace`, donc les
+tests sont directs et exigeants.
 
 Ce qui est traqué :
 
@@ -41,7 +41,7 @@ CHAMPS = {
 }
 SENS_ATTENDUS = {"horaire", "antihoraire", "indetermine"}
 
-#: Poids du contrat §4, en km équivalents.
+#: Poids des coûts, en km équivalents.
 POIDS_TRAFIC = 3.0
 POIDS_NON_REVETU = 4.0
 POIDS_VIRAGE_GAUCHE = 0.3
@@ -123,7 +123,7 @@ def test_les_surfaces_non_revetues_sont_comptees(surface):
 
 
 def test_un_chemin_sans_surface_est_repute_non_revetu():
-    """Contrat §4 : « ou track sans surface »."""
+    """Un `track` sans surface est réputé non revêtu."""
     module = module_couts
     couts = _evaluer(module, _droite([{"highway": "track"}]))
     assert couts.km_non_revetu == pytest.approx(1.0, rel=0.02), (
@@ -228,7 +228,7 @@ def test_une_trace_ouverte_a_un_sens_indetermine():
 
 
 def test_le_bruit_gps_ne_fabrique_pas_de_virages():
-    """Contrat §4 : cap calculé sur des points espacés d'au moins 15 m."""
+    """Le cap se calcule sur des points espacés d'au moins 15 m."""
     module = module_couts
     coords = []
     lat, lon = fabriques.LAT0, fabriques.LON0
@@ -266,7 +266,7 @@ def test_un_virage_a_droite_net_est_compte_a_droite():
 
 
 def test_le_passage_du_meridien_zero_n_invente_pas_de_virage():
-    """Contrat §8 : « cap au passage du méridien 0 ».
+    """Le cap au passage du méridien 0 n'invente pas de virage.
 
     Une ligne quasi plein nord qui traverse la longitude 0 : le cap oscille de
     part et d'autre de 0° (donc entre 359,x° et 0,x°). Un écart de cap calculé
@@ -319,7 +319,7 @@ def test_un_virage_a_gauche_sur_une_route_a_trafic_est_signale():
 
 
 def test_une_trace_sans_segments_donne_des_couts_partiels():
-    """Contrat §4 : un GPX importé n'a pas de tronçon décrit."""
+    """Un GPX importé n'a pas de tronçon décrit : les coûts restent partiels."""
     module = module_couts
     trace = fabriques.trace_fictive(fabriques.ligne(20, pas_m=200.0))
     assert trace.segments == []

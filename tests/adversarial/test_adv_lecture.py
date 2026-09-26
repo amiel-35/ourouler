@@ -1,6 +1,6 @@
-"""L1.2 — lecteur unique FIT / GPX / TCX, mis à l'épreuve.
+"""Lecteur unique FIT / GPX / TCX, mis à l'épreuve.
 
-Cible : contrat §1. Les fichiers viennent de `fixtures/generer_hostiles.py`
+Les fichiers viennent de `fixtures/generer_hostiles.py`
 (tous synthétiques, autour de (0.0, 0.0)). Trois tests garde-fous en tête de
 module vérifient que les fixtures elles-mêmes sont ce qu'elles prétendent :
 si l'encodeur du générateur se casse, c'est là que ça tombe, pas dans les
@@ -156,7 +156,7 @@ def test_fichier_illisible_leve_erreur_lecture(hostiles, nom):
     "nom", ["entete_seul.fit", "gpx_sans_point.gpx", "pas_du_gpx.gpx", "tcx_sans_trackpoint.tcx"]
 )
 def test_fichier_sans_enregistrement_leve_erreur_lecture(hostiles, nom):
-    """Contrat §1 : « FIT sans enregistrement » → ErreurLecture.
+    """Un FIT sans enregistrement lève `ErreurLecture`.
 
     Étendu ici aux GPX/TCX sans point : `Activite.debut` et `duree_s` ne sont
     pas optionnels, un fichier sans aucun point ne peut pas les remplir.
@@ -256,7 +256,7 @@ def test_le_denivele_est_lisse_et_non_cumule_a_l_aveugle(hostiles):
     "nom", ["fit_non_monotone.fit", "gpx_non_monotone.gpx", "tcx_non_monotone.tcx"]
 )
 def test_non_monotone_tolere_et_signale(hostiles, nom):
-    """Contrat §1 : toléré, et signalé dans meta["avertissements"]."""
+    """Un horodatage non monotone est toléré, et signalé dans `meta["avertissements"]`."""
     lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite)

@@ -41,7 +41,7 @@ from ourouler.rendu.sortie import _ecart_seance, rendre_texte
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 
 
-# --- les propositions contrastées (lot L5.3) ----------------------------------
+# --- les propositions contrastées ----------------------------------------------
 
 
 def test_le_json_publie_les_propositions_avec_leur_phrase(tmp_path: Path, monkeypatch, capsys):
@@ -97,8 +97,8 @@ def test_moins_de_trois_propositions_dit_pourquoi(tmp_path: Path, monkeypatch, c
 def test_les_propositions_sont_un_sous_ensemble_des_candidates(
     tmp_path: Path, monkeypatch, capsys
 ):
-    """`candidates` reste la liste complète et inchangée : un script du sprint 4
-    qui la lisait continue de marcher."""
+    """`candidates` reste la liste complète et inchangée : un script qui la
+    lisait avant les propositions continue de marcher."""
     lancer(tmp_path, monkeypatch, candidates=3, json=True)
     charge = json.loads(capsys.readouterr().out)
     numeros_candidates = {c["numero"] for c in charge["candidates"]}

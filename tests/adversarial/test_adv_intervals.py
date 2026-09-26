@@ -1,10 +1,10 @@
-"""L1.4 — connecteur Intervals.icu, mis à l'épreuve.
+"""Connecteur Intervals.icu, mis à l'épreuve.
 
-Cible : contrat §3. Tout passe par `httpx.MockTransport` : aucune socket
-n'est ouverte (fixture `reseau_interdit`). La clé utilisée est une chaîne
-inventée (`outils.CLE_BIDON`) et le fil rouge du fichier est qu'elle ne doit
-apparaître **nulle part** dans ce qui sort du connecteur : message, `repr`,
-exception chaînée, rapport de synchronisation.
+Tout passe par `httpx.MockTransport` : aucune socket n'est ouverte (fixture
+`reseau_interdit`). La clé utilisée est une chaîne inventée
+(`outils.CLE_BIDON`) et le fil rouge du fichier est qu'elle ne doit apparaître
+**nulle part** dans ce qui sort du connecteur : message, `repr`, exception
+chaînée, rapport de synchronisation.
 """
 
 from __future__ import annotations

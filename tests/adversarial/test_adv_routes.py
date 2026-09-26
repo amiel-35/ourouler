@@ -1,6 +1,4 @@
-"""L3.2 — routes connues (apprentissage), mises à l'épreuve.
-
-Cible : contrat du sprint 3 §2 et §4.
+"""Routes connues (apprentissage), mises à l'épreuve.
 
 Ce qui est traqué :
 
@@ -39,7 +37,7 @@ from ourouler.apprentissage import routes as module_routes
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import Trace
 
-#: Maille du contrat §2 : ~30 m à l'équateur.
+#: Maille de l'apprentissage : ~30 m à l'équateur.
 FACTEUR_MAILLE = 3000
 
 #: Lundi et dimanche de la même semaine : « part semaine » = lundi-vendredi.
@@ -141,7 +139,7 @@ def test_la_base_cree_les_dossiers_parents_manquants(tmp_path):
 
 
 def test_une_base_corrompue_donne_une_erreur_utilisateur(tmp_path):
-    """Contrat §4 : « base corrompue ». Un fichier qui n'est pas du SQLite appartient à l'utilisateur."""
+    """Base corrompue : un fichier qui n'est pas du SQLite appartient à l'utilisateur."""
     module = module_routes
     chemin = tmp_path / "routes_connues.sqlite"
     chemin.write_bytes(b"ceci n'est pas une base sqlite\x00\x01\x02" * 40)
@@ -161,7 +159,7 @@ def test_une_base_corrompue_donne_une_erreur_utilisateur(tmp_path):
 
 
 def test_ajouter_deux_fois_la_meme_sortie_ne_compte_qu_une_fois(tmp_path):
-    """Contrat §2 : « idempotent par id_sortie »."""
+    """L'apprentissage est idempotent par `id_sortie`."""
     module = module_routes
     base = _base(module, tmp_path)
     trace = _trace()
@@ -236,7 +234,7 @@ def test_statistiques_sur_une_base_vide(tmp_path):
 
 
 def test_les_kilometres_sont_bien_des_kilometres(tmp_path):
-    """Contrat §2 : « km par highway ». Une table en mètres fausse toutes les parts affichées."""
+    """Des km par `highway` : une table en mètres fausse toutes les parts affichées."""
     module = module_routes
     base = _base(module, tmp_path)
     trace = _trace(51, highway="tertiary", pas_m=200.0)  # 10 km
@@ -268,7 +266,7 @@ def _verifier_part(part: Any, quoi: str) -> float:
 
 
 def test_part_connue_d_un_trace_vide(tmp_path):
-    """Contrat §4 : « part_connue sur tracé vide ». Le dénominateur vaut zéro."""
+    """`part_connue` sur un tracé vide : le dénominateur vaut zéro."""
     module = module_routes
     base = _base(module, tmp_path)
     vide = Trace("vide", [], [], 0.0, None, None, {})
@@ -419,7 +417,7 @@ def _appeler_poids(module, stats, exposition=None):
 
 
 def test_poids_appris_sans_exposition(tmp_path):
-    """Contrat §2 : « Sans exposition (tests), `poids_appris` sur `stats` seule … »."""
+    """Sans exposition, `poids_appris` se calcule sur `stats` seule."""
     module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 40, "secondary": 10}, nom="sorties.sqlite")
     poids, _ = robuste(
@@ -471,7 +469,7 @@ def test_poids_appris_ne_recompense_pas_une_classe_sur_roulee(tmp_path):
 
 
 def test_poids_appris_avec_une_classe_jamais_roulee(tmp_path):
-    """Contrat §4 : « part 0, log2 de 0/0, plafond 4 » — la division interdite."""
+    """Part 0, log2 de 0/0, plafond 4 : la division interdite."""
     module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 100}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 50, "track": 50}, nom="expo.sqlite")
@@ -483,7 +481,7 @@ def test_poids_appris_avec_une_classe_jamais_roulee(tmp_path):
 
 
 def test_poids_appris_quand_toutes_les_parts_des_sorties_sont_nulles(tmp_path):
-    """Contrat §4 : « log2 de 0/0 ». Chaque classe a 0 km roulé **et** 0 km au total."""
+    """log2 de 0/0 : chaque classe a 0 km roulé **et** 0 km au total."""
     module = module_routes
     stats = _stats(module, tmp_path, {"tertiary": 50, "secondary": 50}, nom="sorties.sqlite")
     expo = _stats(module, tmp_path, {"tertiary": 50, "secondary": 50}, nom="expo.sqlite")
@@ -555,11 +553,10 @@ def test_poids_appris_avec_des_parts_qui_ne_somment_pas_a_un(tmp_path, facteur):
     )
 
 
-# --- socle du sprint 3 déjà livré : [[evitements]] -----------------------------
+# --- la section [[evitements]] ------------------------------------------------
 #
-# Contrat §2 : « Évitements : `Config.evitements` → paramètre
-# `nogos=lon,lat,rayon|…` passé par `ClientBrouter.boucle/itineraire` ». La
-# configuration, elle, est déjà livrée : cette section ne saute pas.
+# Évitements : `Config.evitements` → paramètre `nogos=lon,lat,rayon|…` passé
+# par `ClientBrouter.boucle/itineraire`.
 
 
 def _charger(sections: dict):
@@ -605,7 +602,7 @@ def test_un_evitement_sans_nom_en_recoit_un():
     ],
 )
 def test_un_evitement_invalide_nomme_la_section(evitement):
-    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ, jamais une trace et un code 1."""
+    """`ErreurConfig` nomme le champ, jamais une pile d'appels et un code 1."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:

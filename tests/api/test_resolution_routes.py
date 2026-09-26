@@ -1,4 +1,4 @@
-"""Filet du lot 13 : quel point d'entrée résout chaque chemin littéral.
+"""Filet de résolution : quel point d'entrée résout chaque chemin littéral.
 
 Le routeur essaie les routes **dans l'ordre d'enregistrement** et s'arrête à
 la première qui correspond entièrement (méthode et chemin) ; une route qui ne
@@ -23,7 +23,7 @@ figé est le choix de la route, pas ce qu'elle répond.
 
 **Le module d'une route de `ourouler.api.routes.*` s'écrit
 `ourouler.api.routes`** : le découpage de ce paquet en modules par domaine
-(lot 13) n'est pas un changement de résolution. Qu'une route vienne bien de
+n'est pas un changement de résolution. Qu'une route vienne bien de
 la fonction nommée est vérifié à part, sans référence
 (`test_chaque_point_d_entree_est_la_fonction_de_son_module`).
 

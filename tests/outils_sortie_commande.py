@@ -514,7 +514,7 @@ def _contexte_avec(seance: Seance, config: Config) -> Any:
         gpx=None,
         carte=None,
         # Comme `executer` : le bloc « compteur » est lu par la commande, le
-        # rendu le reçoit (lot 6).
+        # rendu le reçoit.
         compteur_info=info_compteur(config, demande.velo),
     )
 

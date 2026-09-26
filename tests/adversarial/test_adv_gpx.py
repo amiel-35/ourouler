@@ -1,9 +1,9 @@
-"""L2.2 — écriture et import GPX, mis à l'épreuve.
+"""Écriture et import GPX, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §2 et §8. `ecrire_gpx` doit produire un GPX 1.1
-valide même quand le nom du tracé contient des caractères XML ; `lire_gpx_trace`
-doit refuser proprement (`ErreurLecture`) ce qui n'est pas lisible, et ne
-jamais laisser remonter une exception « bug » : la CLI l'afficherait en trace.
+`ecrire_gpx` doit produire un GPX 1.1 valide même quand le nom du tracé
+contient des caractères XML ; `lire_gpx_trace` doit refuser proprement
+(`ErreurLecture`) ce qui n'est pas lisible, et ne jamais laisser remonter une
+exception « bug » : la CLI l'afficherait en trace.
 
 Les fichiers écrits vivent dans `tmp_path` : rien de binaire ni de traçable
 n'est déposé à côté des tests (règle absolue 1, `.gitignore` ne réintègre
@@ -228,7 +228,7 @@ def test_lire_accepte_un_chemin_et_des_octets(tmp_path: Path):
 
 
 def test_une_route_seule_est_importee():
-    """Contrat §2 : « première <trk> ou <rte> »."""
+    """L'import lit la première `<trk>` ou, à défaut, la première `<rte>`."""
     module = module_gpx
     trace, erreur = _lire(module, GPX_ROUTE_SEULE.encode("utf-8"))
     assert erreur is None, f"une <rte> seule doit s'importer : {erreur}"

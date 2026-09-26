@@ -1,10 +1,10 @@
-"""L2.7 — rattachement par capteur et métadonnées Intervals, mis à l'épreuve.
+"""Rattachement par capteur et métadonnées Intervals, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §7. L'ordre des règles **change** par rapport au
-sprint 1 : (1) intérieur, (2) capteur de puissance, (3) identifiant ou nom
-d'équipement, (4) période, (5) premier vélo route. La moitié de ce fichier
-vérifie l'ordre, pas les règles prises à part : c'est là que se logent les
-régressions, et c'est ce qui sépare les deux vélos du mainteneur.
+L'ordre des règles de rattachement : (1) intérieur, (2) capteur de puissance,
+(3) identifiant ou nom d'équipement, (4) période, (5) premier vélo route. La
+moitié de ce fichier vérifie l'ordre, pas les règles prises à part : c'est là
+que se logent les régressions, et c'est ce qui sépare les deux vélos du
+mainteneur.
 
 Aucune valeur réelle ici : les capteurs et les identifiants d'équipement du
 mainteneur restent dans `docs/` (voir `test_adv_invariants`), les tests
@@ -65,7 +65,7 @@ NOMS_VELOS = {"Chrono", "Alpha", "Beta", HOME_TRAINER, "inconnu"}
 
 
 def _exiger_l27(module):
-    """Le module existe depuis le sprint 1 : ce qui manque, c'est la notion de capteur."""
+    """Le module peut exister sans connaître la notion de capteur : on la sonde."""
     try:
         source = inspect.getsource(module)
     except OSError:  # pragma: no cover - module sans source lisible
@@ -156,7 +156,7 @@ def test_l_interieur_prime_aussi_sur_la_periode_et_l_equipement():
     [CAPTEUR_BETA, CAPTEUR_BETA.lower(), CAPTEUR_BETA.title(), f"  {CAPTEUR_BETA}  "],
 )
 def test_le_capteur_rattache_quelle_que_soit_la_casse(capteur):
-    """Contrat §7 : le champ vient d'Intervals, sa casse n'est pas garantie."""
+    """Le champ vient d'Intervals, sa casse n'est pas garantie."""
     resultat = _rattacher(meta={"power_meter": capteur}, debut=DEBUT_REF)
     assert resultat == "Beta", (
         f"power_meter = {capteur!r} : le vélo Beta porte ce capteur, reçu « {resultat} » "
@@ -243,7 +243,7 @@ def test_le_cache_garantit_une_meta_dictionnaire(tmp_path, hostiles, brut):
 
 @pytest.mark.parametrize("bilateral", [True, False, None])
 def test_bilateral_sans_capteur_ne_rattache_rien(bilateral):
-    """Contrat §7 : `bilateral` est une métadonnée, pas une règle de rattachement.
+    """`bilateral` est une métadonnée, pas une règle de rattachement.
 
     Sans `power_meter`, une sortie bilatérale doit être rattachée exactement
     comme une sortie sans cette information : deviner « CLM » à partir de
@@ -371,7 +371,7 @@ def test_les_metadonnees_recopient_les_champs_du_contrat():
     [(49.5, True), (0.0, True), (None, False)],
 )
 def test_bilateral_vaut_avg_lr_balance_est_present(avg_lr_balance, attendu):
-    """Contrat §7 : `bilateral` = `avg_lr_balance is not None` — 0.0 n'est pas « absent »."""
+    """`bilateral` = `avg_lr_balance is not None` — 0.0 n'est pas « absent »."""
     module = module_intervals
     _exiger_meta_l27(module)
     activite = dict(ACTIVITE, avg_lr_balance=avg_lr_balance)
@@ -428,7 +428,7 @@ def _client(module, repondre):
 
 
 def test_rafraichir_meta_ne_retelecharge_pas_le_fichier(tmp_path, hostiles):
-    """Contrat §7 : met à jour `meta`/`equipement` **sans** retélécharger le fichier."""
+    """Met à jour `meta`/`equipement` **sans** retélécharger le fichier."""
     module = module_intervals
     _exiger_rafraichir(module)
     cache = module_cache.Cache(tmp_path / "cache")
@@ -505,14 +505,11 @@ def test_synchroniser_nu_rafraichit_la_meta_par_defaut(tmp_path, hostiles):
 def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
     """`rafraichir_meta=False` : l'entrée déjà en cache est laissée telle quelle.
 
-    Le drapeau est passé explicitement. Le contrat du sprint 2 §7 écrit
-    « `synchroniser` gagne `rafraichir_meta=True` », c'est-à-dire un paramètre
-    dont la **valeur par défaut est True** — comme tous les autres défauts du
-    contrat (`nb_points: int = 5`, `pas_m: float = 5000`). C'est aussi ce que
-    la DoD demande : `ourouler inventaire --synchroniser` doit enrichir les
-    sorties déjà en cache pour séparer les deux vélos, sans option à ajouter.
-    La première version de ce test omettait l'argument et exigeait quand même
-    le comportement de `False` : elle contredisait le contrat.
+    Le drapeau est passé explicitement : `synchroniser` a
+    `rafraichir_meta=True` pour **valeur par défaut**, parce que
+    `ourouler inventaire --synchroniser` doit enrichir les sorties déjà en
+    cache pour séparer les deux vélos, sans option à ajouter. Omettre
+    l'argument testerait donc le comportement de `True`, pas celui de `False`.
     """
     module = module_intervals
     _exiger_rafraichir(module)

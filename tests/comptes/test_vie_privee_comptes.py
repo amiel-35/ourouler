@@ -186,8 +186,8 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
     journal.noter_succes(qui, "openmeteo", "intervals", "brouter")
     assert journal.tout(qui), "le semis du journal n'a pas pris : le test ne prouverait rien"
 
-    # Les routes apprises : jamais exposées en écriture par l'API (contrat
-    # sprint 7), donc plantées directement sur le dépôt, comme le fait déjà
+    # Les routes apprises : jamais exposées en écriture par l'API, donc
+    # plantées directement sur le dépôt, comme le fait déjà
     # `tests/api/test_api_vie_privee.py` pour la même raison.
     chemin_base = tmp_path / "cache" / NOM_BASE
     base = BaseRoutes(chemin_base, proprietaire=proprietaire_id)

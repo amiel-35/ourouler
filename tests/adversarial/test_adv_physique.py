@@ -1,8 +1,8 @@
-"""L3.3 — modèle physique et simulation, mis à l'épreuve.
+"""Modèle physique et simulation, mis à l'épreuve.
 
-Cible : contrat du sprint 3 §3 et §4. C'est le point critique du sprint : une
-erreur de signe ou une borne oubliée ici se voit sur toutes les colonnes
-« temps estimé » sans jamais lever d'exception.
+C'est le point critique des estimations de temps : une erreur de signe ou une
+borne oubliée ici se voit sur toutes les colonnes « temps estimé » sans jamais
+lever d'exception.
 
 Ce qui est traqué :
 
@@ -38,7 +38,7 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import Trace
 from ourouler.physique import modele as module_modele
 
-#: Bornes du contrat §3, réécrites ici plutôt que lues dans le module testé.
+#: Bornes du modèle, réécrites ici plutôt que lues dans le module testé.
 V_MAX_MS = 30.0
 V_MAX_DESCENTE_KMH = 60.0
 #: Marge d'arrondi sur le plafond : 60,000000000000014 km/h reste 60 km/h.
@@ -83,7 +83,7 @@ def _vitesse(valeur: Any, quoi: str) -> float:
 
 
 def test_puissance_requise_a_vitesse_nulle():
-    """Contrat §4 : « pente 0 et puissance 0 → vitesse 0 sans division par zéro »."""
+    """Pente 0 et vitesse 0 : aucune division par zéro."""
     module = module_modele
     p = _p(module)
     assert _nombre(
@@ -150,7 +150,7 @@ def test_un_vent_de_dos_plus_rapide_que_le_cycliste_allege_la_traine():
 
 @pytest.mark.parametrize("pente", [-0.20, -0.08, 0.0, 0.08, 0.20])
 def test_puissance_requise_reste_finie_sur_les_pentes_extremes(pente):
-    """Contrat §4 : « pente −20 % »."""
+    """Jusqu'à −20 % de pente, la puissance requise reste finie."""
     module = module_modele
     p = _p(module)
     for v in (0.0, 5.0, 15.0, V_MAX_MS):
@@ -174,7 +174,7 @@ def test_puissance_requise_avec_une_pente_nan():
 
 
 def test_vitesse_regime_a_puissance_nulle():
-    """Contrat §4 : « pente 0 et puissance 0 → vitesse 0 sans division par zéro »."""
+    """Pente 0 et puissance 0 → vitesse 0, sans division par zéro."""
     module = module_modele
     p = _p(module)
     with fabriques.limite_temps(10.0, "vitesse_regime(0 W)"):
@@ -184,7 +184,7 @@ def test_vitesse_regime_a_puissance_nulle():
 
 @pytest.mark.parametrize(("pente", "vent"), [(0.0, 0.0), (0.05, 0.0), (-0.05, 0.0), (0.0, 6.0), (0.0, -6.0)])
 def test_vitesse_regime_croit_avec_la_puissance(pente, vent):
-    """Contrat §4 : « vitesse_regime monotone en puissance »."""
+    """`vitesse_regime` est monotone en puissance."""
     module = module_modele
     p = _p(module)
     with fabriques.limite_temps(20.0, f"vitesse_regime(pente={pente}, vent={vent})"):
@@ -224,7 +224,7 @@ def test_vitesse_regime_reste_bornee_avec_un_vent_de_dos_plus_rapide_que_le_cycl
 @pytest.mark.parametrize("vent", [-5.0, 0.0, 7.0])
 @pytest.mark.parametrize("puissance", [60.0, 150.0, 250.0, 400.0])
 def test_puissance_requise_est_bien_l_inverse_de_vitesse_regime(pente, vent, puissance):
-    """Contrat §4 : « cohérence puissance_requise(vitesse_regime(P)) = P à 0,1 W ».
+    """`puissance_requise(vitesse_regime(P)) = P` à 0,1 W près.
 
     L'égalité ne peut évidemment pas tenir quand la vitesse sature à la borne
     du contrat (une descente à −20 % à 400 W) : on ne la vérifie qu'à
@@ -370,7 +370,7 @@ def test_simuler_un_plat_a_puissance_constante():
 
 
 def test_simuler_une_descente_plafonne_la_vitesse():
-    """Contrat §3 : « vitesse plafonnée en descente (v_max_kmh = 60) »."""
+    """La vitesse est plafonnée en descente (`v_max_kmh = 60`)."""
     module = module_modele
     p = _p(module)
     trace = _trace_pente(-0.10, n=101, pas_m=100.0, alt0=1200.0)
@@ -398,7 +398,7 @@ def test_simuler_une_montee_est_plus_lent_qu_un_plat():
 
 
 def test_simuler_un_trace_de_deux_points():
-    """Contrat §4 : « simulation d'un tracé de 2 points » — plus court que le pas de 100 m."""
+    """Un tracé de 2 points, plus court que le pas de 100 m, se simule."""
     module = module_modele
     p = _p(module)
     trace = fabriques.trace_fictive(fabriques.ligne(2, pas_m=40.0))

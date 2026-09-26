@@ -1,4 +1,4 @@
-"""Tests du modèle de tracé partagé (sprint 2, socle)."""
+"""Tests du modèle de tracé partagé (`noyau.trace`)."""
 
 import math
 

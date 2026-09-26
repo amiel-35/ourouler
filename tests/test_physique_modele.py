@@ -71,7 +71,7 @@ PUISSANCES = (25.0, 75.0, 150.0, 250.0, 400.0, 600.0)
 @pytest.mark.parametrize("vent", VENTS)
 @pytest.mark.parametrize("puissance", PUISSANCES)
 def test_puissance_requise_inverse_vitesse_regime(pente: float, vent: float, puissance: float):
-    """`puissance_requise(vitesse_regime(P)) = P` à 0,1 W près (contrat §4)."""
+    """`puissance_requise(vitesse_regime(P)) = P` à 0,1 W près."""
     v = vitesse_regime(puissance, pente, vent, P)
     if v >= V_MAX_BISSECTION_MS:
         pytest.skip("puissance au-delà de la borne de bissection")
@@ -132,7 +132,7 @@ def test_puissance_demesuree_est_bornee():
 def test_vent_de_dos_fort_pousse_sans_freiner():
     """Un vent arrière plus rapide que le cycliste ne doit pas devenir une traînée.
 
-    C'est l'écart assumé au contrat §3 : `v_air·|v_air|` au lieu de
+    C'est l'écart assumé à la formule usuelle : `v_air·|v_air|` au lieu de
     `(v + v_vent)²`. Avec le carré, un vent de dos de 15 m/s rendait une
     traînée positive et une vitesse **plus faible** qu'à vent nul.
     """

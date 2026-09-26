@@ -1,87 +1,68 @@
-"""L5.3 — trois propositions contrastées, mises à l'épreuve.
+"""Trois propositions contrastées, mises à l'épreuve.
 
-Écrit **en aveugle** contre `docs/journal/sprints/sprint5_contrat.md` §3 et CLAUDE.md, sur une
-branche partie de `sprint-5` au commit `b2b0a3c`, avant l'implémentation.
-**Réconcilié le 16/09/2026** après la fusion du lot : les cas n'ont pas changé,
-seuls les points d'entrée l'ont — voir « Ce qui a bougé à la réconciliation »
-plus bas, où chaque correction dit quelle erreur de ma part elle répare.
+Écrit **en aveugle** de l'implémentation, contre ce que la commande promet.
 
 ## Par où l'on entre
 
-Le contrat §3.3 ne nommait **aucune interface** : ni module, ni fonction, ni
-champ. Ces tests passent donc par la surface que le contrat promet — ce que
-`ourouler sortie --json` publie — en réutilisant le harnais de bouchons du
-sprint 4 (`tests/test_sortie_commande.py` : trois clients
-`httpx.MockTransport`, départ fictif à (0, 0), aucune socket). Deux points
-d'entrée que le JSON ne porte pas sont atteints directement, avec leurs
-dépendances injectées : `boucle.marqueurs.compter` pour la densité,
+La règle des propositions ne nomme aucune interface interne. Ces tests passent
+donc par la surface promise — ce que `ourouler sortie --json` publie — avec le
+harnais de bouchons des tests de `sortie` (`tests/outils_sortie_commande.py` :
+trois clients `httpx.MockTransport`, départ fictif à (0, 0), aucune socket).
+Deux points d'entrée que le JSON ne porte pas sont atteints directement, avec
+leurs dépendances injectées : `boucle.marqueurs.compter` pour la densité,
 `sortie.vent_demande.interroger` pour la question du vent (client bouchonné et
 `aujourdhui` passé en argument, donc aucune horloge).
 
 ## Ce que ce fichier surveille, par ordre de gravité décroissante
 
-1. **Trois propositions qui se ressemblent.** Le défaut que le lot existe pour
-   éviter. On fabrique des candidates rigoureusement identiques (le même anneau
-   rendu à chaque azimut) et on exige que la commande ne prétende pas qu'elles
-   sont contrastées. Le chemin « n'en proposer que deux et le dire » doit
-   exister pour de vrai.
+1. **Trois propositions qui se ressemblent.** Le défaut que le contraste existe
+   pour éviter. On fabrique des candidates rigoureusement identiques (le même
+   anneau rendu à chaque azimut) et on exige que la commande ne prétende pas
+   qu'elles sont contrastées. Le chemin « n'en proposer que deux et le dire »
+   doit exister pour de vrai.
 2. **Les phrases.** Vides, partagées, en langage de note, ou fausses. Une
-   phrase de vent est **descriptive** et se vérifie contre l'orientation que le
-   lot publie ; les autres sont des superlatifs et se vérifient contre les
-   axes.
-3. **Les sept axes du contrat §3.3.2**, et ce qu'ils valent sur une séance sans
+   phrase de vent est **descriptive** et se vérifie contre l'orientation
+   publiée ; les autres sont des superlatifs et se vérifient contre les axes.
+3. **Les sept axes de contraste**, et ce qu'ils valent sur une séance sans
    bloc — le cas courant du mainteneur.
 4. **Les deux gardes de la question du vent**, aux bords : seuil, 3 jours pile,
    météo absente, direction inconnue ou non finie.
 5. **La densité de marqueurs**, y compris l'invariant qui se retourne : une
    portion sans nœud tagué n'est pas « la campagne prouvée ».
 
-## Ce qui a bougé à la réconciliation, et pourquoi
+## Ce que les adaptateurs savent lire
 
-Aucun cas n'a été retiré ni affaibli. Cinq corrections, toutes de mon côté :
-
-* **les phrases vivent dans `propositions[]`**, un bloc plat, pas dans
-  `candidates[]` — l'adaptateur lit maintenant les deux formes, et **échoue
-  bruyamment** quand il ne lit aucun axe (`exiger_axes_lus`) au lieu de
-  comparer des valeurs neutres et de conclure « trois clones » à tort ;
+* **les phrases vivent dans `propositions[]`**, un bloc plat, et
+  `candidates[]` garde la forme imbriquée : l'adaptateur lit les deux, et
+  **échoue bruyamment** quand il ne lit aucun axe (`exiger_axes_lus`) au lieu
+  de comparer des valeurs neutres et de conclure « trois clones » à tort ;
 * **une proposition seule n'a pas de phrase** — et c'est correct : une phrase
-  dit ce qui distingue « des deux autres ». Mon filtre « ne garder que les
-  entrées portant une phrase » jetait donc le cas des clones, celui que ce
-  fichier travaille le plus ;
-* **la densité porte sur le tracé entier**, `compter(trace)`, sans fenêtre : le
-  choix est justifié (sur une endurance il n'y a aucun bloc sous lequel
-  découper un couloir) et la batterie a été réécrite pour cette signature ;
-* **l'horizon se balaye en jours entiers** — l'entrée du lot est une paire de
-  dates, une demi-journée d'avance n'existe pas dans ce domaine ;
+  dit ce qui distingue « des deux autres ». Filtrer « les entrées portant une
+  phrase » jetterait le cas des clones, celui que ce fichier travaille le plus ;
+* **la densité porte sur le tracé entier**, `compter(trace)`, sans fenêtre :
+  sur une endurance il n'y a aucun bloc sous lequel découper un couloir ;
+* **l'horizon se balaye en jours entiers** — l'entrée est une paire de dates,
+  une demi-journée d'avance n'existe pas dans ce domaine ;
 * **les réglages du moteur bouchonné suivent les azimuts réellement demandés**
-  (`i × 360 / nb`) : codés en dur sur 0/90/180/270, ils ne s'appliquaient
-  jamais à cinq candidates, et un test accusait le lot sur un vivier qui
-  n'était pas celui qu'il décrivait.
+  (`i × 360 / nb`) : codés en dur sur 0/90/180/270, ils ne s'appliqueraient
+  jamais à cinq candidates.
 
-## Les constats retenus étaient en `xfail(strict=True)` — et ils sont levés
+## Les constats en `xfail(strict=True)`
 
-Trois tests portent un constat que le mainteneur a retenu le 16/09/2026 et dont
-la correction est en cours : direction de vent non finie qui passe les gardes,
-axe « durée » comparant des durées brutes au lieu d'écarts à la séance, et
-l'effet produit du second sur une endurance. Ils sont marqués
+Un constat retenu par le mainteneur et pas encore corrigé se marque
 `xfail(strict=True)` : l'assertion est intacte, le test s'exécute vraiment, et
 le jour où la correction arrive il passe — ce que `strict` transforme en échec,
 pour qu'on vienne retirer le marqueur. Un constat marqué ainsi ne se périme pas
 en silence.
 
-**Un quatrième test a été retiré parce qu'il avait tort.** Il exigeait que
-`part_connue` devienne un axe de contraste, sur la foi d'une version du contrat
-antérieure au 16/09/2026 — le tableau §3.3.2 a rayé cette ligne ce jour-là, et
-la doctrine en donne la raison : les routes déjà roulées sont un instrument de
-mesure, jamais un critère. Ma propre non-régression citait pourtant la
-docstring qui l'interdit. Deux positions contradictoires dans la même branche ;
-un test adversarial n'est pas plus infaillible que le code qu'il attaque. Il est
-remplacé par son miroir, qui garde la règle au lieu de la casser.
+`part_connue` n'est **pas** un axe de contraste : les routes déjà roulées sont
+un instrument de mesure, jamais un critère (doctrine). Un test la garde dans ce
+sens-là.
 
-La non-régression a son fichier (`test_adv_propositions_non_regression.py`), et les
-vérificateurs employés ici sont éprouvés par vingt-sept mutations dans
-`test_adv_propositions_autocontrole.py`. Sans ce dernier, rien ne garantirait que les
-assertions ci-dessous ne sont pas creuses — c'est la leçon du lot L5.2.
+La non-régression a son fichier (`test_adv_propositions_non_regression.py`), et
+les vérificateurs employés ici sont éprouvés par vingt-sept mutations dans
+`test_adv_propositions_autocontrole.py` : sans lui, rien ne garantirait que les
+assertions ci-dessous ne sont pas creuses.
 """
 
 from __future__ import annotations
@@ -149,18 +130,18 @@ DEFAUT_RETENU = "défaut retenu par le mainteneur le 16/09/2026, correction en c
 
 
 # =============================================================================
-# Sentinelle
+# Garde d'entrée
 # =============================================================================
 
 
-def test_sentinelle_l53_pas_encore_livre(tmp_path: Path, monkeypatch, capsys):
-    """Le seul test de ce fichier qui échoue quand le lot est absent.
+def test_sortie_json_publie_au_plus_trois_propositions_avec_une_phrase(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """`sortie --json` publie des propositions, trois au plus, chacune avec sa phrase.
 
-    Il surveille **les trois portes** du lot, pas l'existence d'un module : une
-    implémentation qui livrerait les phrases mais pas la densité, ou la densité
-    mais pas les gardes du vent, fait échouer la sentinelle sur la ligne qui
-    manque. Sans elle, le dossier se lirait « 60 tests passés » alors qu'aucun
-    n'aurait rien vérifié.
+    Garde d'entrée du fichier : sans propositions publiées, les tests qui
+    lisent les phrases se sauteraient et le dossier se lirait « tout passe »
+    alors qu'aucun n'aurait rien vérifié.
     """
     manque: list[str] = []
 
@@ -332,12 +313,12 @@ def test_aucune_phrase_ne_se_donne_un_avantage_qu_elle_n_a_pas(
     f53.verifier_phrases_meritees(choix)
 
 
-def test_les_pas_du_lot_ne_sont_pas_plus_laxistes_que_le_contrat():
-    """Un pas plus étroit que celui du §3.3.3 bis laisserait passer l'indiscernable.
+def test_les_pas_de_contraste_ne_sont_pas_plus_laxistes_que_la_regle():
+    """Un pas plus étroit que celui de la règle laisserait passer l'indiscernable.
 
     Contrôle structurel, complémentaire du précédent : le test de comportement
     ne voit que les viviers qu'on lui donne, celui-ci voit la règle elle-même.
-    Un pas plus **large** que le contrat est une exigence renforcée et passe ;
+    Un pas plus **large** que la règle est une exigence renforcée et passe ;
     un pas plus **étroit** échoue.
     """
     f53.verifier_pas_de_marge_relachee()
@@ -535,7 +516,7 @@ def test_la_phrase_parle_de_la_pluie_quand_la_pluie_est_la_seule_difference(
 
 
 def test_une_phrase_n_est_jamais_du_langage_de_note(tmp_path: Path, monkeypatch, capsys):
-    """Le contrat §3.3.3 : « en langage de cycliste et jamais en langage de note ».
+    """Une phrase parle « en langage de cycliste et jamais en langage de note ».
 
     Contrôle séparé de `verifier_phrases` pour que l'échec dise précisément
     ceci : une note de placement n'est pas une différence perceptible (§3.3.1),
@@ -564,7 +545,7 @@ def _seance_endurance():
 
     `workouts.sortie_libre()` est la fixture qui reproduit ce que son
     planificateur envoie : un seul groupe marqué `warmup` de bout en bout,
-    7 200 s, **aucun bloc**. Contrat §3.1.3 b) : « sur 85 jours, toutes les
+    7 200 s, **aucun bloc**. Mesuré chez le mainteneur : « sur 85 jours, toutes les
     séances vélo planifiées dehors sont des EF ou des sorties cool » — le cas
     endurance n'est pas secondaire, c'est **son cas courant**.
 
@@ -604,7 +585,7 @@ def test_une_seance_sans_bloc_ne_fait_pas_tomber_la_commande(
 
 
 def _couts(classe, km_trafic: float, km_total: float):
-    """Des `Couts` construits par introspection : le sprint 4 en a ajouté des champs.
+    """Des `Couts` construits par introspection : la structure gagne des champs.
 
     Les nommer un par un ferait casser ce fichier au prochain champ ajouté, pour
     une raison qui n'a rien à voir avec ce qu'il teste.
@@ -670,7 +651,7 @@ def _proposition_factice(
 def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     """**Défaut constaté sur `sprint-5` au 16/09/2026**, et le plus lourd des trois.
 
-    Le contrat §3.3.2 définit le deuxième axe ainsi : « **Durée tenue** | écart
+    La règle définit le deuxième axe ainsi : « **Durée tenue** | écart
     entre `duree_totale_s` **et la séance** | Mesuré trois fois : le tri retient
     des dépassements de 29 à 43 min ». L'axe est un **écart à une consigne**.
 
@@ -740,10 +721,8 @@ def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
 def test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection():
     """La doctrine, gardée **dans le bon sens** — et l'erreur que je répare ici.
 
-    J'avais écrit le test inverse, exigeant que `part_connue` devienne un axe
-    de contraste, sur la foi du tableau §3.3.2 tel qu'il était avant le
-    16/09/2026. La ligne a été **rayée** ce jour-là : « Retiré : contredit le
-    contrat du sprint 3 ». Deux choses auraient dû m'arrêter avant de l'écrire :
+    Le test inverse — exiger que `part_connue` devienne un axe de contraste —
+    serait faux, pour deux raisons :
 
     * la docstring de `BaseRoutes.part_connue`, que j'avais lue et **citée
       dans ma propre non-régression** — « Informatif seulement. Le contrat
@@ -800,11 +779,11 @@ def test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection():
 def test_la_part_de_routes_connues_reste_publiee():
     """…mais elle reste **affichée**, et c'est tout aussi important.
 
-    Contrat §3.3.2 : « La part connue reste affichée, peut servir à décrire une
+    La règle : « La part connue reste affichée, peut servir à décrire une
     proposition retenue pour une autre raison, et n'entre ni dans une note ni
     dans la sélection. » La retirer de la sortie serait l'autre façon de se
-    tromper — on perdrait l'instrument de mesure qui justifie tout le lot du
-    sprint 3.
+    tromper — on perdrait l'instrument de mesure qui justifie l'apprentissage
+    des routes connues.
     """
     from ourouler.sortie.commande import Proposition
 
@@ -875,7 +854,7 @@ def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
 ):
     """**L'effet produit des deux écarts ci-dessus**, sur le cas courant du mainteneur.
 
-    Contrat §3.3.2 : « les axes de contraste ne peuvent pas reposer sur la
+    La règle : « les axes de contraste ne peuvent pas reposer sur la
     seule note de terrain, qui vaut zéro la plupart du temps. Ils doivent
     couvrir le trafic, la part de routes connues, l'orientation au vent et la
     pluie. **Sans quoi les trois propositions seront identiques sur une EF,
@@ -1158,7 +1137,7 @@ def _lire_densite(valeur: Any) -> f53.Densite:
 def test_une_portion_sans_noeud_tague_n_est_pas_la_campagne_prouvee():
     """L'invariant qui se retourne, et c'est le plus facile à manquer.
 
-    Le contrat du sprint 3 dit qu'une classe inconnue n'est jamais un malus.
+    Une classe inconnue n'est jamais un malus.
     Ici la faute est symétrique et pire : une portion **sans aucun tag** rendue
     à zéro marqueur au kilomètre devient « la campagne », c'est-à-dire un
     **bonus**, et le lot proposerait par préférence les tracés qu'il ne connaît
@@ -1201,7 +1180,7 @@ def test_la_densite_est_finie_sur_un_trace_sans_point():
 
 
 def test_la_densite_de_marqueurs_est_publiee(tmp_path: Path, monkeypatch, capsys):
-    """Le contrat §3.3.2 en fait un axe : il doit se lire, pas seulement se calculer.
+    """La densité est un axe : elle doit se lire, pas seulement se calculer.
 
     Un axe qui n'apparaît nulle part dans `--json` ne peut ni être vérifié par
     le mainteneur, ni servir d'explication à une phrase « elle évite les

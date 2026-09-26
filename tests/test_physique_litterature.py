@@ -243,7 +243,7 @@ def test_les_deux_options_ensemble_sont_refusees_et_le_disent(tmp_path: Path):
 
 
 def test_boucle_refuse_les_deux_options_avant_tout_appel(tmp_path: Path, monkeypatch):
-    """Le refus coûte un message, pas douze appels BRouter (contrat §6).
+    """Le refus coûte un message, pas douze appels BRouter.
 
     Les moteurs ne sont **pas** passés : si la commande les construisait, elle
     tenterait une vraie connexion — et le test échouerait au lieu de lever

@@ -186,11 +186,11 @@ def _cellule(lignes: list[str], entete: str, titre: str) -> float:
     fin = entete.index(titre) + len(titre)
     return float(lignes[lignes.index(entete) + 1][:fin].rsplit(None, 2)[-2])
 
-# --- colonne « temps estimé » (L3.3) ------------------------------------------
+# --- colonne « temps estimé » ---------------------------------------------------
 #
-# Le contrat du sprint 3 §3 : la colonne « temps estimé » vient du modèle
-# calibré si `calibration.json` existe, avec la mention `(modèle)` ; sinon la
-# vitesse moyenne de la configuration, avec la mention `(27 km/h)`.
+# La colonne « temps estimé » vient du modèle calibré si `calibration.json`
+# existe, avec la mention `(modèle)` ; sinon la vitesse moyenne de la
+# configuration, avec la mention `(27 km/h)`.
 
 
 def config_avec_velo_calibrable(dossier: Path, **sections: Any) -> Config:
@@ -201,7 +201,7 @@ def config_avec_velo_calibrable(dossier: Path, **sections: Any) -> Config:
     )
 
 
-# --- temps écoulé porte à porte, et le bloc « compteur » (18/09/2026) --------
+# --- temps écoulé porte à porte, et le bloc « compteur » -----------------------
 #
 # Le défaut corrigé : la carte affichait le temps *en mouvement* du modèle
 # comme si c'était la durée de la sortie. Ici, `compteur` et `temps_ecoule_s`

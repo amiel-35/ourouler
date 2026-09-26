@@ -469,7 +469,7 @@ def test_l_elagage_garde_les_tags_de_noeud():
     """Les feux suivent le tronçon : sans eux, une boucle urbaine se note comme la campagne.
 
     Même faute que `cout_km`, un champ et trois mois plus tard. `node_tags`
-    est arrivé au sprint 4 et le constructeur de `_resegmenter` ne l'a jamais
+    est arrivé après coup et le constructeur de `_resegmenter` ne l'a jamais
     repris : **toute candidate générée passe par l'élagage**, donc toute
     candidate perdait ses feux, stops et passages piétons avant d'être notée.
     `evaluer_couloir` jugeait des couloirs urbains sans un carrefour.

@@ -558,7 +558,7 @@ def test_validation_vide():
 
 
 def test_la_validation_est_serialisable_en_json():
-    """Contrat §3 : « rapport texte + JSON ». Les lignes par sortie doivent passer.
+    """Le rapport existe en texte et en JSON : les lignes par sortie doivent passer.
 
     D'où `ErreurSortie` en `NamedTuple` avec un jour en chaîne ISO : une
     dataclass portant une `date` faisait échouer `json.dumps` sur le rapport.

@@ -1,16 +1,14 @@
-"""Fabriques du lot L5.3 — trois propositions contrastées (contrat sprint 5 §3.3).
+"""Fabriques des trois propositions contrastées de `ourouler sortie`.
 
-Écrit **en aveugle** de l'implémentation, puis **réconcilié le 16/09/2026**
-après sa fusion. Les vérificateurs n'ont pas changé de fond ; ce sont les
-adaptateurs qui ont appris à lire ce que le lot publie réellement.
+Les vérificateurs sont écrits contre ce que la commande **promet**, pas contre
+la façon dont elle est codée ; des adaptateurs lisent ce qu'elle publie.
 
 ## Pourquoi ce fichier est aussi gros
 
-Le contrat §3.3 ne nommait **aucune interface** : ni module, ni fonction, ni
-champ. Il décrivait un comportement (« trois représentants éloignés », « une
-phrase par proposition », « deux gardes sur la question du vent », « une
-densité de marqueurs au kilomètre ») sans dire par quelle porte on y entre.
-Deux conséquences, et elles structurent tout le dossier.
+La règle des propositions décrit un comportement (« trois représentants
+éloignés », « une phrase par proposition », « deux gardes sur la question du
+vent », « une densité de marqueurs au kilomètre ») sans nommer d'interface
+interne. Deux conséquences, et elles structurent tout le dossier.
 
 1. **Les vérificateurs sont écrits contre une vue générique**
    (`VueProposition`, `VueChoix`), pas contre l'implémentation.
@@ -21,26 +19,22 @@ Deux conséquences, et elles structurent tout le dossier.
 2. **Une implémentation de référence** (`choisir_reference`,
    `densite_reference`, `question_vent_reference`) sert de cobaye : elle est
    mutée vingt-sept fois dans `test_adv_propositions_autocontrole.py`, et chaque
-   mutation doit être attrapée par un vérificateur nommé. C'est la discipline
-   du lot L5.2, où deux tests s'étaient révélés aveugles à la mutation qu'ils
-   annonçaient. Elle ne remplace pas les tests sur le vrai code : elle prouve
-   que les vérificateurs ne sont pas creux.
+   mutation doit être attrapée par un vérificateur nommé : un test qui ne voit
+   pas la mutation qu'il annonce est un test creux. Elle ne remplace pas les
+   tests sur le vrai code : elle prouve que les vérificateurs ne sont pas creux.
 
 ## Un adaptateur muet doit se dénoncer
 
-La leçon de la réconciliation, et elle vaut au-delà de ce lot. Mon
-`vue_depuis_json` était écrit pour la forme imbriquée de `candidates[]` ; le
-lot publie ses propositions à plat. L'adaptateur ne lisait donc **aucun** axe,
-rendait des vues toutes neutres — donc identiques — et le vérificateur de
-clones criait « trois propositions identiques » sur des propositions qui
-différaient très bien. `exiger_axes_lus` refuse désormais de conclure quand
-rien n'a été lu : mieux vaut échouer en disant « je ne sais pas lire » que
-rendre un verdict faux avec assurance.
+Un adaptateur qui ne lit **aucun** axe rend des vues toutes neutres — donc
+identiques — et le vérificateur de clones crierait « trois propositions
+identiques » sur des propositions qui diffèrent très bien. `exiger_axes_lus`
+refuse donc de conclure quand rien n'a été lu : mieux vaut échouer en disant
+« je ne sais pas lire » que rendre un verdict faux avec assurance.
 
 ## Ce que la référence n'est pas
 
 Ce n'est **pas** une proposition d'implémentation, et surtout pas une norme :
-le contrat ne fixe ni la distance entre deux propositions, ni le seuil à
+la règle ne fixe ni la distance entre deux propositions, ni le seuil à
 partir duquel elles sont « éloignées ». La référence choisit la distance de
 Tchebychev et un seuil explicite parce qu'il faut bien un cobaye qui tourne ;
 **aucun test sur le vrai code n'exige ces choix-là**.
@@ -66,7 +60,7 @@ from ourouler.noyau.trace import Trace
 
 # --- les axes perceptibles ----------------------------------------------------
 
-#: Les axes que le contrat §3.3.1 déclare perceptibles — « la durée réelle, la
+#: Les axes perceptibles par le cycliste — « la durée réelle, la
 #: présence de demi-tours, la traversée de ville, l'orientation au vent, la
 #: pluie, la part de routes qu'il connaît déjà. Pas la note. »
 #:
@@ -84,15 +78,14 @@ AXES: dict[str, str] = {
     "vent_dos_depart": "max",
     "vent_travers": "max",
     "note_terrain": "min",
-    # Pas dans le tableau du contrat §3.3.2, mais le lot l'implémente
-    # (`contraste.AXE_TRAFIC`) et §3.1.3 a) documente le manque qu'il comble.
+    # Implémenté par `contraste.AXE_TRAFIC`, pour le manque que la seule
+    # traversée de ville laissait.
     # Perceptible sans discussion : rouler sur une départementale se sent.
     "part_trafic": "min",
 }
 
 #: **`part_connue` n'est pas ici, et c'est le point le plus important du
-#: fichier.** Le tableau §3.3.2 l'a listée, puis rayée le 16/09/2026 :
-#: « Retiré : contredit le contrat du sprint 3 ». La règle vient de la
+#: fichier.** Elle ne peut pas être un axe de contraste. La règle vient de la
 #: docstring de `BaseRoutes.part_connue` — « **Informatif seulement.** Le
 #: contrat l'interdit dans tout score : les traces ne couvrent qu'une partie du
 #: territoire, et pénaliser l'inconnu condamnerait d'avance toute direction
@@ -109,7 +102,7 @@ AXES: dict[str, str] = {
 #: miroir, `test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection`.
 AXE_INTERDIT = "part_connue"
 
-#: La note de placement, que le contrat §3.3.1 exclut explicitement du
+#: La note de placement, que la règle exclut explicitement du
 #: contraste (« Pas la note »). Elle reste ici pour le **tri primaire**, qui
 #: continue d'exister : le contraste choisit parmi des candidates classées.
 AXE_NOTE = "note_totale"
@@ -136,7 +129,7 @@ class VueProposition:
     #: compris, et aucun verdict ne doit être rendu (`exiger_axes_lus`).
     axes_lus: frozenset = frozenset()
     #: Le plus fort recouvrement de routes avec une autre proposition, publié
-    #: par le lot sous `recouvrement_max_avec`. Le contrat §3.3.2 en fait un
+    #: sous `recouvrement_max_avec`. La règle en fait un
     #: axe de plein droit, et le seul qui mesure la différence **entre** les
     #: boucles plutôt que leurs attributs.
     recouvrement_max: float | None = None
@@ -197,8 +190,8 @@ def vue(cle: Any, *, note: float = 1.0, phrase: str | None = None, **axes: float
 def vivier_clones(n: int = 5, *, notes_distinctes: bool = True) -> list[VueProposition]:
     """`n` candidates **identiques sur tous les axes perceptibles**.
 
-    Le cas que le lot existe pour refuser : sur le papier les notes diffèrent
-    (1,93 / 2,30 / 4,72 du contrat §3.3.1), sur une carte c'est la même sortie.
+    Le cas que le contraste existe pour refuser : sur le papier les notes
+    diffèrent (1,93 / 2,30 / 4,72), sur une carte c'est la même sortie.
     Avec `notes_distinctes=False`, même les notes sont égales — le classement
     dégénéré, où une normalisation naïve divise par une étendue nulle.
     """
@@ -261,7 +254,7 @@ def vivier_un_axe(axe: str, valeurs: Sequence[float]) -> list[VueProposition]:
 
 
 def vivier_sans_bloc(n: int = 5) -> list[VueProposition]:
-    """Le cas courant du mainteneur (contrat §3.1.3 b) : aucune séance à bloc.
+    """Le cas courant du mainteneur : aucune séance à bloc.
 
     `note_terrain` vaut zéro pour toutes ; les notes ne diffèrent que par la
     pénalité de dépassement du retour au calme (0,00 / 0,05 / 0,08 / 0,15 /
@@ -347,13 +340,13 @@ def choisir_reference(
         retenues.append(meilleure)
         restantes = [p for p in restantes if p.cle != meilleure.cle]
 
-    # Le contrat §3.3.3 fait de la phrase le juge de dernier ressort : « si
-    # aucune phrase n'est écrivable, c'est que les trois ne sont pas
-    # contrastées — et il vaut mieux n'en proposer que deux et le dire ». On
-    # retire donc la dernière retenue tant qu'une phrase reste vide, plutôt
-    # que de livrer une proposition qui ne sait pas dire ce qui la distingue.
-    # (Trouvé en écrivant l'autocontrôle, sur le vivier « séance sans bloc » :
-    # la troisième retenue n'était la meilleure sur aucun axe.)
+    # La phrase est le juge de dernier ressort : « si aucune phrase n'est
+    # écrivable, c'est que les trois ne sont pas contrastées — et il vaut mieux
+    # n'en proposer que deux et le dire ». On retire donc la dernière retenue
+    # tant qu'une phrase reste vide, plutôt que de livrer une proposition qui
+    # ne sait pas dire ce qui la distingue. (Trouvé en écrivant l'autocontrôle,
+    # sur le vivier « séance sans bloc » : la troisième retenue n'était la
+    # meilleure sur aucun axe.)
     ecrites = ecrire_phrases_reference(retenues, portees)
     while len(ecrites) > 1 and any(not (p.phrase or "").strip() for p in ecrites):
         retenues = retenues[:-1]
@@ -373,7 +366,7 @@ def choisir_reference(
 
 
 #: Comment nommer chaque axe en langage de cycliste. Les tournures viennent du
-#: contrat §3.3.3, qui les donne en exemple. Jamais de note, jamais de chiffre
+#: exemples de la règle des phrases. Jamais de note, jamais de chiffre
 #: à deux décimales.
 TOURNURES: dict[tuple[str, str], str] = {
     ("pluie_mm", "min"): "la plus sèche",
@@ -459,7 +452,7 @@ class Affirmation:
     orientation: str | None = None
 
 
-#: Le lexique est délibérément celui du contrat §3.3.3, qui donne les phrases en
+#: Le lexique est délibérément celui de la règle des phrases, qui les donne en
 #: exemple : « vous rentrez avec le vent dans le dos », « aucun demi-tour »,
 #: « la plus sèche », « 20 minutes de moins », « elle évite les villages ».
 #: L'ordre compte : la tournure la plus spécifique est reconnue d'abord.
@@ -773,10 +766,10 @@ def verifier_phrase_parle_du_bon_axe(choix: VueChoix, axe: str, extreme: str) ->
     )
 
 
-# --- les marges de contraste du contrat §3.3.3 bis ----------------------------
+# --- les marges de contraste ---------------------------------------------------
 
-#: Les marges **dans l'unité de chaque axe**, telles que le contrat §3.3.3 bis
-#: les fixe le 16/09/2026 : « durée ≥ 10 min ; demi-tours : un compte
+#: Les marges **dans l'unité de chaque axe**, telles que la règle de contraste
+#: les fixe : « durée ≥ 10 min ; demi-tours : un compte
 #: différent ; pluie ≥ 0,5 mm ; vent : une catégorie relative dominante
 #: différente ; ville : un écart de densité chiffré par la mesure du lot ;
 #: terrain : au moins 1,0 km équivalent, soit le prix d'un feu ».
@@ -887,14 +880,14 @@ def verifier_verrou_de_recouvrement(
 ) -> None:
     """Le seul verrou qui reste depuis Q43 : les tracés vont-ils ailleurs ?
 
-    Le contrat §3.3.3 bis en exigeait trois choses. Les deux premières — chaque
+    La règle de contraste en exigeait trois choses. Les deux premières — chaque
     proposition meilleure sur un axe, et sur un axe différent des autres — sont
     tombées le 17/09/2026 : *« le parcours lui-même est distinctif en soi »*.
     Elles visaient les descriptions et finissaient par jeter des tracés
     franchement différents faute de savoir les résumer en une phrase.
 
     Reste la troisième, et elle porte désormais tout : **le recouvrement de
-    routes entre deux retenues reste sous le seuil du lot.** Contrat §3.3.2 :
+    routes entre deux retenues reste sous le seuil.** La règle :
     « deux boucles peuvent avoir des notes très éloignées et emprunter les
     mêmes routes ; elles se ressembleront sur la carte quoi qu'en disent les
     chiffres. »
@@ -968,10 +961,10 @@ def verifier_phrases_meritees(choix: VueChoix) -> None:
 def seuil_recouvrement_du_lot() -> float | None:
     """Le seuil de recouvrement **mesuré par le lot**, ou `None` s'il est illisible.
 
-    Le contrat §3.3.2 dit que ce seuil « se **mesure** sur la distribution des
-    recouvrements deux à deux de candidates réellement générées, il ne s'invente
-    pas ». Je n'ai pas cette distribution ; je lis donc celui du lot plutôt que
-    d'en inventer un, et c'est la seule attitude honnête ici.
+    Ce seuil « se **mesure** sur la distribution des recouvrements deux à deux
+    de candidates réellement générées, il ne s'invente pas ». Je n'ai pas cette
+    distribution ; je lis donc celui du lot plutôt que d'en inventer un, et
+    c'est la seule attitude honnête ici.
     """
     try:
         from ourouler.sortie import contraste
@@ -986,10 +979,10 @@ def seuil_recouvrement_du_lot() -> float | None:
 def verifier_part_connue_hors_selection(choix: VueChoix) -> None:
     """La part de routes connues ne doit **jamais** départager deux propositions.
 
-    Doctrine, reprise au contrat §3.3.2 le 16/09/2026 : les routes déjà roulées
-    sont un instrument de mesure, pas un critère. Le contrôle possible depuis
-    l'extérieur : aucune phrase ne doit s'appuyer dessus, et l'axe ne doit
-    exister dans aucune structure d'axes du lot.
+    Doctrine : les routes déjà roulées sont un instrument de mesure, pas un
+    critère. Le contrôle possible depuis l'extérieur : aucune phrase ne doit
+    s'appuyer dessus, et l'axe ne doit exister dans aucune structure d'axes du
+    lot.
     """
     for p in choix.retenues:
         plat = _sans_accents_bas(p.phrase or "")
@@ -1005,7 +998,7 @@ def verifier_part_connue_hors_selection(choix: VueChoix) -> None:
 
 # --- densité de marqueurs -----------------------------------------------------
 
-#: Les marqueurs que le contrat §3.3.2 nomme : « feux, passages piétons,
+#: Les marqueurs que la densité compte : « feux, passages piétons,
 #: ralentisseurs » — c'est-à-dire ce que `terrain._noeuds_tagues` sait déjà
 #: reconnaître. On réutilise ses constantes plutôt que d'en réécrire une
 #: seconde liste qui divergerait.
@@ -1061,10 +1054,10 @@ def compter_marqueurs(trace: Trace) -> int:
 class Densite:
     """Une densité au kilomètre, ou l'aveu qu'on ne sait pas.
 
-    `connue=False` est la forme que prend « on ne sait pas » : le contrat du
-    sprint 3 interdit qu'une classe inconnue devienne un malus, et ici le
-    risque est symétrique et pire — une portion **sans tag** rendrait zéro,
-    c'est-à-dire « la campagne », alors que c'est « on ne sait pas ».
+    `connue=False` est la forme que prend « on ne sait pas » : une classe
+    inconnue ne devient jamais un malus, et ici le risque est symétrique et
+    pire — une portion **sans tag** rendrait zéro, c'est-à-dire « la
+    campagne », alors que c'est « on ne sait pas ».
     """
 
     par_km: float
@@ -1121,12 +1114,12 @@ def densite_reference(trace: Trace) -> Densite:
 def verifier_densite(
     fn: Callable[..., Any], *, lire: Callable[[Any], Densite] | None = None
 ) -> None:
-    """La batterie de la densité : le contrat §3.3.2 et l'invariant du sprint 3.
+    """La batterie de la densité, et l'invariant « l'inconnu n'est ni bonus ni malus ».
 
     `fn(trace)` rend n'importe quoi que `lire` sait convertir en `Densite`.
 
     **La mesure porte sur le tracé entier**, pas sur un couloir : c'est le
-    choix du lot, et il est justifié — sur une endurance il n'y a aucun bloc
+    choix du code, et il est justifié — sur une endurance il n'y a aucun bloc
     sous lequel découper un couloir, et c'est le cas courant du mainteneur.
     La batterie a été réécrite pour cette signature ; les exigences, elles,
     n'ont pas bougé.
@@ -1241,7 +1234,7 @@ def pytest_approx(valeur: float, *, rel: float = 1e-9, abs_: float = 1e-9):  # n
 
 # --- la question du vent ------------------------------------------------------
 
-#: L'horizon au-delà duquel le contrat §3.3.4 interdit la question. « on ne la
+#: L'horizon au-delà duquel la question du vent n'est pas posée. « on ne la
 #: pose pas au-delà de 3 jours » — donc 3 jours pile est encore dedans.
 HORIZON_JOURS = 3
 
@@ -1253,7 +1246,7 @@ def question_vent_reference(
     jours_a_l_avance: float,
     seuil_kmh: float,
 ) -> bool:
-    """Le cobaye des deux gardes du contrat §3.3.4."""
+    """Le cobaye des deux gardes de la question du vent."""
     if vent_kmh is None or not math.isfinite(vent_kmh):
         return False
     if direction_deg is None or not math.isfinite(direction_deg):
@@ -1273,13 +1266,13 @@ def transitions(reponses: Sequence[bool]) -> int:
 
 
 #: Balayage de vent des tests de garde, en km/h. Il encadre les deux seules
-#: valeurs que le contrat §3.3.4 chiffre : 2,5 (« sous le seuil ») et 14 (le
+#: valeurs que la règle chiffre : 2,5 (« sous le seuil ») et 14 (le
 #: vent médian, celui pour lequel la question existe).
 VENTS_BALAYES = (0.0, 0.5, 1.0, 2.0, 2.5, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 20.0, 30.0, 45.0)
 
 
 def verifier_gardes_vent(poser: Callable[..., bool]) -> None:
-    """Les deux gardes du contrat §3.3.4, **sans supposer la valeur du seuil**.
+    """Les deux gardes de la question du vent, **sans supposer la valeur du seuil**.
 
     `poser(vent_kmh=…, direction_deg=…, jours_a_l_avance=…)` rend un booléen.
 
@@ -1407,9 +1400,9 @@ def depart_fictif() -> tuple[float, float]:
 
 # --- le harnais de bout en bout ----------------------------------------------
 #
-# Le contrat §3.3 ne nomme aucune interface interne. La seule surface stable du
-# lot est donc celle que le mainteneur voit : ce que `ourouler sortie --json`
-# écrit. On la pilote avec le harnais déjà écrit pour le sprint 4
+# La règle ne nomme aucune interface interne. La seule surface stable est donc
+# celle que le mainteneur voit : ce que `ourouler sortie --json` écrit. On la
+# pilote avec le harnais des tests de `sortie`
 # (`tests/outils_sortie_commande.py`) : trois clients bouchonnés par
 # `httpx.MockTransport`, aucune socket, aucune donnée réelle, un départ à
 # (0, 0). Tester par là plutôt que par un nom de fonction deviné, c'est tester
@@ -1554,11 +1547,11 @@ def propositions_du_json(doc: dict) -> list[dict]:
 def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VueProposition:
     """Une `VueProposition` bâtie sur ce que le JSON publie.
 
-    Deux formes coexistent depuis le lot, et il faut savoir lire les deux :
+    Deux formes coexistent, et il faut savoir lire les deux :
 
-    * `candidates[]`, imbriquée, héritée du sprint 4 :
+    * `candidates[]`, imbriquée :
       `placement.duree_totale_s`, `meteo.pluie_cumulee_mm`, `part_connue`… ;
-    * `propositions[]`, **plate**, écrite par le lot : `duree_s`, `pluie_mm`,
+    * `propositions[]`, **plate** : `duree_s`, `pluie_mm`,
       `demi_tours`, `densite_marqueurs_km`, `part_trafic`, `orientation_vent`,
       `note_terrain`. C'est là que vivent les phrases.
 
@@ -1604,7 +1597,7 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
     # `part_connue` est lue pour être **surveillée**, jamais pour contraster :
     # voir `AXE_INTERDIT`. Elle est rangée à part, hors du dictionnaire d'axes.
 
-    # Durée : le lot publie `duree_s` à plat, le sprint 4 `placement.duree_totale_s`.
+    # Durée : `duree_s` à plat dans `propositions[]`, `placement.duree_totale_s` dans `candidates[]`.
     # On garde l'**écart à la séance** quand on la connaît — même ordre que la
     # durée brute tant que les propositions dépassent toutes, et plus lisible
     # dans un message d'échec.

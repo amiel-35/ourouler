@@ -1,4 +1,4 @@
-"""Les clients concrets satisfont les protocoles du noyau, tels quels (lot 9).
+"""Les clients concrets satisfont les protocoles du noyau, tels quels.
 
 `ourouler.noyau.ports` décrit ce que le domaine demande ; les connecteurs n'en
 héritent pas. La conformité est donc de forme, et elle se vérifie ici,

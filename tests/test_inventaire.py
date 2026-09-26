@@ -74,15 +74,14 @@ def entree(**champs) -> EntreeCache:
 
 # --- les cinq règles de rattachement, dans l'ordre ----------------------------
 #
-# Ordre fixé par le contrat du sprint 2 §7 (lot L2.7) : (1) intérieur ;
-# (2) capteur de puissance ; (3) gear_id ou équipement ; (4) période ;
-# (5) premier vélo d'usage route. Il remplace l'ordre du sprint 1, où
-# l'équipement primait sur tout, y compris sur l'intérieur.
+# L'ordre : (1) intérieur ; (2) capteur de puissance ; (3) gear_id ou
+# équipement ; (4) période ; (5) premier vélo d'usage route. L'intérieur
+# prime même sur l'équipement.
 
 
 def test_regle_1_interieur():
     """« (1) intérieur (VirtualRide, meta["trainer"] vrai, appareil Zwift/Rouvy,
-    meta["interieur"]) → "home-trainer" » (contrat §7)."""
+    meta["interieur"]) → "home-trainer" »."""
     config = depuis_dict(CONFIG_BRUTE)
     for champs in (
         {"sport": "VirtualRide"},
@@ -167,7 +166,7 @@ def test_regle_5_sans_velo_de_route():
 
 def test_1_avant_2_l_interieur_prime_sur_le_capteur(config: Config):
     """Le home-trainer se fait avec le capteur du vélo de route : c'est quand même
-    de l'intérieur, sinon ces kilomètres virtuels s'ajoutent au vélo (contrat §7)."""
+    de l'intérieur, sinon ces kilomètres virtuels s'ajoutent au vélo."""
     ht = entree(sport="VirtualRide", meta={"power_meter": "CAPTEUR 0001"})
     assert rattacher_velo(ht, config) == HOME_TRAINER
 

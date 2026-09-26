@@ -1,8 +1,8 @@
-"""L1.5 — couronne de directions, client Open-Meteo, rapport, mis à l'épreuve.
+"""Couronne de directions, client Open-Meteo, rapport, mis à l'épreuve.
 
-Cible : contrat §4. Tous les points de départ sont fictifs : (0.0, 0.0) en
-mer, (0.0, 179.9) au milieu du Pacifique pour le passage de l'antiméridien,
-(89.9, 0.0) pour le franchissement du pôle.
+Tous les points de départ sont fictifs : (0.0, 0.0) en mer, (0.0, 179.9) au
+milieu du Pacifique pour le passage de l'antiméridien, (89.9, 0.0) pour le
+franchissement du pôle.
 
 Le changement d'heure est traité là où il fait mal : la fenêtre du dernier
 dimanche d'octobre 2026, calculée en UTC et rendue en heure locale de Paris,
@@ -471,7 +471,7 @@ def _cellule(rapport, nom: str, *, distance: float = 20.0, index: int = 0):
     ],
 )
 def test_vent_relatif(direction, vent_depuis_deg, attendu):
-    """« face » pour qui s'éloigne du départ dans cette direction (contrat §4)."""
+    """« face » pour qui s'éloigne du départ dans cette direction."""
     _, rapport = _rapport(vent_depuis_deg=vent_depuis_deg)
     cellule = _cellule(rapport, direction)
     assert cellule.vent_relatif == attendu, (

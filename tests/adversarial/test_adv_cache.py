@@ -1,11 +1,10 @@
-"""L1.3 — cache local (fichiers bruts + index SQLite), mis à l'épreuve.
+"""Cache local (fichiers bruts + index SQLite), mis à l'épreuve.
 
-Cible : contrat §2. Le contrat ne dit pas d'où `ajouter` tire `debut`,
-`duree_s`, `distance_m`, `puissance_moy_w` et `sport` — sa signature ne les
-reçoit pas — donc on suppose ici qu'il relit le fichier avec le lecteur
-L1.2. `equipement`, lui, n'est dans aucun fichier d'activité : il ne peut
-venir que de `meta`, sous une clé que le contrat ne nomme pas. Les tests de
-rattachement construisent donc leurs `EntreeCache` directement
+La signature de `ajouter` ne reçoit ni `debut`, ni `duree_s`, ni `distance_m`,
+ni `puissance_moy_w`, ni `sport` : on suppose ici qu'il relit le fichier avec
+le lecteur unique. `equipement`, lui, n'est dans aucun fichier d'activité : il
+ne peut venir que de `meta`, sous une clé que ces tests ne supposent pas. Les
+tests de rattachement construisent donc leurs `EntreeCache` directement
 (`test_adv_inventaire.py`) et ceux d'ici n'affirment rien sur `equipement`.
 """
 
@@ -136,9 +135,8 @@ def test_ajout_meme_contenu_sous_deux_identites(tmp_path, generateur):
     """Mêmes octets, deux `id_externe` : deux entrées, un seul fichier brut.
 
     Le cas réel est le triathlon : Intervals en fait deux activités, natation
-    et vélo, qui citent le même FIT. Le test exigeait l'inverse (« le contenu
-    est la clé ») jusqu'à la relecture du sprint 2 (point 2) : c'est ce qui
-    faisait perdre une des deux, puis osciller `--synchroniser`.
+    et vélo, qui citent le même FIT. « Le contenu est la clé » ferait perdre
+    une des deux, puis osciller `--synchroniser`.
     L'identifiant, lui, reste le sha256 : c'est le nom du fichier brut,
     partagé.
     """
@@ -363,9 +361,8 @@ def test_indexer_dossier_extensions_en_majuscules(tmp_path, hostiles):
 def test_indexer_dossier_deux_noms_un_seul_contenu(tmp_path, hostiles):
     """Deux noms = deux entrées, un seul fichier brut — et le second import n'ajoute rien.
 
-    Le test exigeait « même contenu = une seule entrée » jusqu'à la relecture
-    du sprint 2 (point 2) : c'est ce qui faisait disparaître une des deux
-    moitiés d'un triathlon. L'identité d'une entrée est désormais
+    « Même contenu = une seule entrée » ferait disparaître une des deux
+    moitiés d'un triathlon. L'identité d'une entrée est donc
     `(source, id_externe)`, le fichier brut restant partagé par contenu.
     """
     module = module_cache

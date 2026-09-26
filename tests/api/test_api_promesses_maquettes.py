@@ -398,8 +398,8 @@ def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     **`xfail` levé le 17/09/2026.** Ce test décrivait un trou, et il disait
     déjà comment le combler : « le **cœur** compte et publie — pas l'API qui
     multiplie une densité par une distance ». C'est ce qui a été fait :
-    `contraste.Profil` portait `feux` et `stops` depuis le sprint 3 sans
-    jamais les sérialiser, `sortie/commande.rendre_json` les rend maintenant.
+    `contraste.Profil` portait `feux` et `stops` sans jamais les
+    sérialiser, `sortie/commande.rendre_json` les rend maintenant.
     Le front, lui, a cessé de multiplier (relecture F2 · C1).
     """
     client = _client_de_parcours()

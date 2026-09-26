@@ -88,7 +88,7 @@ def reseau_interdit(monkeypatch: pytest.MonkeyPatch) -> None:
 def chemin_api_de_l_environnement(monkeypatch: pytest.MonkeyPatch, request):
     """`OUROULER_API_CHEMIN=nouveau uv run pytest tests/api` rejoue tout ce dossier sur ce chemin.
 
-    Lot 11 : `creer_application` ne lit pas l'environnement ; une application
+    `creer_application` ne lit pas l'environnement ; une application
     construite sans `chemin_api` prend `double_chemin.CHEMIN_DEFAUT`. Poser la
     variable change ce défaut le temps du test, par la même lecture que le
     service (`exploitation.chemin_api`). Sans la variable, rien ne change.

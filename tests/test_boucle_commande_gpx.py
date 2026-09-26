@@ -121,7 +121,7 @@ def test_un_trace_surtout_non_classe_le_dit_dans_le_tableau(tmp_path: Path, monk
     assert "non classées" in sortie, sortie
 
 
-# --- écriture du GPX : refus d'avance et erreurs utilisateur (point 8) --------
+# --- écriture du GPX : refus d'avance et erreurs utilisateur -------------------
 
 
 def test_un_dossier_de_sortie_inexistant_est_refuse_avant_tout_appel(tmp_path: Path, monkeypatch):

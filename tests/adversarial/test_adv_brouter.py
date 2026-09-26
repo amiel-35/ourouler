@@ -1,6 +1,6 @@
-"""L2.1 — connecteur BRouter, mis à l'épreuve.
+"""Connecteur BRouter, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §1 et §8. Le serveur réel n'est jamais appelé :
+Le serveur réel n'est jamais appelé :
 tout passe par `httpx.MockTransport` et des réponses **fabriquées**
 (`fabriques.geojson_brouter`), la fixture `reseau_interdit` garantissant
 qu'aucune socket ne s'ouvre.
@@ -110,7 +110,7 @@ def test_itineraire_lit_la_reponse_fabriquee():
 
 
 def test_les_points_partent_en_lon_lat():
-    """Contrat §1 : (lat, lon) côté Python, `lon,lat` côté BRouter."""
+    """(lat, lon) côté Python, `lon,lat` côté BRouter."""
     module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)))
     client.itineraire([DEPART, ARRIVEE])
@@ -174,7 +174,7 @@ def test_l_url_configuree_est_respectee():
 
 @pytest.mark.parametrize("microdegres", [True, False])
 def test_les_messages_en_microdegres_ou_en_degres_ne_donnent_jamais_une_trace_aberrante(microdegres):
-    """Contrat §1 : « en microdegrés entiers (à vérifier sur la réponse : sinon en degrés) ».
+    """Les messages sont en microdegrés entiers, ou en degrés : jamais une trace aberrante.
 
     Les deux issues cohérentes sont acceptées — segments correctement rattachés,
     ou `ErreurConnecteur` qui dit l'unité inattendue. Ce qui est refusé, c'est
@@ -214,10 +214,10 @@ def test_les_messages_en_microdegres_ou_en_degres_ne_donnent_jamais_une_trace_ab
 def test_chaque_troncon_est_rattache_au_point_qui_le_termine(microdegres):
     """La géométrie est bien plus dense que les messages : compter les lignes ne suffit pas.
 
-    Contrat §1 : « rattacher chaque message au point de la géométrie le plus
-    proche ». Ici un message tous les trois points : une implémentation qui
-    consomme les points dans l'ordre, un par message, découpe les trois
-    premiers tronçons et abandonne les deux tiers du tracé.
+    Chaque message se rattache au point de la géométrie le plus proche. Ici un
+    message tous les trois points : une implémentation qui consomme les points
+    dans l'ordre, un par message, découpe les trois premiers tronçons et
+    abandonne les deux tiers du tracé.
     """
     module = module_brouter
     coords = fabriques.ligne(10, pas_m=300.0, cap_deg=60.0)
@@ -250,8 +250,8 @@ def test_chaque_troncon_est_rattache_au_point_qui_le_termine(microdegres):
 #: Un tracé entièrement dans la bande |coordonnée| ≤ 0,001°, à cheval sur
 #: l'équateur **et** sur le méridien de Greenwich. C'est la seule zone où une
 #: conversion microdegrés/degrés décidée valeur par valeur se trompe : 570
-#: microdegrés valent 0,00057°, pas 570 degrés. Contrat §8, « le cap au
-#: passage du méridien 0 » ; point 12 de la relecture du sprint 2.
+#: microdegrés valent 0,00057°, pas 570 degrés : c'est le cas du cap au
+#: passage du méridien 0.
 BANDE_AMBIGUE = {"depart": (-0.0004, -0.0004), "pas_m": 20.0, "cap_deg": 45.0}
 
 
@@ -364,7 +364,7 @@ def test_une_reponse_hostile_donne_une_erreur_utilisateur(reponse, quoi):
 
 
 def test_le_profil_inconnu_est_explique():
-    """Contrat §1 : un profil absent du serveur donne un 500 sans corps — le dire."""
+    """Un profil absent du serveur donne un 500 sans corps — le dire."""
     module = module_brouter
     client, _ = _client(module, httpx.Response(500, content=b""), profil="fastbike-lowtraffic")
     with pytest.raises(ErreurUtilisateur) as capture:

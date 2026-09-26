@@ -1,8 +1,8 @@
-"""L4.1 — la séance du jour, mise à l'épreuve.
+"""La séance du jour, mise à l'épreuve.
 
-Cible : contrat du sprint 4 §1 et §5. Le document Intervals est une entrée
-externe : il vient d'un compte que le mainteneur ne contrôle pas entièrement
-(séances poussées par son entraîneur via iDOSport). Tout y est optionnel.
+Le document Intervals est une entrée externe : il vient d'un compte que le
+mainteneur ne contrôle pas entièrement (séances poussées par son entraîneur via
+iDOSport). Tout y est optionnel.
 
 Ce qui est traqué :
 
@@ -41,13 +41,13 @@ from ourouler.seance import intervals as module_intervals
 
 ERREURS = (ErreurUtilisateur, ValueError)
 
-#: Types du contrat §1, réécrits ici plutôt que lus dans le module testé.
+#: Types d'étape, réécrits ici plutôt que lus dans le module testé.
 TYPES_CONTRAT = ("echauffement", "bloc", "recuperation", "calme")
 
 
 def _modele() -> Any:
-    # Le modèle de séance vit au noyau depuis le lot 4 : import direct, jamais
-    # de saut (un saut ici rendait 30 tests adversariaux silencieusement verts).
+    # Le modèle de séance vit au noyau : import direct, jamais de saut (un saut
+    # ici rendrait 30 tests adversariaux silencieusement verts).
     return importlib.import_module("ourouler.noyau.seance")
 
 
@@ -361,7 +361,7 @@ def test_une_rampe_de_puissance_donne_une_fourchette_croissante():
 
 
 def test_une_zone_de_frequence_cardiaque_se_dit_approximee():
-    """Contrat §1 : « une approximation se dit » — sinon le chiffre passe pour une mesure."""
+    """Une approximation se dit — sinon le chiffre passe pour une mesure."""
     mod = module_intervals
     document = fabriques_seance.doc([groupe([etape_doc(480.0, zone_fc=4)])])
     seance = appeler_depuis_workout(mod, document)
@@ -412,7 +412,7 @@ def test_seules_les_extremites_sont_elastiques():
 
 
 def test_aucune_recuperation_n_est_elastique_meme_longue():
-    """« Durabilité » : 45 min de Z2 au milieu, et pourtant fixes (plan, sprint 4)."""
+    """« Durabilité » : 45 min de Z2 au milieu, et pourtant fixes."""
     mod = module_intervals
     document = fabriques_seance.doc(
         [

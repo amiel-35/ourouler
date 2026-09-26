@@ -1,7 +1,7 @@
-"""L3.3 — calibration (`physique/calibration.py`), mise à l'épreuve.
+"""Calibration (`physique/calibration.py`), mise à l'épreuve.
 
-Cible : contrat du sprint 3 §3 et §4. C'est **le** livrable du sprint : le CdA
-et le Crr sortis d'ici servent ensuite à toutes les estimations de temps.
+C'est la mesure dont tout dépend : le CdA et le Crr sortis d'ici servent
+ensuite à toutes les estimations de temps.
 
 Ce qui est traqué :
 
@@ -44,7 +44,7 @@ from ourouler.physique import calibration as module_calibration
 from ourouler.physique import modele as module_modele
 from ourouler.services import calibrer as module_calibrer
 
-#: Bornes du contrat §3, réécrites ici plutôt que lues dans le module testé.
+#: Bornes de la calibration, réécrites ici plutôt que lues dans le module testé.
 CDA_MIN, CDA_MAX = 0.18, 0.6
 CRR_MIN, CRR_MAX = 0.002, 0.012
 MASSE_TOTALE_KG = 85.0
@@ -183,7 +183,7 @@ def _vent_constant(module_archive, *, vent_kmh: float = 0.0, depuis_deg: float =
 
 @pytest.mark.parametrize("nb", [0, 1, 2])
 def test_calibrer_avec_trop_peu_d_echantillons(nb):
-    """Contrat §4 : « calibration avec 0/1/2 échantillons » — le système est sous-déterminé."""
+    """Avec 0, 1 ou 2 échantillons, le système est sous-déterminé."""
     module = module_calibration
     echantillons = [_echantillon(module, v_ms=6.0 + i) for i in range(nb)]
     resultat, _ = robuste(
@@ -196,7 +196,7 @@ def test_calibrer_avec_trop_peu_d_echantillons(nb):
 
 
 def test_calibrer_avec_des_echantillons_tous_identiques():
-    """Contrat §4 : « échantillons tous identiques ». Deux inconnues, une seule équation."""
+    """Des échantillons tous identiques : deux inconnues, une seule équation."""
     module = module_calibration
     echantillons = [_echantillon(module) for _ in range(40)]
     resultat, _ = robuste(
@@ -259,7 +259,7 @@ def test_calibrer_ignore_les_echantillons_non_retenus():
 
 
 def test_une_borne_atteinte_se_dit():
-    """Contrat §4 : « bornes atteintes ». Une valeur bornée n'est pas une mesure.
+    """Une valeur bornée n'est pas une mesure : la borne atteinte se dit.
 
     Les échantillons demandent ici un CdA largement supérieur au plafond : le
     résultat doit rester dans les bornes **et** signaler qu'il y est collé.
@@ -343,7 +343,7 @@ def _verifier_echantillons(echantillons: Any, quoi: str) -> list[Any]:
 
 
 def test_echantillonner_ecarte_les_deux_premiers_kilometres():
-    """Contrat §3 : « pas dans les 2 premiers km » (échauffement, GPS qui se cale)."""
+    """Pas d'échantillon dans les 2 premiers km (échauffement, GPS qui se cale)."""
     module = module_calibration
     archive = module_openmeteo_archive
     activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=8.0)
@@ -362,7 +362,7 @@ def test_echantillonner_ecarte_les_deux_premiers_kilometres():
 
 
 def test_echantillonner_ecarte_les_pentes_hors_bornes():
-    """Contrat §3 : « pente entre −3 % et +8 % » — au-delà, la mesure ne dit plus rien du CdA."""
+    """Pente entre −3 % et +8 % seulement : au-delà, la mesure ne dit plus rien du CdA."""
     module = module_calibration
     archive = module_openmeteo_archive
     activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=5.0, pente=0.14)
@@ -388,7 +388,7 @@ def test_echantillonner_sur_une_sortie_sans_puissance():
 
 
 def test_echantillonner_sans_archive_de_vent():
-    """Contrat §4 : « archive météo vide ». Le vent inconnu n'est pas un vent nul mesuré."""
+    """Archive météo vide : le vent inconnu n'est pas un vent nul mesuré."""
     module = module_calibration
     activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0)
     resultat, _ = robuste(
@@ -456,7 +456,7 @@ def _sortie_conforme(modele, p, *, facteur: float = 1.0, n_points: int = 200):
 
 
 def test_detecter_groupe_sur_une_sortie_parfaitement_conforme():
-    """Contrat §4 : « sortie parfaitement conforme (faux) »."""
+    """Une sortie parfaitement conforme au modèle n'est pas une sortie de groupe."""
     module = module_calibration
     modele = module_modele
     archive = module_openmeteo_archive
@@ -473,7 +473,7 @@ def test_detecter_groupe_sur_une_sortie_parfaitement_conforme():
 
 
 def test_detecter_groupe_sur_une_sortie_vingt_pour_cent_trop_rapide():
-    """Contrat §4 : « sortie 20 % trop rapide (vrai) » — le seuil du contrat est +8 %."""
+    """Une sortie 20 % trop rapide est une sortie de groupe : le seuil est +8 %."""
     module = module_calibration
     modele = module_modele
     archive = module_openmeteo_archive
@@ -615,7 +615,7 @@ def test_sorties_calibrables_sur_un_cache_vide(tmp_path):
 
 
 def test_sorties_calibrables_ecarte_le_home_trainer_et_les_sorties_de_groupe(tmp_path, generateur):
-    """Contrat §3 : « extérieur, puissance présente, ≥ 20 km, hors mots_groupe »."""
+    """Calibrable : extérieur, puissance présente, ≥ 20 km, hors `mots_groupe`."""
     module = module_calibrer
     config = _config(tmp_path)
     cache = _cache(tmp_path)
@@ -730,10 +730,7 @@ def test_sorties_calibrables_respecte_la_date_de_depart(tmp_path, generateur):
     assert retenues == [], f"{retenues!r} rendues pour un « depuis » postérieur à toute sortie"
 
 
-# --- socle du sprint 3 déjà livré : [calibration] et Velo.crr ------------------
-#
-# Contrairement au reste de ce fichier, cette section ne saute pas : le
-# superviseur a livré `ParametresCalibration` et `Velo.crr` avec le contrat.
+# --- la section [calibration] et Velo.crr --------------------------------------
 
 
 def _charger(corps: str):
@@ -747,7 +744,7 @@ def _charger(corps: str):
 
 
 def test_les_defauts_de_la_section_calibration():
-    """Contrat §0 : `mots_groupe`, `part_validation = 0,25`, `vitesse_min_kmh = 8`."""
+    """Défauts : `mots_groupe`, `part_validation = 0,25`, `vitesse_min_kmh = 8`."""
     config = _charger("{}")
     assert config.calibration.part_validation == 0.25
     assert config.calibration.vitesse_min_kmh == 8.0
@@ -774,7 +771,7 @@ def test_les_defauts_de_la_section_calibration():
     ],
 )
 def test_une_valeur_de_calibration_hors_bornes_nomme_le_champ(champ, valeur):
-    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ fautif, pas une trace."""
+    """`ErreurConfig` nomme le champ fautif, pas une pile d'appels."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:
@@ -809,7 +806,7 @@ def test_mots_groupe_donne_comme_une_chaine():
 
 @pytest.mark.parametrize("crr", [0.0, 0.5, -0.004, "leger", True])
 def test_un_crr_de_velo_invalide_nomme_le_champ(crr):
-    """Contrat §0 : `Velo.crr` est un coefficient de roulement, pas un nombre libre."""
+    """`Velo.crr` est un coefficient de roulement, pas un nombre libre."""
     from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:

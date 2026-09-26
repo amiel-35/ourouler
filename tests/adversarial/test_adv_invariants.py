@@ -1,6 +1,6 @@
-"""Invariants du produit — ce qui doit rester vrai quel que soit le lot.
+"""Invariants du produit — ce qui doit rester vrai quel que soit le changement.
 
-Contrat §5 et règles absolues 1 à 3 de CLAUDE.md :
+Règles absolues 1 à 3 d'AGENTS.md :
 
 * aucun module de `src/ourouler/` autre que `cli.py` et `config.py` ne lit
   `tomllib`, `os.environ`, `Path.home()` ni un chemin utilisateur ;
@@ -11,8 +11,8 @@ Contrat §5 et règles absolues 1 à 3 de CLAUDE.md :
 * la clé d'API ne sort jamais de la CLI, même en `--json` ;
 * la hiérarchie d'exceptions sur laquelle repose le code de sortie 2 tient.
 
-Ces tests ne dépendent d'aucun lot : ils doivent passer dès maintenant et le
-rester à chaque livraison.
+Ces tests ne visent aucune fonctionnalité en particulier : ils doivent
+rester verts à chaque livraison.
 """
 
 from __future__ import annotations
@@ -149,8 +149,8 @@ def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     )
 
 
-def test_les_lots_absents_ne_cassent_pas_les_autres_commandes(ecrire_config, capsys):
-    """Contrat §0 : chaque sous-commande importe son module paresseusement."""
+def test_chaque_sous_commande_importe_son_module_paresseusement(ecrire_config, capsys):
+    """Une sous-commande qui ne s'importe pas ne doit pas empêcher `config` de tourner."""
     parseur = cli.construire_parseur()
     assert parseur is not None
     chemin = ecrire_config()
@@ -200,7 +200,7 @@ def test_toutes_les_erreurs_metier_sont_des_erreurs_utilisateur(nom):
 
 
 def test_erreur_config_reste_une_value_error():
-    """Contrat §0 : `ErreurConfig(ValueError)`, et erreur utilisateur à la fois."""
+    """`ErreurConfig` est une `ValueError` et une erreur utilisateur à la fois."""
     assert issubclass(erreurs.ErreurConfig, ValueError)
     assert issubclass(erreurs.ErreurUtilisateur, Exception)
 
@@ -223,7 +223,7 @@ def test_le_transport_bouchon_n_est_pas_gene_par_la_coupure():
 
 
 def test_tout_client_httpx_des_tests_recoit_un_transport():
-    """Contrat §5 : « httpx reçoit toujours un MockTransport »."""
+    """Dans les tests, httpx reçoit toujours un `MockTransport`."""
     fautes: list[str] = []
     for chemin in _fichiers_python(TESTS):
         for noeud in ast.walk(_arbre(chemin)):
@@ -473,7 +473,7 @@ def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
         )
 
 
-# --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------
+# --- le mot de passe BRouter ne sort jamais ------------------------------------
 
 #: Faux mot de passe de serveur BRouter (aucune valeur réelle, règle absolue 1).
 MOT_DE_PASSE_BIDON = "mot-de-passe-brouter-de-test-qui-ne-doit-jamais-fuiter-0123456789"
@@ -486,7 +486,7 @@ SECTION_BROUTER = (
 
 @pytest.mark.parametrize("arguments", [["config"], ["--json", "config"]])
 def test_le_mot_de_passe_brouter_ne_s_affiche_jamais(ecrire_config, capsys, arguments):
-    """Contrat sprint 2 §0 : « jamais le mot de passe dans une erreur, un log, un `repr` »."""
+    """Jamais le mot de passe dans une erreur, un journal ou un `repr`."""
     chemin = ecrire_config(SECTION_BROUTER)
     assert cli.main(["--config", str(chemin), *arguments]) == 0
     sortie = capsys.readouterr()
@@ -519,7 +519,7 @@ def test_le_mot_de_passe_brouter_ne_sort_pas_d_une_erreur_de_configuration(ecrir
         assert MOT_DE_PASSE_BIDON not in texte, f"le mot de passe fuit dans « {texte[:200]} »"
 
 
-# --- sprint 2 : rien de personnel dans src/ ni tests/ ------------------------
+# --- rien de personnel dans src/ ni tests/ -------------------------------------
 
 #: Identifiants d'équipement Intervals et capteurs du mainteneur. Ils ont leur
 #: place dans `docs/` (le contrat les cite pour que le code sache quoi chercher)
@@ -550,8 +550,8 @@ def _occurrences(texte: str) -> list[str]:
 #: Fichiers hors `src/` et `tests/` que le détecteur doit quand même lire.
 #: `config.example.toml` est celui que l'utilisateur copie — et c'est
 #: précisément lui qui portait le capteur réel avant `24d2f09` : le détecteur
-#: regardait à côté du seul endroit où la faute s'est produite (point 13 de la
-#: relecture du sprint 2). `README.md` est publié tel quel.
+#: regardait à côté du seul endroit où la faute s'est produite. `README.md` est
+#: publié tel quel.
 FICHIERS_PUBLIES = ("config.example.toml", "README.md")
 
 
@@ -623,13 +623,13 @@ def test_les_tests_adversariaux_n_appellent_que_des_domaines_de_test():
     )
 
 
-# --- sprint 3 : numpy reste dans physique/ -----------------------------------
+# --- numpy reste dans physique/ ------------------------------------------------
 
-#: `numpy` est autorisé par le contrat du sprint 3 §3 pour l'ajustement aux
-#: moindres carrés, et **seulement** là. Partout ailleurs il transformerait une
-#: bibliothèque que le mainteneur installe en une seconde en un paquet compilé
-#: de 20 Mo, pour une somme pondérée qu'un `for` écrit aussi bien (CLAUDE.md :
-#: « 50 lignes évidentes valent mieux que 20 lignes malignes »).
+#: `numpy` est autorisé pour l'ajustement aux moindres carrés, et **seulement**
+#: là. Partout ailleurs il transformerait une bibliothèque que le mainteneur
+#: installe en une seconde en un paquet compilé de 20 Mo, pour une somme
+#: pondérée qu'un `for` écrit aussi bien (CLAUDE.md : « 50 lignes évidentes
+#: valent mieux que 20 lignes malignes »).
 DOSSIER_NUMPY_AUTORISE = SRC / "physique"
 MODULES_CALCUL_LOURD = {"numpy", "scipy", "pandas"}
 
@@ -647,7 +647,7 @@ def _imports(chemin: Path) -> list[tuple[int, str]]:
 
 
 def test_numpy_ne_sort_pas_de_physique():
-    """Contrat sprint 3 §3 et §4 : « numpy autorisé, pas scipy » — et seulement dans `physique/`."""
+    """numpy est autorisé, pas scipy — et seulement dans `physique/`."""
     fautes = []
     for chemin in _fichiers_python(SRC):
         dans_physique = DOSSIER_NUMPY_AUTORISE in chemin.parents
@@ -672,9 +672,9 @@ def test_le_detecteur_d_imports_fonctionne(tmp_path):
     assert "math" in modules, "le détecteur doit voir tous les imports, pas seulement les interdits"
 
 
-# --- sprint 3 : le cœur ne fabrique pas les chemins du cache -----------------
+# --- le cœur ne fabrique pas les chemins du cache ------------------------------
 
-#: Fichiers que le sprint 3 range dans `cache.dossier`. Le contrat est explicite :
+#: Fichiers rangés dans `cache.dossier`. La règle est explicite :
 #: « le cœur ne lit pas de fichier : c'est `boucle/commande.py` qui lit le JSON
 #: et passe le dict », « le cache est passé en paramètre (le cœur ne connaît pas
 #: le chemin) ». Un module du cœur qui écrit le nom de fichier en dur sait donc
@@ -701,7 +701,7 @@ def _peut_nommer_un_fichier_du_cache(chemin: Path) -> bool:
 
 
 def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
-    """Contrat sprint 3 §2 et §3 : le cœur reçoit des objets, la CLI lit les fichiers."""
+    """Le cœur reçoit des objets, la CLI lit les fichiers."""
     fautes = []
     for chemin in _fichiers_python(SRC):
         if _peut_nommer_un_fichier_du_cache(chemin):
@@ -729,14 +729,15 @@ def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     )
 
 
-# --- sprint 4 : le paquet de la séance reste dans le cœur --------------------
+# --- les paquets de la séance restent dans le cœur -----------------------------
 
-#: Le contrat du sprint 4 nomme le paquet `seance/`, la doctrine §4 `sortie/`.
-#: Les règles valent pour celui des deux qui existe.
+#: Les modules de séance vivent sous `seance/` et `sortie/` : les règles valent
+#: pour les deux.
 PAQUETS_SEANCE = ("seance", "sortie")
 
-#: Modules du cœur du sprint 4. `commande.py` en est exclu : c'est lui qui a le
-#: droit de lire le disque et de connaître le jour courant (CLAUDE.md règle 2).
+#: Modules de la séance qui font partie du cœur. `commande.py` en est exclu :
+#: c'est lui qui a le droit de lire le disque et de connaître le jour courant
+#: (CLAUDE.md règle 2).
 MODULES_SEANCE_COEUR = ("modele.py", "intervals.py", "terrain.py", "placement.py", "tenue.py")
 
 #: Modules qui trahissent un accès au disque. `json` est traité à part : seuls
@@ -799,11 +800,11 @@ def _fautes_de_disque(chemin: Path) -> list[str]:
 
 
 def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
-    """La règle « le cœur ne sait pas où il tourne » doit couvrir le paquet du sprint 4.
+    """La règle « le cœur ne sait pas où il tourne » doit couvrir la séance.
 
-    Les détecteurs des sprints 1 à 3 parcourent `src/ourouler/` en entier : ce
-    test vérifie que le nouveau paquet n'y échappe pas, sans quoi la garantie
-    serait vide pour les modules qui viennent d'arriver.
+    Les détecteurs parcourent `src/ourouler/` en entier : ce test vérifie que
+    les modules de la séance n'y échappent pas, sans quoi la garantie serait
+    vide pour eux.
     """
     modules = _modules_seance()
     scannes = set(_fichiers_python(SRC))
@@ -812,7 +813,7 @@ def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
 
 
 def test_le_coeur_de_la_seance_ne_touche_pas_au_disque():
-    """Contrat §1 à §3 : le cœur reçoit une séance, un tracé et des paramètres.
+    """Le cœur reçoit une séance, un tracé et des paramètres, jamais un chemin.
 
     Seuls `cli.py` et les `commande.py` lisent un chemin. Un `open()` ou un
     `pathlib` dans `placement.py` est la règle absolue 2 contournée.
@@ -843,7 +844,7 @@ def test_le_coeur_de_la_seance_ne_lit_pas_l_horloge():
     )
 
 
-#: Modules du sprint 4 qui ne parlent à personne : ils reçoivent des objets.
+#: Modules de la séance qui ne parlent à personne : ils reçoivent des objets.
 MODULES_SANS_RESEAU = ("modele.py", "terrain.py", "placement.py", "tenue.py")
 
 
@@ -867,7 +868,7 @@ SYMBOLES_DE_COUTS = {"HIGHWAY_TRAFIC", "virages_detectes", "tags_par_troncon"}
 
 
 def test_le_terrain_reutilise_la_mecanique_des_couts():
-    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer ».
+    """Le terrain réutilise la mécanique de `couts` au lieu de la dupliquer.
 
     L'assertion d'origine se contentait de `"couts" in texte` : un commentaire
     contenant le mot suffisait à la satisfaire, et une réécriture complète de
@@ -890,7 +891,7 @@ def test_le_terrain_reutilise_la_mecanique_des_couts():
     )
 
 
-def test_les_detecteurs_du_sprint_4_fonctionnent(tmp_path):
+def test_les_detecteurs_de_disque_et_d_horloge_reperent_une_faute(tmp_path):
     """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
     faux = tmp_path / "faux.py"
     faux.write_text(

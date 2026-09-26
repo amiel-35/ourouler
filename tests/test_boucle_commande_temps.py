@@ -141,7 +141,7 @@ def test_sans_modele_du_tout_la_colonne_revient_a_la_vitesse_moyenne(
     assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
 
 
-# --- heure de passage météo à la vitesse du modèle (point 5 de la relecture) --
+# --- heure de passage météo à la vitesse du modèle -----------------------------
 
 
 def test_sans_modele_les_heures_de_passage_restent_a_la_vitesse_de_config(

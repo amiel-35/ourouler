@@ -1,17 +1,13 @@
-"""L1.3 — rattachement au vélo et inventaire, mis à l'épreuve.
+"""Rattachement au vélo et inventaire, mis à l'épreuve.
 
-Cible : contrat §2 du sprint 1, **révisé par le contrat du sprint 2 §7**
-(lot L2.7). La règle de rattachement est ordonnée ; l'ordre a changé : il
-était (1 équipement, 2 période, 3 sport intérieur, 4 premier vélo « route »),
-il est désormais (1 intérieur, 2 capteur de puissance, 3 équipement — par
-`gear_id` ou par nom, 4 période, 5 premier vélo « route »). La moitié des
-tests ici vérifie l'**ordre**, pas seulement chaque règle prise à part ; les
-trois tests d'ordre ci-dessous ont été réécrits en conséquence, la cible
-ayant bougé sous eux.
+La règle de rattachement est ordonnée : (1 intérieur, 2 capteur de
+puissance, 3 équipement — par `gear_id` ou par nom, 4 période, 5 premier vélo
+« route »). La moitié des tests ici vérifie l'**ordre**, pas seulement chaque
+règle prise à part.
 
-Les `EntreeCache` sont fabriquées directement (`outils.fabriquer`) : le
-contrat donne la liste des champs mais ni leur ordre ni leurs défauts, et il
-ne dit pas sous quelle clé de `meta` le cache range `equipement`.
+Les `EntreeCache` sont fabriquées directement (`outils.fabriquer`) : les tests
+ne supposent ni l'ordre ni les défauts des champs, ni sous quelle clé de `meta`
+le cache range `equipement`.
 """
 
 from __future__ import annotations
@@ -233,17 +229,16 @@ def test_meta_interieur_faux_ne_suffit_pas():
 
 
 def test_equipement_prime_sur_la_periode():
-    """Contrat sprint 2 §7 : « (3) gear_id / equipement ; (4) période »."""
+    """Règle (3) `gear_id` / équipement avant (4) période."""
     module = module_inventaire
     resultat = _rattacher(module, _config(VELOS), equipement="gear-beta", debut=DEBUT_REF)
     assert resultat == "Beta", "règle 3 avant règle 4 (la période de mars 2024 est celle d'Alpha)"
 
 
 def test_l_interieur_prime_sur_l_equipement():
-    """Contrat sprint 2 §7 : « (1) intérieur […] ; (3) gear_id / equipement ».
+    """Règle (1) intérieur avant (3) `gear_id` / équipement.
 
-    Inversion assumée par rapport au sprint 1, où l'équipement gagnait. Une
-    séance de home-trainer faite avec le capteur et l'équipement du vélo de
+    Une séance de home-trainer faite avec le capteur et l'équipement du vélo de
     route reste une séance d'intérieur : sinon elle serait comptée en sortie
     extérieure et fausserait les kilomètres du vélo.
     """
@@ -261,7 +256,7 @@ def test_l_interieur_prime_sur_l_equipement():
 
 
 def test_l_interieur_prime_sur_la_periode():
-    """Contrat sprint 2 §7 : « (1) intérieur […] ; (4) période »."""
+    """Règle (1) intérieur avant (4) période."""
     module = module_inventaire
     resultat = _rattacher(
         module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF

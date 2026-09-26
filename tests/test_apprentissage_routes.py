@@ -242,7 +242,7 @@ def test_une_base_au_schema_plus_recent_est_refusee(tmp_path: Path):
         BaseRoutes(chemin)
 
 
-#: Le schéma v1, mot pour mot tel qu'il a été livré au sprint 3 : sans la
+#: Le schéma v1, mot pour mot tel qu'il a été livré : sans la
 #: colonne `proprietaire`. C'est la base que le mainteneur a sur son disque.
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS troncons (
@@ -617,7 +617,7 @@ def test_le_poids_ne_depasse_jamais_le_plafond():
 
 
 def test_multiplier_les_kilometres_des_sorties_ne_change_pas_les_poids():
-    """Contrat §2 : on compare des **parts**, jamais des kilomètres.
+    """On compare des **parts**, jamais des kilomètres.
 
     Les deux jeux sont normalisés chacun sur son propre total. Un jeu de
     sorties dix fois plus fourni — ou une table filtrée en amont, dont les
@@ -884,7 +884,7 @@ def reponse_brouter_avec_relief(montee_m: float = 30.0) -> dict:
     """Comme `reponse_brouter`, altitude en rampe régulière plutôt que plate.
 
     Sert à vérifier que `apprendre` recalcule un D+ sur cette altitude
-    (contrat sprint 7 §L7.C) plutôt que de la jeter comme avant.
+    plutôt que de la jeter.
     """
     charge = reponse_brouter()
     coordonnees = charge["features"][0]["geometry"]["coordinates"]

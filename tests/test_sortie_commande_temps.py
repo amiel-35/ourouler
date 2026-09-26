@@ -60,7 +60,7 @@ from ourouler.sortie.commande import (
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 
 
-# --- temps écoulé porte à porte, et le bloc « compteur » (18/09/2026) --------
+# --- temps écoulé porte à porte, et le bloc « compteur » -----------------------
 #
 # Même défaut, même correction que `boucle` : la colonne « temps » montrait le
 # temps *en mouvement* du placement (`placement.duree_totale_s`) comme s'il
@@ -222,15 +222,13 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
 def test_le_lieu_de_depart_s_appelle_adresse_depart_et_rien_d_autre():
     """Ce que gardait le test du nom réservé, maintenant que le nom est livré (F0.7).
 
-    Le test écrit au sprint 4 vérifiait que `--adresse-depart` **n'existait
-    pas**, pour que le nom ne soit pas pris par autre chose avant qu'on le
-    livre. Ce qu'il protégeait vraiment, c'est le nom lui-même — pas son
-    absence : c'est ce qui est vérifié ici.
+    Ce qui compte, c'est le nom lui-même : `--adresse-depart`, et pas un
+    autre.
 
-    Aucun des noms écartés (`--depuis`, provisoire du plan du sprint 4,
-    `--lieu-depart`, `--depart-adresse`) ne doit apparaître à la place, et
-    l'option n'existe que là où partir d'ailleurs a un sens : `simuler` part
-    du GPX qu'on lui donne, pas d'un point.
+    Aucun des noms écartés (`--depuis`, `--lieu-depart`, `--depart-adresse`) ne
+    doit apparaître à la place, et l'option n'existe que là où partir
+    d'ailleurs a un sens : `simuler` part du GPX qu'on lui donne, pas d'un
+    point.
     """
     parseur = construire_parseur()
     sous = next(

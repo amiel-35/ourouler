@@ -73,8 +73,8 @@ REGENERER = "uv run pytest tests/compatibilite --regenerer-golden"
 LECTURE = ECHANTILLONS / "lecture.json"
 VERSIONS = ECHANTILLONS / "versions.json"
 
-#: Les constantes de version de schéma, par nom qualifié. Un lot qui déplace
-#: un module garde un réexport (lot 3) ou met ce nom à jour ; il ne change
+#: Les constantes de version de schéma, par nom qualifié. Un changement qui
+#: déplace un module garde un réexport ou met ce nom à jour ; il ne change
 #: jamais la **valeur**.
 CONSTANTES_DE_VERSION = (
     "ourouler.activites.cache.VERSION_SCHEMA",

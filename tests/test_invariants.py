@@ -652,7 +652,7 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
 # Les deux détecteurs de coordonnées du dépôt lisaient les fixtures et les
 # fichiers de configuration ; aucun ne regardait `docs/`. L'audit de
 # l'historique mené en resserrant `.gitignore` y a trouvé le point de départ du
-# mainteneur en clair depuis le sprint 1 : `docs/journal/sprints/sprint1_relecture.md` citait
+# mainteneur en clair dans `docs/journal/sprints/sprint1_relecture.md`, qui citait
 # le défaut qu'elle venait de faire corriger ailleurs, coordonnée comprise. Un
 # procès-verbal de relecture est un document comme un autre.
 
@@ -791,10 +791,10 @@ def test_le_generateur_de_fixtures_est_reproductible(generateur, tmp_path: Path)
 
 # --- numpy est confiné au paquet physique ------------------------------------
 #
-# Contrat du sprint 3 §4 : « numpy interdit hors physique/ ». La dépendance a
-# été ajoutée pour les moindres carrés de la calibration ; elle n'a rien à
-# faire dans un lecteur de fichier ou un connecteur, où elle ferait entrer des
-# scalaires `np.float64` dans des dataclasses censées porter des `float`.
+# « numpy interdit hors physique/ ». La dépendance a été ajoutée pour les
+# moindres carrés de la calibration ; elle n'a rien à faire dans un lecteur de
+# fichier ou un connecteur, où elle ferait entrer des scalaires `np.float64`
+# dans des dataclasses censées porter des `float`.
 
 PAQUET_NUMPY = "physique"
 

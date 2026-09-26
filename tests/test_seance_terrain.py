@@ -728,8 +728,8 @@ def test_route_au_dela_sur_boucle_fermee():
     assert trace.bornee()
     # Où qu'on soit sur la boucle, on peut continuer : la route ne s'arrête pas.
     assert route_au_dela(trace, total - 10.0, 800.0) is True
-    # Y compris pour un besoin plus long que le tour lui-même (contrat §2 :
-    # « ou si le tracé est une boucle fermée ») : on repasse au même endroit,
+    # Y compris pour un besoin plus long que le tour lui-même (« ou si le
+    # tracé est une boucle fermée ») : on repasse au même endroit,
     # mais on roule. En pratique le besoin vaut une demi-récup, jamais un tour.
     assert route_au_dela(trace, 0.0, total * 2) is True
 

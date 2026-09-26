@@ -1,4 +1,4 @@
-"""Fabriques d'entrées hostiles pour le sprint 4 (séance, terrain, placement, tenue).
+"""Fabriques d'entrées hostiles pour la séance, le terrain, le placement et la tenue.
 
 Trois familles :
 
@@ -40,8 +40,8 @@ DEPART = datetime(2026, 6, 10, 9, 0, tzinfo=UTC)
 #: FTP de test. Ce n'est pas celui du mainteneur (règle absolue 1).
 FTP_TEST_W = 200.0
 
-#: Le contrat du sprint 4 nomme le paquet `seance/` ; la doctrine §4 le nomme
-#: `sortie/`. On accepte les deux plutôt que de faire sauter toute la suite
+#: Les modules de séance vivent sous `seance/`, certains sous `sortie/` : on
+#: cherche dans les deux plutôt que de faire sauter toute la suite
 #: sur un désaccord de nom qui ne change aucun comportement.
 PAQUETS = ("ourouler.seance", "ourouler.sortie")
 
@@ -475,7 +475,7 @@ def liste_de_chaines(valeur: Any, quoi: str) -> list[str]:
 
 
 def verifier_note(note: Any, *, quoi: str) -> None:
-    """Invariants de `NoteBloc` (contrat §2), quel que soit le barème."""
+    """Invariants de `NoteBloc`, quel que soit le barème."""
     nombre_fini(note.note, f"{quoi}.note", positif=True)
     liste_de_chaines(note.motifs, f"{quoi}.motifs")
     for nom in ("pente_moyenne", "pente_max"):

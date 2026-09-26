@@ -1,4 +1,4 @@
-"""Export et suppression des données personnelles (lot L7.B, `docs/journal/sprints/sprint7_contrat.md`).
+"""Export et suppression des données personnelles d'un compte.
 
 Deux exigences de fond, une pour l'export, une pour la suppression — et
 chacune a son piège.
@@ -253,7 +253,7 @@ def test_la_suppression_nomme_ce_qui_reste(tmp_path: Path):
 #
 # `activites.cache.Cache` et `apprentissage.routes.BaseRoutes` n'ont pas de
 # route d'écriture dans l'API (`/inventaire` et `/routes/{action}` sont en
-# lecture seule, contrat sprint 7). C'est déjà le choix de
+# lecture seule). C'est déjà le choix de
 # `test_une_ressource_d_un_proprietaire_n_est_pas_lisible_par_un_autre` dans
 # `test_api_isolation_proprietaire.py` : on vérifie au dépôt, seul endroit où
 # deux propriétaires distincts existent pour de vrai avant les comptes.

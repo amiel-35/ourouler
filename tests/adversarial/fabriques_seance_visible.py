@@ -1,8 +1,7 @@
-"""Fabriques du lot L5.2 — la séance entière visible (contrat sprint 5 §2, Q13).
+"""Fabriques de la séance entière visible : chaque étape placée sur le tracé (Q13).
 
-Écrit **en aveugle** de l'implémentation du lot : ces fabriques ne connaissent
-du contrat que ce qu'il promet, et du code que ce qui existait sur
-`essai-l5.1` avant le lot.
+Écrites **en aveugle** de l'implémentation : ces fabriques ne connaissent de
+la séance visible que ce qu'elle promet, pas la façon dont elle est codée.
 
 Trois familles :
 
@@ -17,14 +16,14 @@ Trois familles :
 
 ## Pourquoi la continuité ne se vérifie pas sur `debut_m` seul
 
-Le contrat §2.2 a) demande que les emplacements « se suivent sans trou ni
+La règle veut que les emplacements « se suivent sans trou ni
 recouvrement, du départ à l'arrivée », que « la somme de leurs longueurs
 vaut `distance_totale_m` » et que le début de chacun soit la fin du précédent
 « **au sens du parcours réellement roulé, demi-tours compris, donc en suivant
 `jalons_m`** ».
 
 Or `debut_m` est une position **sur le tracé** (`_couloir` rend `min(a, b)`),
-pas un compteur kilométrique. Sur la figure de demi-tour du sprint 4 —
+pas un compteur kilométrique. Sur la figure de demi-tour du placement —
 « bloc → moitié de récup → demi-tour → moitié de récup → bloc » — la
 récupération part de `P`, va jusqu'à `P + b`, fait demi-tour et revient à
 `P` : elle roule `2b` mètres pour une empreinte de `b` mètres sur le tracé, et
@@ -187,7 +186,7 @@ def seance_2x20() -> Any:
 def seance_sans_bloc() -> Any:
     """Une sortie d'endurance uniforme : aucune étape n'est un bloc (Q12).
 
-    Cas prévu par le contrat de sprint 4 : « on ne fabrique pas un bloc
+    Cas prévu par la règle du placement : « on ne fabrique pas un bloc
     artificiel pour avoir quelque chose à placer. » `emplacements` était donc
     **vide** avant le lot, et doit maintenant contenir les trois étapes.
     """
@@ -251,7 +250,7 @@ def terrain_factice(
     """`evaluer_couloir` rend 0 dans `bon`, `mauvais` ailleurs. Rend la liste des appels.
 
     La liste des appels est le seul moyen de vérifier ce qui **n'a pas** été
-    évalué : le contrat §2.4 dit « pas de nouvelle note », donc aucune
+    évalué : la règle est « pas de nouvelle note », donc aucune
     récupération, aucun échauffement, aucun retour au calme ne doit passer par
     `evaluer_couloir`. Un lot qui noterait les non-blocs pour les jeter ensuite
     changerait quand même le coût du placement, et surtout prouverait qu'un
@@ -304,7 +303,7 @@ def est_bloc(seance_: Any, emplacement: Any) -> bool:
 
 
 def blocs_de(placement_: Any, seance_: Any) -> list[Any]:
-    """Les emplacements de blocs, par le filtre que le contrat §2.2 a) garantit."""
+    """Les emplacements de blocs, par le filtre que la séance visible garantit."""
     return [e for e in placement_.emplacements if est_bloc(seance_, e)]
 
 
@@ -363,7 +362,7 @@ MARGE_M = 1e-3
 
 
 def verifier_continuite(placement_: Any, seance_: Any) -> None:
-    """L'invariant central du lot L5.2 (contrat §2.2 a).
+    """L'invariant central de la séance visible : un parcours continu.
 
     Six exigences, chacune dans son assertion pour que l'échec dise laquelle :
 

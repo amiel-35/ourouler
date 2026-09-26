@@ -134,7 +134,7 @@ def test_le_temps_estime_vient_du_modele_meme_sans_calibration(
     assert charge["modele_physique"]["mesure"] is False
 
 
-# --- colonne des antennes (L3.1) ----------------------------------------------
+# --- colonne des antennes -------------------------------------------------------
 
 
 def moteur_brouter_avec_antenne() -> ClientBrouter:
@@ -240,7 +240,7 @@ def test_le_json_nomme_la_provenance_des_metres_d_antennes(
     assert candidate["antennes_source"] == "detectees"
     assert candidate["antennes"] is None
 
-# --- routes connues et poids appris (L3.2) ------------------------------------
+# --- routes connues et poids appris ---------------------------------------------
 #
 # `boucle` lit deux fichiers appris dans le dossier de cache — `poids_routes.json`
 # et `routes_connues.sqlite` — et passe leur contenu au cœur en objets. La

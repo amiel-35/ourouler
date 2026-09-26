@@ -1,8 +1,8 @@
-"""L4.3 — la tenue conseillée, mise à l'épreuve.
+"""La tenue conseillée, mise à l'épreuve.
 
-Cible : contrat du sprint 4 §3 et §5, et la règle du 13/09 : **la base se
-décide sur le départ**, parce que c'est là qu'on a froid ; le reste du tracé
-ne produit que des « prévoir d'enlever », « emporter », « garder ».
+La règle : **la base se décide sur le départ**, parce que c'est là qu'on a
+froid ; le reste du tracé ne produit que des « prévoir d'enlever »,
+« emporter », « garder ».
 
 Ce qui est traqué :
 

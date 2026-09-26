@@ -187,7 +187,7 @@ def test_sans_seance_et_carte_sans_seance_respecte_loption_carte(tmp_path: Path,
     assert (tmp_path / "ma_page.html").is_file()
 
 
-# --- --fichier-seance (F1, C1 de docs/journal/ux/relecture_f0.md) ---------------------
+# --- --fichier-seance : une séance lue dans un fichier ZWO ou MRC ---------------
 
 ZWO_SORTIE_FABRIQUE = (
     "<?xml version='1.0'?>\n<workout_file>\n<name>Séance fichier fabriquée</name>\n"

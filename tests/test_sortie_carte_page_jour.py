@@ -64,7 +64,7 @@ def test_construire_page_jour_refuse_une_liste_vide():
 
 
 def test_construire_page_jour_accepte_une_seule_proposition():
-    """Une candidate seule est un cas normal (contrat §3.3.6 e) : pas de plantage,
+    """Une candidate seule est un cas normal : pas de plantage,
     pas de sélecteur à comparer inutilement — juste rien à contraster."""
     page = carte.construire_page_jour(_seance_vide(), [_prop(1, distinction="")])
     donnees = _charge(page)
@@ -88,7 +88,7 @@ def test_page_jour_porte_une_entree_par_proposition():
 def test_page_jour_seule_la_premiere_proposition_est_visible_au_chargement():
     """Pas d'onglet, mais un défaut : la première (celle du tri) est active,
     les autres portent `hidden` — elles restent dans le HTML, prêtes à
-    s'afficher sans redemander de calcul au serveur (contrat §4.1)."""
+    s'afficher sans redemander de calcul au serveur."""
     props = [_prop(1), _prop(2), _prop(3)]
     page = carte.construire_page_jour(_seance_vide(), props)
     assert '<div class="panneau-prop" data-prop="1">' in page
@@ -97,7 +97,7 @@ def test_page_jour_seule_la_premiere_proposition_est_visible_au_chargement():
 
 
 def test_page_jour_couleur_grise_distincte_de_la_couleur_active():
-    """« Les deux autres retombent en trait gris fin » (contrat §4.1) : deux
+    """« Les deux autres retombent en trait gris fin » : deux
     teintes différentes, pas la même, sans quoi rien ne distinguerait la
     sélection sur la carte."""
     page = carte.construire_page_jour(_seance_vide(), [_prop(1), _prop(2)])

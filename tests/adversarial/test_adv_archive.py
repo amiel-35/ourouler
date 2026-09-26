@@ -1,20 +1,20 @@
-"""L3.3 — archive météo (`connecteurs/openmeteo_archive.py`), mise à l'épreuve.
+"""Archive météo (`connecteurs/openmeteo_archive.py`), mise à l'épreuve.
 
-Cible : contrat du sprint 3 §3 et §4. La calibration repose entièrement sur ce
-connecteur : un vent mal lu se retrouve dans le CdA, et le rapport d'erreur du
-sprint ne veut alors plus rien dire.
+La calibration repose entièrement sur ce connecteur : un vent mal lu se
+retrouve dans le CdA, et le rapport d'erreur de la calibration ne veut alors
+plus rien dire.
 
 Ce qui est traqué :
 
-* le **jour futur** : l'archive ne sait rien de demain. Le contrat §4 dit
-  « jour futur refusé » — et refusé **sans** appeler le service ;
+* le **jour futur** : l'archive ne sait rien de demain. Un jour futur est
+  refusé — et refusé **sans** appeler le service ;
 * le **jour antérieur à 1940** : la réanalyse ERA5 commence là ; en deçà, la
   réponse est vide et le cache mémorise le vide ;
 * les **coordonnées hors du globe** : une latitude de 91° est une faute de
   l'appelant, elle n'a pas à devenir une requête HTTP ;
 * les **heures manquantes** : `time` porte 24 heures et `wind_speed_10m` dix.
   Un `zip` strict lève, un `zip` laxiste tronque en silence, un accès par
-  indice lève `IndexError` — le contrat §4 cite explicitement ce cas ;
+  indice lève `IndexError` — un cas que le service rend vraiment ;
 * la **mémoïsation** : « l'archive du passé ne change pas ». Deux fois le même
   jour au même point, c'est un seul appel — sinon la calibration sur 160
   sorties refait 160 appels à chaque lancement.
@@ -163,7 +163,7 @@ def test_la_requete_demande_bien_le_jour_voulu():
 
 
 def test_un_jour_futur_est_refuse_sans_appel():
-    """Contrat §4 : « jour futur refusé »."""
+    """Un jour futur est refusé, sans appel au service."""
     module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
@@ -267,7 +267,7 @@ def test_une_reponse_aux_heures_manquantes():
     ],
 )
 def test_des_reponses_incompletes(options):
-    """Contrat §4 : « archive météo vide/partielle »."""
+    """Une archive météo vide ou partielle ne casse pas la lecture."""
     module = module_openmeteo_archive
     espion = _espion(**options)
     resultat, _ = robuste(
@@ -282,7 +282,7 @@ def test_des_reponses_incompletes(options):
 
 
 def test_des_valeurs_nulles_restent_nulles():
-    """Contrat §4 : « null ». `None` n'est pas `0.0` : un vent inconnu n'est pas un vent nul."""
+    """`None` n'est pas `0.0` : un vent inconnu n'est pas un vent nul."""
     module = module_openmeteo_archive
     espion = _espion(vent_kmh=None, vent_depuis_deg=None, temp_c=None, pression_hpa=None)
     resultat, _ = robuste(
@@ -355,7 +355,7 @@ def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
 
 
 def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
-    """Contrat §3 : « un appel par (jour, point arrondi à 0,05°) »."""
+    """Un appel par (jour, point arrondi à 0,05°)."""
     module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
@@ -368,7 +368,7 @@ def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
 
 
 def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
-    """Contrat §3 : « point arrondi à 0,05° » — soit environ 5,5 km."""
+    """Le point est arrondi à 0,05°, soit environ 5,5 km."""
     module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
@@ -405,7 +405,7 @@ def test_deux_jours_distincts_font_deux_appels():
 
 
 def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
-    """Contrat §3 : mémoïsé « dans cache.dossier / archive_meteo.sqlite »."""
+    """Mémoïsé dans `cache.dossier / archive_meteo.sqlite`, d'un client à l'autre."""
     module = module_openmeteo_archive
     memo = tmp_path / "archive_meteo.sqlite"
     premier = _espion()

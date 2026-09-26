@@ -1,6 +1,6 @@
-"""L2.3 — génération des candidates de boucle, mise à l'épreuve.
+"""Génération des candidates de boucle, mise à l'épreuve.
 
-Cible : contrat du sprint 2 §3 et §8. Le moteur est remplacé par un
+Le moteur est remplacé par un
 `MoteurFactice` qui note chaque appel et rend la distance qu'on lui dicte :
 c'est le seul moyen de vérifier en aveugle la **stratégie** (azimuts, rayon
 initial, ajustement par proportion, plafond d'appels) sans dépendre d'un
@@ -198,7 +198,7 @@ def test_un_seul_candidat_demande_n_explore_qu_un_azimut():
 
 
 def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
-    """Contrat §8 : « moteur qui renvoie toujours la même boucle ».
+    """Un moteur qui renvoie toujours la même boucle n'use pas tous les appels.
 
     Rendre 30 km pour une cible de 60 (écart de −50 %) en silence, quand la
     tolérance vaut 10 %, est exactement le défaut corrigé le 17/09/2026:
@@ -215,18 +215,16 @@ def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
     assert len(moteur.appels) <= 12, f"plafond d'appels dépassé : {len(moteur.appels)}"
 
 
-#: Ajustements de rayon consentis à un azimut, essai initial exclu. Le contrat
-#: du sprint 2 §3 écrivait « au plus 2 fois » ; le superviseur l'a porté à 3 le
-#: 13/09/2026, après la vérification réelle : l'élagage des antennes (L3.1)
-#: retire des centaines de mètres à la boucle du moteur, la distance mesurée
-#: oscille (53,6 puis 65,4 km pour 60 demandés) et deux corrections
-#: s'arrêtaient au milieu de l'oscillation. Ce qui est testé ici n'a pas
-#: changé : un azimut ne mange pas le plafond global d'appels.
+#: Ajustements de rayon consentis à un azimut, essai initial exclu : trois,
+#: parce que l'élagage des antennes retire des centaines de mètres à la boucle
+#: du moteur, la distance mesurée oscille (53,6 puis 65,4 km pour 60 demandés)
+#: et deux corrections s'arrêtaient au milieu de l'oscillation. Un azimut ne
+#: mange pas pour autant le plafond global d'appels.
 AJUSTEMENTS_CONSENTIS = 3
 
 
 def test_un_azimut_ne_coute_jamais_plus_de_trois_ajustements():
-    """Contrat §3, révisé par le superviseur le 13/09 : voir `AJUSTEMENTS_CONSENTIS`.
+    """Au plus `AJUSTEMENTS_CONSENTIS` ajustements de rayon par azimut.
 
     Le moteur ne converge jamais vers 60 km (30 km quoi qu'on demande), donc
     la tolérance de 1 % ne peut être tenue même élargie au maximum : la

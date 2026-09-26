@@ -402,11 +402,11 @@ def test_une_mesure_d_antennes_illisible_est_refaite():
 def test_un_trace_sans_antenne_rend_zero_metre():
     assert evaluer(trace_de_caps([0, 90, 180, 270])).antennes_m == 0.0
 
-# --- poids injectés (L3.2) ----------------------------------------------------
+# --- poids injectés -------------------------------------------------------------
 #
-# Le score du sprint 2 était figé : trois kilomètres équivalents par kilomètre
-# de « trafic », zéro pour tout le reste. Le sprint 3 le rend paramétrable par
-# classe `highway`, les constantes restant le cas par défaut.
+# Sans poids, le score vaut trois kilomètres équivalents par kilomètre de
+# « trafic » et zéro pour tout le reste. Des poids appris le rendent
+# paramétrable par classe `highway`, les constantes restant le cas par défaut.
 
 
 def _droite_taggee(tags: list[dict[str, str]], pas_m: float = 1000.0) -> Trace:
@@ -424,7 +424,7 @@ def _score_routes(couts) -> float:
     return couts.score - PENALITE_MAUVAIS_SENS
 
 
-def test_sans_poids_le_score_est_exactement_celui_du_sprint_2():
+def test_sans_poids_le_score_est_celui_des_constantes_par_defaut():
     trace = _droite_taggee([{"highway": "secondary"}, {"highway": "tertiary"}])
     assert _score_routes(evaluer(trace)) == pytest.approx(POIDS_KM_TRAFIC, rel=0.02)
 

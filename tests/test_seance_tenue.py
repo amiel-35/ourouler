@@ -1,4 +1,4 @@
-"""Tests de `seance.tenue` (sprint 4, lot L4.3).
+"""Tests de `seance.tenue` : la tenue conseillée.
 
 Aucune coordonnée réelle : les échantillons sont posés en mer au large du
 golfe de Guinée (0, 0), comme les autres tracés synthétiques du dépôt.
@@ -133,7 +133,7 @@ def test_le_vent_seul_declenche_la_veste():
 
 
 def test_un_gilet_coupe_vent_ne_remplace_pas_la_veste():
-    """À 35 km/h de vent, ce sont les bras qui prennent (contrat §3)."""
+    """À 35 km/h de vent, ce sont les bras qui prennent."""
     tenue = conseiller(_meteo((0.0, 14.0, 0.0, 35.0)), P)
     assert "gilet coupe-vent" in tenue.base  # tenue « frais »
     assert VESTE_VENT in tenue.a_emporter

@@ -1,8 +1,8 @@
-"""Tests de l'import d'archives déposées (L9.2, `docs/journal/sprints/sprint9_contrat.md`).
+"""Tests de l'import d'archives déposées (export Strava ou Garmin).
 
 Toutes les archives sont **fabriquées en mémoire** dans ce fichier — aucune
 vraie archive Strava/Garmin, aucune donnée personnelle, aucun réseau (règle
-absolue 1 et 3 de CLAUDE.md). Les fichiers d'activité qu'on y range viennent
+absolue 1 et 3 d'AGENTS.md). Les fichiers d'activité qu'on y range viennent
 de `tests/fixtures/activites/` (fixture `activites`), déjà synthétiques.
 """
 

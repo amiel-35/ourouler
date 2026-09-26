@@ -1,9 +1,9 @@
-"""L4.2 — le terrain sous un bloc, mis à l'épreuve.
+"""Le terrain sous un bloc, mis à l'épreuve.
 
-Cible : contrat du sprint 4 §2 et §5. C'est un point critique : `evaluer_couloir`
-ne lève jamais rien, elle rend un nombre. Un poids inversé ou un seuil raté
-donne une note plausible sur un terrain infaisable, et personne ne le voit
-avant d'être dehors, au milieu d'un bourg, à 320 W.
+C'est un point critique : `evaluer_couloir` ne lève jamais rien, elle rend un
+nombre. Un poids inversé ou un seuil raté donne une note plausible sur un
+terrain infaisable, et personne ne le voit avant d'être dehors, au milieu d'un
+bourg, à 320 W.
 
 Ce qui est traqué :
 
@@ -212,7 +212,7 @@ def test_seuls_les_noeuds_de_la_liste_font_un_carrefour(tags_noeud, attendu):
 
 @pytest.mark.parametrize(("angle", "attendu"), [(90.0, True), (20.0, False)], ids=["angle_droit", "leger"])
 def test_un_virage_serre_compte_comme_un_carrefour(angle, attendu):
-    """Contrat §2 : « virage de plus de 60° détecté géométriquement »."""
+    """Un virage de plus de 60° se détecte géométriquement."""
     coords = fabriques_seance.virage(65, 135, angle_deg=angle, pas_m=PAS_M)
     note = _note(trace_taguee(coords))
     assert (note.carrefours >= 1) is attendu, (
@@ -294,7 +294,7 @@ def test_une_descente_sous_les_seuils_n_est_pas_une_descente(pente, troncons, ra
 
 
 def test_une_montee_douce_ne_coute_rien():
-    """Contrat §2 : « tolérée et non pénalisée jusqu'à +2 % »."""
+    """Une montée est tolérée et non pénalisée jusqu'à +2 %."""
     plat = _note(_trace())
     douce = _note(_trace(pentes=0.015))
     assert douce.note == pytest.approx(plat.note, abs=1e-6), (
@@ -325,7 +325,7 @@ def test_une_longue_descente_coute_plus_qu_un_carrefour():
 
 
 def test_un_profil_irregulier_coute_plus_qu_un_profil_regulier():
-    """Écart-type de la pente, poids faible mais non nul (contrat §2)."""
+    """Écart-type de la pente, poids faible mais non nul."""
     # ±1,2 % : sous le seuil de montée tolérée (+2 %) et au-dessus de celui de
     # descente (−1,5 %). Ne reste que l'écart-type pour différencier les deux.
     alternee = [0.012 if i % 2 else -0.012 for i in range(N_TRONCONS)]
@@ -345,7 +345,7 @@ def test_un_profil_irregulier_coute_plus_qu_un_profil_regulier():
 
 
 def test_un_bloc_a_cheval_sur_la_fermeture_continue_sur_la_boucle():
-    """Contrat §2 (`route_au_dela`) : sur une boucle fermée, « on continue sur la boucle »."""
+    """`route_au_dela` : sur une boucle fermée, « on continue sur la boucle »."""
     _exiger_node_tags()
     mod = module_terrain
     boucle = fabriques_seance.boucle_plate(node_tags={2: {"highway": "traffic_signals"}})

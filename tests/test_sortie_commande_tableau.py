@@ -60,7 +60,7 @@ def test_le_tableau_montre_les_candidates_retenues(tmp_path: Path, monkeypatch, 
 def test_le_tri_prend_la_note_de_placement_avant_la_pluie(tmp_path: Path, monkeypatch, capsys):
     """La boucle plate est **au nord**, donc sous la pluie ; elle gagne quand même.
 
-    C'est tout l'ordre du contrat §4 : la pluie se contourne en partant plus
+    C'est tout l'ordre de tri : la pluie se contourne en partant plus
     tard, un bloc de seuil en descente ne se contourne pas.
     """
     reglages = {0.0: {"amplitude_m": 1.0}, 180.0: {"amplitude_m": 90.0}}
@@ -124,16 +124,15 @@ def test_a_note_equivalente_la_pluie_departage(tmp_path: Path, monkeypatch, caps
 
 
 def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys):
-    """Le cœur du lot L5.1 : `ourouler sortie` place maintenant avec le vent.
+    """`ourouler sortie` place la séance avec le vent.
 
     Une candidate unique (azimut 0°, `candidates=1`), placée deux fois avec
     la même géométrie et la même séance — sans vent, puis avec un vent fort
     et uniforme (45 km/h @ 45°). Si le vent n'était pas branché, les deux
     placements seraient identiques au bit près (c'est exactement ce que
-    `placer(..., vent=None)` garantit, et ce que les 2 936 tests du sprint 4
-    vérifiaient déjà). Ici ils doivent différer : c'est la preuve que
-    `ourouler sortie` construit bien un `ChampVent` et replace la séance
-    avec (contrat §1.6, deuxième passe).
+    `placer(..., vent=None)` garantit). Ici ils doivent différer : c'est la
+    preuve que `ourouler sortie` construit bien un `ChampVent` et replace la
+    séance avec, en deuxième passe.
     """
     dossier_sans = tmp_path / "sans_vent"
     dossier_sans.mkdir()
@@ -182,14 +181,14 @@ def test_notes_egales_ecart_relatif():
 
 
 def test_comparer_departage_par_la_pluie_dans_la_tolerance():
-    """`_comparer` : à tolérance non nulle, la pluie décide entre deux notes proches (contrat sprint 4).
+    """`_comparer` : à tolérance non nulle, la pluie décide entre deux notes proches.
 
     Les deux notes (0,0049 et 0,0056) sont celles mesurées le 15/09/2026 sur
     les deux anneaux de même relief de `test_a_note_egale_la_pluie_departage`
     — 12,5 % d'écart relatif une fois le vent dans le placement. Sans
     tolérance, la meilleure note gagne même mouillée ; avec la tolérance par
     défaut, l'écart compte comme une égalité et c'est la boucle sèche qui
-    l'emporte, comme au sprint 4.
+    l'emporte.
     """
     mouillee_mieux_notee = _proposition_note_pluie(note=0.0049, pluie_mm=3.0)
     seche_un_peu_moins_bien_notee = _proposition_note_pluie(note=0.0056, pluie_mm=0.0)
