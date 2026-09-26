@@ -112,9 +112,7 @@ TAILLE_MAX_PARCOURS = 5_000_000
 #: pour toutes dans la fabrique serait celle du premier venu servie à tous —
 #: la fuite que `depots.py` refuse déjà pour le socle.
 FABRIQUES_CONNECTEUR: dict[str, Callable[[Config, httpx.Client], object]] = {
-    "brouter": lambda config, http: ClientBrouter(
-        config.brouter, http=http, evitements=config.evitements
-    ),
+    "brouter": lambda config, http: ClientBrouter(config.brouter, http=http, evitements=config.evitements),
     "meteo": lambda config, http: ClientOpenMeteo(http=http),
     "intervals": lambda config, http: ClientIntervals(
         config.intervals.athlete_id, config.intervals.api_key, http=http
@@ -394,8 +392,7 @@ def _message_occupe(nature: str | None) -> str:
         nature or "", "un import ou une calibration"
     )
     return (
-        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez "
-        "dans quelques minutes"
+        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez dans quelques minutes"
     )
 
 

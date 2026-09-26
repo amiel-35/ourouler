@@ -273,9 +273,7 @@ def test_indexer_dossier_compte_un_fichier_illisible_sans_trace(
     assert "<octets>" not in cache.echecs[0]
 
 
-def test_indexer_dossier_compte_un_fichier_disparu_sans_trace(
-    cache: Cache, activites: Path, tmp_path: Path
-):
+def test_indexer_dossier_compte_un_fichier_disparu_sans_trace(cache: Cache, activites: Path, tmp_path: Path):
     """Même famille : un lien symbolique cassé est une `OSError`, pas une trace."""
     dossier = tmp_path / "liens"
     dossier.mkdir()
@@ -378,9 +376,7 @@ CREATE INDEX idx_activites_source ON activites(source, id_externe);
 """
 
 
-def test_un_index_au_schema_1_est_migre_sans_perdre_les_fichiers_bruts(
-    tmp_path: Path, activites: Path
-):
+def test_un_index_au_schema_1_est_migre_sans_perdre_les_fichiers_bruts(tmp_path: Path, activites: Path):
     """Migration v1 → v2 : les lignes et les fichiers bruts survivent (point 2).
 
     Le schéma 1 ne sait pas représenter deux activités au même fichier ; on
@@ -476,14 +472,10 @@ def test_un_cache_neuf_range_ses_lignes_sous_le_proprietaire_local(cache: Cache,
         meta={},
     )
     with sqlite3.connect(cache.index) as cx:
-        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [
-            (PROPRIETAIRE_LOCAL,)
-        ]
+        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [(PROPRIETAIRE_LOCAL,)]
 
 
-def test_deux_proprietaires_peuvent_avoir_la_meme_activite_intervals(
-    tmp_path: Path, activites: Path
-):
+def test_deux_proprietaires_peuvent_avoir_la_meme_activite_intervals(tmp_path: Path, activites: Path):
     """Le cœur du changement d'unicité.
 
     Avant, `(source, id_externe)` seul faisait l'identité : le second import
@@ -506,14 +498,10 @@ def test_deux_proprietaires_peuvent_avoir_la_meme_activite_intervals(
     # suppression de l'un, ni comme indice que l'autre l'a déjà déposé.
     assert len([f for f in (dossier / NOM_BRUT).iterdir() if f.is_file()]) == 1
     assert len(list(b.brut.iterdir())) == 1
-    assert b.brut != a.brut and b.chemin(a.lister()[0].identifiant) != a.chemin(
-        a.lister()[0].identifiant
-    )
+    assert b.brut != a.brut and b.chemin(a.lister()[0].identifiant) != a.chemin(a.lister()[0].identifiant)
 
 
-def test_supprimer_un_compte_ne_touche_jamais_les_fichiers_d_un_autre(
-    tmp_path: Path, activites: Path
-):
+def test_supprimer_un_compte_ne_touche_jamais_les_fichiers_d_un_autre(tmp_path: Path, activites: Path):
     """Même contenu chez deux comptes : effacer l'un laisse le fichier de l'autre."""
     dossier = tmp_path / "cache"
     contenu = octets(activites, "boucle.gpx")
@@ -535,18 +523,14 @@ def test_un_proprietaire_au_nom_hostile_reste_dans_brut(tmp_path: Path):
     assert ".." not in cache.brut.relative_to(tmp_path / "cache").parts
 
 
-def test_un_fichier_depose_avant_la_separation_se_relit_encore(
-    tmp_path: Path, activites: Path
-):
+def test_un_fichier_depose_avant_la_separation_se_relit_encore(tmp_path: Path, activites: Path):
     """Un compte dont le fichier est dans le `brut/` commun (dépôt d'avant le
     25/09/2026) le relit toujours, et sa suppression l'y efface s'il est seul à
     le citer."""
     dossier = tmp_path / "cache"
     contenu = octets(activites, "boucle.gpx")
     compte = Cache(dossier, proprietaire="compte-a")
-    identifiant = compte.ajouter(
-        contenu, source="fichier", id_externe=None, extension="gpx", meta={}
-    )
+    identifiant = compte.ajouter(contenu, source="fichier", id_externe=None, extension="gpx", meta={})
     # Simule l'ancien rangement : le fichier dans le `brut/` commun.
     propre = compte.brut / f"{identifiant}.gpx"
     ancien = dossier / NOM_BRUT / f"{identifiant}.gpx"
@@ -557,9 +541,7 @@ def test_un_fichier_depose_avant_la_separation_se_relit_encore(
     assert not ancien.exists()
 
 
-def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(
-    tmp_path: Path, activites: Path
-):
+def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(tmp_path: Path, activites: Path):
     """`--synchroniser` ne doit pas cesser d'être idempotent pour autant."""
     dossier = tmp_path / "cache"
     contenu = octets(activites, "boucle.gpx")
@@ -569,16 +551,12 @@ def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(
     assert len(a.lister()) == 1
 
 
-def test_un_proprietaire_ne_voit_rien_de_ce_qui_appartient_a_un_autre(
-    tmp_path: Path, activites: Path
-):
+def test_un_proprietaire_ne_voit_rien_de_ce_qui_appartient_a_un_autre(tmp_path: Path, activites: Path):
     """Toutes les lectures, pas seulement `lister` : c'est l'oubli habituel."""
     dossier = tmp_path / "cache"
     contenu = octets(activites, "boucle.gpx")
     a = Cache(dossier)
-    identifiant = a.ajouter(
-        contenu, source="intervals", id_externe="a111", extension="gpx", meta={}
-    )
+    identifiant = a.ajouter(contenu, source="intervals", id_externe="a111", extension="gpx", meta={})
     b = Cache(dossier, proprietaire=AUTRE)
 
     assert b.lister() == []
@@ -612,14 +590,10 @@ def test_un_index_au_schema_2_est_migre_sans_perdre_de_ligne(tmp_path: Path, act
     assert cache.chemin(identifiant).is_file(), "le fichier brut ne doit pas bouger"
     with sqlite3.connect(cache.index) as cx:
         assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
-        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [
-            (PROPRIETAIRE_LOCAL,)
-        ]
+        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [(PROPRIETAIRE_LOCAL,)]
         # L'unicité porte bien le propriétaire, sans quoi la colonne ne
         # protégerait rien : l'index a été refait, pas seulement recréé.
-        (sql,) = cx.execute(
-            "SELECT sql FROM sqlite_master WHERE name = 'idx_activites_identite'"
-        ).fetchone()
+        (sql,) = cx.execute("SELECT sql FROM sqlite_master WHERE name = 'idx_activites_identite'").fetchone()
         assert "proprietaire" in sql
 
 
@@ -651,16 +625,12 @@ def test_migrer_un_index_deja_migre_ne_le_touche_pas(tmp_path: Path, activites: 
 def _empreinte(dossier: Path) -> tuple[list, list]:
     """(structure déclarée, lignes avec leur rowid) — ce qu'une recopie changerait."""
     with sqlite3.connect(dossier / NOM_INDEX) as cx:
-        structure = cx.execute(
-            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
-        ).fetchall()
+        structure = cx.execute("SELECT type, name, sql FROM sqlite_master ORDER BY type, name").fetchall()
         lignes = cx.execute("SELECT rowid, id_externe FROM activites ORDER BY rowid").fetchall()
     return structure, lignes
 
 
-def test_un_index_au_schema_1_arrive_directement_au_schema_courant(
-    tmp_path: Path, activites: Path
-):
+def test_un_index_au_schema_1_arrive_directement_au_schema_courant(tmp_path: Path, activites: Path):
     """L'escalier se monte d'un coup quand la table est de toute façon recopiée."""
     dossier = tmp_path / "cache"
     (dossier / NOM_BRUT).mkdir(parents=True)

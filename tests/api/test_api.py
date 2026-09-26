@@ -151,9 +151,7 @@ def intervals_refuse(code: int = 401) -> ClientIntervals:
         del requete
         return httpx.Response(code, json={"error": "unauthorized"})
 
-    return ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    return ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
 
 
 def geocodeur(candidats: list[dict]) -> ClientBAN:
@@ -367,13 +365,11 @@ def test_l_apercu_relie_les_trois_valeurs_sans_rien_stocker(tmp_path: Path):
     assert apercu.status_code == 200
     donnees = apercu.json()["donnees"]
     assert donnees["position_zone"] > depart["position_zone"]
-    assert donnees["valeurs_liees"]["puissance_endurance_w"] > (
-        depart["valeurs_liees"]["puissance_endurance_w"]
+    assert (
+        donnees["valeurs_liees"]["puissance_endurance_w"] > (depart["valeurs_liees"]["puissance_endurance_w"])
     )
     # Rien n'est stocké tant que le front n'a pas envoyé la position.
-    assert client.get("/api/v1/profil/zones").json()["donnees"]["position_zone"] == (
-        depart["position_zone"]
-    )
+    assert client.get("/api/v1/profil/zones").json()["donnees"]["position_zone"] == (depart["position_zone"])
 
 
 def test_l_apercu_dit_qu_une_moyenne_compteur_saisie_a_plat_sort_de_la_bande(tmp_path: Path):
@@ -472,9 +468,7 @@ def test_la_meteo_rend_la_grille_par_direction(tmp_path: Path):
 
 def test_la_meteo_accepte_un_autre_point_pour_cette_requete(tmp_path: Path):
     client = serveur(tmp_path, meteo=moteur_meteo())
-    charge = client.get(
-        "/api/v1/meteo", params={"latitude": 0.5, "longitude": 0.5, "nom": "Ailleurs"}
-    ).json()
+    charge = client.get("/api/v1/meteo", params={"latitude": 0.5, "longitude": 0.5, "nom": "Ailleurs"}).json()
     assert charge["donnees"]["depart"] == {"nom": "Ailleurs", "latitude": 0.5, "longitude": 0.5}
 
 
@@ -499,9 +493,7 @@ def test_une_panne_meteo_sort_avec_le_service_nomme(tmp_path: Path):
 
 def test_la_semaine_rend_un_jour_par_ligne(tmp_path: Path):
     client = serveur(tmp_path, intervals=client_intervals())
-    charge = client.get(
-        "/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-09"}
-    ).json()
+    charge = client.get("/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-09"}).json()
     assert len(charge["donnees"]["jours"]) == 3
 
 
@@ -598,9 +590,7 @@ def test_une_generation_rend_les_propositions_leur_geometrie_et_leur_gpx(tmp_pat
 def test_la_duree_mesuree_nourrit_le_budget_annonce(tmp_path: Path):
     """Décision 6 : « X doit être mesuré, pas inventé » — et il l'est dès la
     première génération réussie."""
-    client = serveur(
-        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
-    )
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals())
     client.post("/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2})
     budget = next(
         b for b in client.get("/api/v1/systeme/budgets").json()["budgets"] if b["operation"] == "sortie"
@@ -797,9 +787,7 @@ def test_une_simulation_part_d_un_gpx_du_depot(tmp_path: Path):
     client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo())
     boucle = client.post("/api/v1/boucles", json={"distance_km": 30.0, "direction": "N"})
     identifiant = boucle.json()["donnees"]["gpx"]["id"]
-    reponse = client.post(
-        "/api/v1/simulations", json={"gpx": identifiant, "puissance_w": 150.0}
-    )
+    reponse = client.post("/api/v1/simulations", json={"gpx": identifiant, "puissance_w": 150.0})
     assert reponse.status_code == 200, reponse.text
     donnees = reponse.json()["donnees"]
     assert donnees["temps_mouvement_s"] > 0
@@ -942,7 +930,7 @@ def test_un_depot_de_parcours_en_flux_sans_longueur_est_coupe_a_la_borne(tmp_pat
 
     frontiere = "xyz"
     entete = (
-        f"--{frontiere}\r\nContent-Disposition: form-data; name=\"fichier\"; "
+        f'--{frontiere}\r\nContent-Disposition: form-data; name="fichier"; '
         'filename="gros.gpx"\r\nContent-Type: application/gpx+xml\r\n\r\n'
     ).encode()
 
@@ -1040,9 +1028,7 @@ def test_le_fichier_d_un_autre_proprietaire_est_introuvable(tmp_path: Path):
 
 
 @pytest.mark.parametrize("identifiant", ["0" * 31, "nimportequoi", "profil", "0" * 33])
-def test_un_identifiant_de_fichier_mal_forme_est_refuse_avant_tout_chemin(
-    tmp_path: Path, identifiant: str
-):
+def test_un_identifiant_de_fichier_mal_forme_est_refuse_avant_tout_chemin(tmp_path: Path, identifiant: str):
     reponse = serveur(tmp_path).get(f"/api/v1/fichiers/{identifiant}")
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
@@ -1291,9 +1277,7 @@ dossier = "{cache}"
             "boucle": {"sens": "antihoraire"},
             "historique_depuis": "2024-01-01",
             "depart": {"nom": "Chez l'autre", "latitude": 1.0, "longitude": 1.0},
-            "evitements": [
-                {"nom": "carrefour test", "latitude": 1.0, "longitude": 1.0, "rayon_m": 150}
-            ],
+            "evitements": [{"nom": "carrefour test", "latitude": 1.0, "longitude": 1.0, "rayon_m": 150}],
         },
     )
     autre = depot.config(AUTRE)
@@ -1360,9 +1344,7 @@ def test_un_transport_injecte_est_habille_du_connecteur_du_proprietaire(tmp_path
     application = creer_application(
         chemin_config=ecrire_config(tmp_path),
         dossier_donnees=tmp_path / "cache" / "api",
-        client_intervals=httpx.Client(
-            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[]))
-        ),
+        client_intervals=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[]))),
     )
     reponse = TestClient(application, raise_server_exceptions=False).get("/api/v1/seances")
     assert reponse.status_code == 200, reponse.text
@@ -1493,12 +1475,10 @@ def test_chaque_proposition_rend_une_trace_differente(tmp_path: Path):
 
 def test_aucun_gpx_n_est_ecrit_sur_le_disque(tmp_path: Path):
     """Q40 (g) : ni à la génération (deux jetées), ni au choix (la réponse *est* le fichier)."""
-    client = serveur(
-        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
-    )
-    donnees = client.post(
-        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
-    ).json()["donnees"]
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals())
+    donnees = client.post("/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}).json()[
+        "donnees"
+    ]
     for proposition in donnees["propositions"]:
         assert client.get(proposition["gpx"]["url"]).status_code == 200
     assert not list((tmp_path / "cache" / "api").rglob("*.gpx"))
@@ -1506,12 +1486,10 @@ def test_aucun_gpx_n_est_ecrit_sur_le_disque(tmp_path: Path):
 
 
 def test_le_gpx_est_servi_avec_son_nom_de_telechargement(tmp_path: Path):
-    client = serveur(
-        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
-    )
-    donnees = client.post(
-        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
-    ).json()["donnees"]
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals())
+    donnees = client.post("/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}).json()[
+        "donnees"
+    ]
     proposition = donnees["propositions"][-1]
     reponse = client.get(proposition["gpx"]["url"])
     assert reponse.headers["content-type"].startswith("application/gpx+xml")
@@ -1532,12 +1510,10 @@ def test_une_generation_oubliee_est_un_404_nomme(tmp_path: Path):
 
 
 def test_une_proposition_inconnue_de_la_generation_est_refusee(tmp_path: Path):
-    client = serveur(
-        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
-    )
-    donnees = client.post(
-        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
-    ).json()["donnees"]
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals())
+    donnees = client.post("/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}).json()[
+        "donnees"
+    ]
     reponse = client.get(f"/api/v1/sorties/{donnees['generation']}/propositions/99/gpx")
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "generation_introuvable"
@@ -1739,8 +1715,6 @@ def test_le_pneu_d_un_velo_s_enregistre_et_se_relit(tmp_path: Path):
     relu = client.get("/api/v1/profil").json()["donnees"]["velos"][0]
     assert relu["pneu"] == "course_quatre_saisons"
 
-    refus = client.patch(
-        "/api/v1/profil", json={"velos": [{"nom": "Route", "pneu": "pneu inventé"}]}
-    )
+    refus = client.patch("/api/v1/profil", json={"velos": [{"nom": "Route", "pneu": "pneu inventé"}]})
     assert refus.status_code >= 400
     assert "pneu" in refus.text

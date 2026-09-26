@@ -107,9 +107,7 @@ def _verifier_statistiques(stats: Any, quoi: str) -> None:
 
 def _valeur_pour(stats: Any, classe: str) -> dict[str, float]:
     """Toutes les entrées `classe` des tables de `stats`, par nom de table."""
-    return {
-        nom: table[classe] for nom, table in _dicts_numeriques(stats).items() if classe in table
-    }
+    return {nom: table[classe] for nom, table in _dicts_numeriques(stats).items() if classe in table}
 
 
 # --- la base -----------------------------------------------------------------
@@ -122,9 +120,7 @@ def test_la_base_se_cree_et_se_rouvre(tmp_path):
     assert chemin.is_file(), f"BaseRoutes n'a pas créé {chemin}"
     base.ajouter_trace(_trace(), jour=LUNDI, id_sortie="s1")
     autre = module.BaseRoutes(chemin)
-    assert "s1" in autre.sorties_apprises(), (
-        "ce qui est appris ne survit pas à la réouverture de la base"
-    )
+    assert "s1" in autre.sorties_apprises(), "ce qui est appris ne survit pas à la réouverture de la base"
 
 
 def test_la_base_cree_les_dossiers_parents_manquants(tmp_path):
@@ -225,9 +221,7 @@ def test_statistiques_sur_une_base_vide(tmp_path):
     """Aucune sortie apprise : des zéros, pas un NaN ni un `ZeroDivisionError`."""
     module = module_routes
     base = _base(module, tmp_path)
-    stats, _ = robuste(
-        lambda: base.statistiques(), quoi="statistiques(base vide)", erreurs_acceptees=ERREURS
-    )
+    stats, _ = robuste(lambda: base.statistiques(), quoi="statistiques(base vide)", erreurs_acceptees=ERREURS)
     assert stats is not None, "statistiques() doit répondre sur une base vide"
     _verifier_statistiques(stats, "statistiques(base vide)")
     assert base.sorties_apprises() == set()
@@ -281,9 +275,7 @@ def test_part_connue_sur_une_base_vide_vaut_zero(tmp_path):
     module = module_routes
     base = _base(module, tmp_path)
     part = _verifier_part(base.part_connue(_trace()), "part_connue(base vide)")
-    assert part == pytest.approx(0.0, abs=1e-9), (
-        f"part_connue = {part} alors que rien n'a jamais été appris"
-    )
+    assert part == pytest.approx(0.0, abs=1e-9), f"part_connue = {part} alors que rien n'a jamais été appris"
 
 
 def test_part_connue_d_une_route_apprise_vaut_un(tmp_path):
@@ -368,9 +360,7 @@ def test_part_connue_est_bornee_sur_une_route_mi_connue(tmp_path):
     base.ajouter_trace(connue, jour=LUNDI, id_sortie="s1")
     prolongee = _trace(81, pas_m=100.0)  # les 4 mêmes km, puis 4 km neufs
     part = _verifier_part(base.part_connue(prolongee), "part_connue(mi-connue)")
-    assert 0.2 < part < 0.8, (
-        f"part_connue = {part:.2f} pour un tracé connu sur la moitié de ses kilomètres"
-    )
+    assert 0.2 < part < 0.8, f"part_connue = {part:.2f} pour un tracé connu sur la moitié de ses kilomètres"
 
 
 # --- poids_appris -------------------------------------------------------------
@@ -439,9 +429,7 @@ def test_poids_appris_avec_une_exposition_identique_ne_penalise_rien(tmp_path):
     expo = _stats(module, tmp_path, classes, nom="expo.sqlite")
     poids = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(identiques)")
     non_nuls = {c: v for c, v in poids.items() if v > 0.05}
-    assert not non_nuls, (
-        f"poids non nuls alors que sorties et exposition ont les mêmes parts : {non_nuls}"
-    )
+    assert not non_nuls, f"poids non nuls alors que sorties et exposition ont les mêmes parts : {non_nuls}"
 
 
 def test_poids_appris_penalise_une_classe_evitee(tmp_path):
@@ -515,8 +503,10 @@ def _mettre_a_echelle(stats: Any, facteur: float):
     remplacements = {}
     for champ in dataclasses.fields(stats):
         valeur = getattr(stats, champ.name)
-        if isinstance(valeur, dict) and valeur and all(
-            isinstance(v, (int, float)) and not isinstance(v, bool) for v in valeur.values()
+        if (
+            isinstance(valeur, dict)
+            and valeur
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in valeur.values())
         ):
             remplacements[champ.name] = {c: v * facteur for c, v in valeur.items()}
     if not remplacements:
@@ -537,16 +527,12 @@ def test_poids_appris_avec_des_parts_qui_ne_somment_pas_a_un(tmp_path, facteur):
     expo = _stats(module, tmp_path, {"tertiary": 30, "secondary": 70}, nom="expo.sqlite")
     reference = _verifier_poids(_appeler_poids(module, stats, expo), "poids_appris(référence)")
     mis_a_echelle = _mettre_a_echelle(stats, facteur)
-    obtenus = _verifier_poids(
-        _appeler_poids(module, mis_a_echelle, expo), f"poids_appris(stats × {facteur})"
-    )
+    obtenus = _verifier_poids(_appeler_poids(module, mis_a_echelle, expo), f"poids_appris(stats × {facteur})")
     assert set(obtenus) == set(reference), (
         f"les classes changent quand les parts ne somment plus à 1 : {sorted(obtenus)} "
         f"contre {sorted(reference)}"
     )
-    ecarts = {
-        c: (reference[c], obtenus[c]) for c in reference if abs(reference[c] - obtenus[c]) > 0.05
-    }
+    ecarts = {c: (reference[c], obtenus[c]) for c in reference if abs(reference[c] - obtenus[c]) > 0.05}
     assert not ecarts, (
         f"multiplier les kilomètres des sorties par {facteur} change les poids {ecarts} : "
         "le contrat compare des parts, pas des kilomètres"

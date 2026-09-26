@@ -31,8 +31,8 @@ from outils_api import (
 #: constat. `chemin_config=` reste modifiable.
 _TOML_ESSAI = (
     f'[depart]\nnom = "{DEPART_SYNTHETIQUE["nom"]}"\n'
-    f'latitude = {DEPART_SYNTHETIQUE["latitude"]}\n'
-    f'longitude = {DEPART_SYNTHETIQUE["longitude"]}\n'
+    f"latitude = {DEPART_SYNTHETIQUE['latitude']}\n"
+    f"longitude = {DEPART_SYNTHETIQUE['longitude']}\n"
     "\n[cycliste]\nmasse_kg = 70.0\n"
     '\n[[velos]]\nnom = "Essai"\nusage = "route"\nmasse_kg = 9.0\n'
 )
@@ -71,9 +71,7 @@ def test_assistant_recommande_faux_apres_le_premier_patch(tmp_path: Path):
 
 def test_profil_intervals_refuse_sans_cle_posee():
     """Ni panne ni faute : un compte qui n'a pas encore posé sa clé Intervals."""
-    client = client_api(
-        config=config_d_essai(intervals={"athlete_id": "", "api_key": ""})
-    )
+    client = client_api(config=config_d_essai(intervals={"athlete_id": "", "api_key": ""}))
     reponse = client.get("/api/v1/profil/intervals")
     assert reponse.status_code == 409
     assert reponse.json()["erreur"]["code"] == "intervals_absent"

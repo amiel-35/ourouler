@@ -353,9 +353,7 @@ def choisir_session(
         for session in sessions:
             if session.rang == rang:
                 return session
-        raise ErreurUtilisateur(
-            f"session {rang} absente : le fichier en porte {len(sessions)}"
-        )
+        raise ErreurUtilisateur(f"session {rang} absente : le fichier en porte {len(sessions)}")
     if sport is None:
         raise ErreurUtilisateur("préciser --session-sport ou --session-rang")
     voulu = sport.strip().casefold()
@@ -394,9 +392,7 @@ def isoler_session(activite: Activite, session: SessionFit) -> Activite:
             f"session {session.rang} ({session.intitule}) : {len(points)} point(s) dans ses bornes"
         )
     origine = points[0].dist_m or 0.0
-    points = [
-        replace(p, dist_m=(p.dist_m - origine) if p.dist_m is not None else None) for p in points
-    ]
+    points = [replace(p, dist_m=(p.dist_m - origine) if p.dist_m is not None else None) for p in points]
     return replace(
         activite,
         points=points,
@@ -557,8 +553,7 @@ def _moindres_carres(matrice: np.ndarray, reste: np.ndarray) -> tuple[np.ndarray
 
 def _dans_les_bornes(solution: np.ndarray, marge: float = 1e-12) -> bool:
     return all(
-        bas - marge <= float(x) <= haut + marge
-        for x, (bas, haut) in zip(solution, BORNES, strict=True)
+        bas - marge <= float(x) <= haut + marge for x, (bas, haut) in zip(solution, BORNES, strict=True)
     )
 
 
@@ -597,9 +592,7 @@ def _resoudre_borne(matrice: np.ndarray, reste: np.ndarray) -> tuple[np.ndarray,
     return solution, tuple(touchees)
 
 
-def _candidate(
-    matrice: np.ndarray, reste: np.ndarray, etats: Sequence[int | None]
-) -> np.ndarray | None:
+def _candidate(matrice: np.ndarray, reste: np.ndarray, etats: Sequence[int | None]) -> np.ndarray | None:
     """La solution d'une face du pavé, ou `None` si elle en sort ou n'est pas unique."""
     valeurs = np.zeros(N_PARAMETRES)
     libres = []
@@ -692,9 +685,7 @@ def bootstrap_delta(
     return sorted(deltas)
 
 
-def _tirer_blocs(
-    echantillons: Sequence[Echantillon], bloc: int, tirage: random.Random
-) -> list[Echantillon]:
+def _tirer_blocs(echantillons: Sequence[Echantillon], bloc: int, tirage: random.Random) -> list[Echantillon]:
     """Des blocs de `bloc` tronçons consécutifs, tirés avec remise, jusqu'à l'effectif d'origine."""
     n = len(echantillons)
     # Un bloc aussi long que le groupe ne tire jamais qu'une seule fenêtre : le
@@ -747,9 +738,7 @@ class Critere:
         if self.motif.casefold() not in nom:
             return False
         return (
-            est_sport_velo(entree.sport)
-            and not en_interieur(entree)
-            and entree.puissance_moy_w is not None
+            est_sport_velo(entree.sport) and not en_interieur(entree) and entree.puissance_moy_w is not None
         )
 
 
@@ -834,10 +823,7 @@ def survivants(bruts: Sequence[Echantillon], reglages: Reglages, *, ftp_w: float
             e.retenu
             and plancher <= e.puissance_w <= plafond
             and (reglages.pente_max_abs is None or abs(e.pente) <= reglages.pente_max_abs)
-            and (
-                reglages.stabilite_max is None
-                or abs(e.v_fin_ms - e.v_debut_ms) <= reglages.stabilite_max
-            )
+            and (reglages.stabilite_max is None or abs(e.v_fin_ms - e.v_debut_ms) <= reglages.stabilite_max)
             and not _saute(bruts, i, reglages.delta_v_max)
         )
         masque.append(garde)
@@ -856,9 +842,7 @@ def _saute(bruts: Sequence[Echantillon], indice: int, delta_v_max: float) -> boo
 # --- agrégation en segments de 1 à 2 km ---------------------------------------
 
 
-def agreger(
-    bruts: Sequence[Echantillon], masque: Sequence[bool], reglages: Reglages
-) -> list[Echantillon]:
+def agreger(bruts: Sequence[Echantillon], masque: Sequence[bool], reglages: Reglages) -> list[Echantillon]:
     """Regroupe les tronçons **consécutifs et retenus** en segments de 1 à 2 km stables.
 
     **Pourquoi ne pas s'en tenir aux 200 m de `echantillonner`.** Le modèle du
@@ -904,9 +888,7 @@ def paquets(
     return formes
 
 
-def _suites(
-    bruts: Sequence[Echantillon], masque: Sequence[bool]
-) -> list[list[Echantillon]]:
+def _suites(bruts: Sequence[Echantillon], masque: Sequence[bool]) -> list[list[Echantillon]]:
     """Les suites maximales de tronçons consécutifs tous retenus."""
     suites: list[list[Echantillon]] = []
     courante: list[Echantillon] = []
@@ -1034,9 +1016,7 @@ def restreindre_plage_commune(
     va = [e.v_ms for e in groupe_a]
     vb = [e.v_ms for e in groupe_b]
     bas = max(float(np.percentile(va, pourcentage)), float(np.percentile(vb, pourcentage)))
-    haut = min(
-        float(np.percentile(va, 100 - pourcentage)), float(np.percentile(vb, 100 - pourcentage))
-    )
+    haut = min(float(np.percentile(va, 100 - pourcentage)), float(np.percentile(vb, 100 - pourcentage)))
     if not bas < haut:
         return (list(groupe_a), list(groupe_b), None)
     garde = [e for e in groupe_a if bas <= e.v_ms <= haut]
@@ -1135,9 +1115,7 @@ def decrire_sorties(groupe: Groupe, config: Config) -> None:
         retenus = sum(1 for e in sortie.echantillons if e.retenu)
         session = f" · session {sortie.session.rang} ({sortie.session.intitule})" if sortie.session else ""
         aspiration = (
-            f" · {sortie.part_rapide:.0%} de distance inexpliquée"
-            if sortie.part_rapide is not None
-            else ""
+            f" · {sortie.part_rapide:.0%} de distance inexpliquée" if sortie.part_rapide is not None else ""
         )
         print(
             f"   {sortie.entree.jour} · {sortie.activite.distance_m / 1000:5.1f} km"
@@ -1258,9 +1236,7 @@ def main() -> int:
         action="store_true",
         help="restreindre les deux groupes à leur plage de vitesse commune",
     )
-    parseur.add_argument(
-        "--plage-commune-pct", type=float, default=5.0, help="centile des bornes de plage"
-    )
+    parseur.add_argument("--plage-commune-pct", type=float, default=5.0, help="centile des bornes de plage")
     parseur.add_argument(
         "--bootstrap", type=int, default=REPETITIONS_BOOTSTRAP, help="répétitions du bootstrap"
     )
@@ -1291,8 +1267,13 @@ def main() -> int:
     criteres_a = [Critere.depuis_texte(t) for t in args.groupe_a]
     criteres_b = [Critere.depuis_texte(t) for t in args.groupe_b]
     groupe_a = collecter(
-        cache, config, criteres_a, args.nom_a,
-        client=client, session_sport=args.session_sport, session_rang=args.session_rang,
+        cache,
+        config,
+        criteres_a,
+        args.nom_a,
+        client=client,
+        session_sport=args.session_sport,
+        session_rang=args.session_rang,
     )
     groupe_b = collecter(
         cache, config, criteres_b, args.nom_b, client=client, session_sport=None, session_rang=None
@@ -1393,9 +1374,7 @@ def _velo_commun(groupe_a: Groupe, groupe_b: Groupe, config: Config) -> Velo:
     commun, et le ΔCdA rendu serait un chiffre sans signification.
     """
     noms = {
-        rattacher_velo(sortie.entree, config)
-        for groupe in (groupe_a, groupe_b)
-        for sortie in groupe.sorties
+        rattacher_velo(sortie.entree, config) for groupe in (groupe_a, groupe_b) for sortie in groupe.sorties
     }
     if len(noms) != 1:
         raise SystemExit(
@@ -1408,9 +1387,7 @@ def _velo_commun(groupe_a: Groupe, groupe_b: Groupe, config: Config) -> Velo:
     raise SystemExit(f"« {nom} » n'est pas un vélo de la configuration : aucune masse à lui donner")
 
 
-def _diagnostiquer_aspiration(
-    groupe_a: Groupe, groupe_b: Groupe, config: Config, velo: Velo, client
-) -> None:
+def _diagnostiquer_aspiration(groupe_a: Groupe, groupe_b: Groupe, config: Config, velo: Velo, client) -> None:
     """Pose la part de distance inexpliquée, avec les paramètres déjà calibrés du vélo.
 
     Import tardif : `physique.commande` lit la configuration et le fichier de

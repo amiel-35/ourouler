@@ -192,9 +192,7 @@ def test_un_capteur_inconnu_laisse_les_regles_suivantes_travailler():
     assert resultat == "Alpha", "capteur inconnu : on retombe sur la période, pas sur « inconnu »"
 
 
-@pytest.mark.parametrize(
-    "power_meter", [None, 0, 17, ["liste"], {"nom": "dict"}, True]
-)
+@pytest.mark.parametrize("power_meter", [None, 0, 17, ["liste"], {"nom": "dict"}, True])
 def test_un_power_meter_d_un_type_inattendu_ne_fait_pas_planter(power_meter):
     _exiger_l27(module_inventaire)  # hors de `robuste` : un skip n'est pas un échec du code testé
     resultat, erreur = outils.robuste(
@@ -443,9 +441,7 @@ def test_rafraichir_meta_ne_retelecharge_pas_le_fichier(tmp_path, hostiles):
         f"le fichier est déjà en cache : aucun téléchargement ne doit partir, reçu {telechargements}"
     )
     entree = cache.lister()[0]
-    assert entree.meta.get("power_meter") == CAPTEUR_BETA, (
-        f"`meta` n'a pas été rafraîchie : {entree.meta!r}"
-    )
+    assert entree.meta.get("power_meter") == CAPTEUR_BETA, f"`meta` n'a pas été rafraîchie : {entree.meta!r}"
 
 
 def test_rafraichir_meta_resout_l_equipement_en_un_seul_appel(tmp_path, hostiles):
@@ -454,9 +450,7 @@ def test_rafraichir_meta_resout_l_equipement_en_un_seul_appel(tmp_path, hostiles
     cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     for i in (1, 2, 3):
-        cache.ajouter(
-            octets + b"\n" * i, source="intervals", id_externe=f"i{i}", extension="gpx", meta={}
-        )
+        cache.ajouter(octets + b"\n" * i, source="intervals", id_externe=f"i{i}", extension="gpx", meta={})
     activites = [dict(ACTIVITE, id=f"i{i}") for i in (1, 2, 3)]
 
     client, espion = _client(module, _serveur(activites, octets))

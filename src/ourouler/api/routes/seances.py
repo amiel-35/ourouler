@@ -130,8 +130,7 @@ async def deposer_seance(
     if len(contenu) > TAILLE_MAX_SEANCE:
         raise ErreurApi(
             code="fichier_trop_gros",
-            message=f"{nom} : {len(contenu)} octets — une séance n'en fait pas plus de "
-            f"{TAILLE_MAX_SEANCE}",
+            message=f"{nom} : {len(contenu)} octets — une séance n'en fait pas plus de {TAILLE_MAX_SEANCE}",
             statut=413,
         )
     try:

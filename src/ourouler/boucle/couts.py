@@ -34,9 +34,7 @@ from ourouler.noyau.trace import PointTrace, Segment, Trace, cap_deg, distance_m
 # --- classes de routes et de revêtements ------------------------------------
 
 #: `highway` des routes que l'on compte « à trafic » : passantes et rapides.
-HIGHWAY_TRAFIC = frozenset(
-    {"primary", "primary_link", "secondary", "secondary_link", "trunk"}
-)
+HIGHWAY_TRAFIC = frozenset({"primary", "primary_link", "secondary", "secondary_link", "trunk"})
 
 #: `highway` des routes que l'on compte « calmes ».
 HIGHWAY_CALME = frozenset(
@@ -138,9 +136,7 @@ class Couts:
     cout_km_moyen: float | None = None
 
 
-def evaluer(
-    trace: Trace, *, sens_prefere: str = "horaire", poids: dict[str, float] | None = None
-) -> Couts:
+def evaluer(trace: Trace, *, sens_prefere: str = "horaire", poids: dict[str, float] | None = None) -> Couts:
     """Les coûts du tracé, et le score qui les agrège en kilomètres équivalents.
 
     `sens_prefere` vaut « horaire » ou « antihoraire ». Un tracé dont le sens
@@ -258,9 +254,7 @@ def _longueur_exploitable(longueur_m: object) -> bool:
     return math.isfinite(longueur_m) and longueur_m >= 0
 
 
-def _kilometrages(
-    trace: Trace, segments: Sequence[Segment]
-) -> tuple[float, float, float, float]:
+def _kilometrages(trace: Trace, segments: Sequence[Segment]) -> tuple[float, float, float, float]:
     """(trafic, calme, non classé, non revêtu) en km. Tout à 0 sans segments."""
     if not segments:
         # Un GPX importé ne dit rien des routes empruntées : on le marque
@@ -313,9 +307,7 @@ class Virage:
     sortant: tuple[int, int]
 
 
-def virages_detectes(
-    points: Sequence[PointTrace], *, angle_deg: float = ANGLE_VIRAGE_DEG
-) -> list[Virage]:
+def virages_detectes(points: Sequence[PointTrace], *, angle_deg: float = ANGLE_VIRAGE_DEG) -> list[Virage]:
     """Les virages d'au moins `angle_deg`, demi-tours exclus.
 
     Les caps sont calculés entre des points espacés d'au moins
@@ -425,17 +417,13 @@ def _indices_espaces(points: Sequence[PointTrace], espacement_m: float) -> list[
     return gardes
 
 
-def _points_a_trafic(
-    points: Sequence[PointTrace], segments: Sequence[Segment]
-) -> list[bool]:
+def _points_a_trafic(points: Sequence[PointTrace], segments: Sequence[Segment]) -> list[bool]:
     """Pour chaque point du tracé : le segment qui le porte est-il à trafic ?"""
     tags = tags_par_point(points, segments)
     return [t is not None and t.get("highway", "") in HIGHWAY_TRAFIC for t in tags]
 
 
-def tags_par_point(
-    points: Sequence[PointTrace], segments: Sequence[Segment]
-) -> list[dict[str, str] | None]:
+def tags_par_point(points: Sequence[PointTrace], segments: Sequence[Segment]) -> list[dict[str, str] | None]:
     """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre.
 
     Un point de jonction appartient aux **deux** segments qui s'y touchent ;

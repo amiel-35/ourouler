@@ -80,9 +80,7 @@ def lancer(
         for _, chemin in depots:
             chemin.unlink(missing_ok=True)
 
-    return _lancer_tache(
-        proprietaire, NATURE_IMPORT, travailler, au_echec=au_echec, enfin=effacer_depots
-    )
+    return _lancer_tache(proprietaire, NATURE_IMPORT, travailler, au_echec=au_echec, enfin=effacer_depots)
 
 
 #: Le préfixe des copies temporaires d'un dépôt (`api/routes/activites._copier_en_temporaires`).

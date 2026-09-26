@@ -48,9 +48,7 @@ from ourouler.rendu.boucle import lignes_elargissement
         (0.347, 0.10, 0.25),  # le cas mesuré sur son serveur, 2 km demandés
     ],
 )
-def test_le_palier_est_le_plus_petit_multiple_de_cinq_pourcent_qui_suffit(
-    ecart, tolerance, attendu
-):
+def test_le_palier_est_le_plus_petit_multiple_de_cinq_pourcent_qui_suffit(ecart, tolerance, attendu):
     assert palier(ecart, tolerance) == pytest.approx(attendu)
 
 
@@ -108,9 +106,7 @@ def test_elargir_la_tolerance_ne_rend_jamais_une_meilleure_boucle():
     appels_par_tolerance = {}
     for tolerance in (0.02, 0.10, 0.30, 0.50):
         client, appels = moteur(lambda rayon: rayon * 4.0)
-        trouvees = generer(
-            client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=tolerance
-        )
+        trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=tolerance)
         assert trouvees, f"tolérance {tolerance} : le moteur converge, il doit rendre une boucle"
         ecarts[tolerance] = abs(trouvees[0].ecart_relatif)
         appels_par_tolerance[tolerance] = len(appels)
@@ -207,6 +203,7 @@ def test_un_azimut_hors_plafond_ne_condamne_pas_les_autres():
     perdre les directions où il sait — même raison que pour les pannes par
     azimut, déjà traitées ainsi.
     """
+
     # Le premier azimut exploré est celui demandé (45°) ; on le rend stérile.
     def longueur(rayon: float) -> float:
         return rayon * 5.0

@@ -202,9 +202,7 @@ class _Terrain:
             pos = borne
         return None
 
-    def duree_pour(
-        self, position_m: float, sens: int, distance: float, puissance_w: float
-    ) -> float | None:
+    def duree_pour(self, position_m: float, sens: int, distance: float, puissance_w: float) -> float | None:
         """Le temps qu'il faut pour couvrir `distance` depuis `position_m`, ou `None`."""
         if distance <= 0:
             return 0.0

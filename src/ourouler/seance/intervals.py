@@ -485,9 +485,7 @@ def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list
     etapes: list[_Lue] = []
     for tour in range(1, reps + 1):
         prefixe = joindre(libelle, _libelle_groupe(texte, tour, reps))
-        etapes.extend(
-            _aplatir(groupe["steps"], etat=etat, profondeur=profondeur + 1, libelle=prefixe)
-        )
+        etapes.extend(_aplatir(groupe["steps"], etat=etat, profondeur=profondeur + 1, libelle=prefixe))
     return etapes
 
 
@@ -626,9 +624,7 @@ def _recadrer_extremites(etapes: list[Etape], sources: list[str]) -> None:
             sources[indice] = "position"
 
 
-def _reclasser_libres(
-    lues: list[_Lue], etapes: list[Etape], sources: list[str], *, etat: _Etat
-) -> None:
+def _reclasser_libres(lues: list[_Lue], etapes: list[Etape], sources: list[str], *, etat: _Etat) -> None:
     """Une étape sans aucune consigne n'est pas un bloc : c'est du roulage libre.
 
     Sans puissance ni zone, rien ne

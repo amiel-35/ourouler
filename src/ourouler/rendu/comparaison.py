@@ -21,9 +21,7 @@ def rendre_texte_comparaison(resultat: Comparaison, depuis: date) -> str:
     lignes = [
         f"Comparaison {premier} / {second} — vitesse à puissance égale, mesurée",
         f"Depuis le {depuis.isoformat()} : "
-        + ", ".join(
-            f"{nom} {resultat.par_velo[nom].sorties} sortie(s)" for nom in resultat.velos
-        ),
+        + ", ".join(f"{nom} {resultat.par_velo[nom].sorties} sortie(s)" for nom in resultat.velos),
         f"Séries de tronçons de {LONGUEUR_ECHANTILLON_M:.0f} m : "
         f"|pente| ≤ {resultat.pente_max * 100:.1f} %, {_libelle_cap(resultat.cap_max_deg)}, "
         f"≥ {resultat.longueur_min_m:.0f} m, sans arrêt ni relance,",
@@ -45,8 +43,7 @@ def rendre_texte_comparaison(resultat: Comparaison, depuis: date) -> str:
     ]
     for bande in resultat.bandes:
         lignes.append(
-            f"  {bande.libelle:<12}"
-            f"{_vitesse_et_n(bande, premier):>19}{_vitesse_et_n(bande, second):>19}"
+            f"  {bande.libelle:<12}{_vitesse_et_n(bande, premier):>19}{_vitesse_et_n(bande, second):>19}"
         )
     milieu = resultat.puissance_milieu_w
     lignes += [
@@ -110,8 +107,7 @@ def _synthese(resultat: Comparaison) -> list[str]:
     milieu = resultat.puissance_milieu_w
     vitesse = resultat.vitesse_lue(premier)
     lignes = [
-        f"Mesure : {second} roule {ecart:+.1f} km/h à puissance égale "
-        f"({milieu:.0f} W, milieu de la zone)."
+        f"Mesure : {second} roule {ecart:+.1f} km/h à puissance égale ({milieu:.0f} W, milieu de la zone)."
     ]
     v3 = resultat.ecart_w_v3
     if v3 is not None:
@@ -130,9 +126,7 @@ def _synthese(resultat: Comparaison) -> list[str]:
             f"P({resultat.vitesse_lue(second):.1f} km/h) − P({vitesse:.1f} km/h) "
             f"≈ {abs(modele):.0f} W à plat et sans vent."
         )
-    lignes.append(
-        "Les km/h sont la mesure ; les watts en sont une conversion, pas une mesure."
-    )
+    lignes.append("Les km/h sont la mesure ; les watts en sont une conversion, pas une mesure.")
     return lignes
 
 
@@ -177,9 +171,7 @@ def rendre_json_comparaison(resultat: Comparaison, depuis: date) -> dict:
                     else {
                         "ordonnee_kmh": round(v.regression.ordonnee_kmh, 3),
                         "pente_kmh_par_w": round(v.regression.pente_kmh_par_w, 5),
-                        "vitesse_lue_kmh": round(
-                            v.regression.vitesse_kmh(resultat.puissance_milieu_w), 2
-                        ),
+                        "vitesse_lue_kmh": round(v.regression.vitesse_kmh(resultat.puissance_milieu_w), 2),
                         "series": v.regression.n_series,
                         "km": round(v.regression.longueur_m / 1000, 1),
                     }
@@ -191,9 +183,7 @@ def rendre_json_comparaison(resultat: Comparaison, depuis: date) -> dict:
             {
                 "p_min_w": round(b.p_min_w, 1),
                 "p_max_w": round(b.p_max_w, 1),
-                "vitesse_mediane_kmh": {
-                    nom: _arrondi(valeur) for nom, valeur in b.vitesses.items()
-                },
+                "vitesse_mediane_kmh": {nom: _arrondi(valeur) for nom, valeur in b.vitesses.items()},
                 "n": dict(b.n),
             }
             for b in resultat.bandes
@@ -202,9 +192,7 @@ def rendre_json_comparaison(resultat: Comparaison, depuis: date) -> dict:
         "mailles_communes": resultat.mailles_communes,
         "synthese": {
             "puissance_w": round(resultat.puissance_milieu_w, 1),
-            "vitesse_kmh": {
-                nom: _arrondi(resultat.vitesse_lue(nom), 2) for nom in (premier, second)
-            },
+            "vitesse_kmh": {nom: _arrondi(resultat.vitesse_lue(nom), 2) for nom in (premier, second)},
             "ecart_kmh": _arrondi(resultat.ecart_kmh, 2),
             "ecart_w_v3": _arrondi(resultat.ecart_w_v3, 0),
             "ecart_w_modele": _arrondi(resultat.ecart_w_modele, 0),

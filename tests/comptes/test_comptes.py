@@ -105,9 +105,7 @@ def test_une_adresse_qui_porte_un_blanc_ou_un_controle_est_refusee(hostile: str)
 def test_le_sous_adressage_par_plus_fait_bien_deux_adresses():
     """Choix assumé et écrit : on ne présume pas la politique du fournisseur."""
     assert normaliser_email("Cycliste+Velo@Exemple.INVALID") == "cycliste+velo@exemple.invalid"
-    assert normaliser_email("cycliste+velo@exemple.invalid") != normaliser_email(
-        "cycliste@exemple.invalid"
-    )
+    assert normaliser_email("cycliste+velo@exemple.invalid") != normaliser_email("cycliste@exemple.invalid")
 
 
 def test_un_mot_de_passe_hache_se_verifie_et_un_autre_est_refuse():
@@ -494,9 +492,7 @@ def test_deux_activations_concurrentes_du_meme_jeton_une_seule_reussit(url_base:
     assert comptes_actifs == 1
 
 
-def test_l_activation_est_atomique_si_la_pose_du_secret_echoue(
-    depot: DepotComptes, connexion, monkeypatch
-):
+def test_l_activation_est_atomique_si_la_pose_du_secret_echoue(depot: DepotComptes, connexion, monkeypatch):
     """« Casser le code exprès » : simuler une panne pendant le hachage.
 
     Si `hacher_mot_de_passe` explose au milieu de la transaction
@@ -577,9 +573,7 @@ def test_le_mot_de_passe_en_clair_n_est_nulle_part_en_base(depot: DepotComptes, 
         requete = f'SELECT count(*) FROM "{table}" WHERE position(%s in "{colonne}") > 0'
         if connexion.execute(requete, (MOT_DE_PASSE,)).fetchone()[0]:
             portant_le_mot_de_passe.append(f"{table}.{colonne}")
-    assert not portant_le_mot_de_passe, (
-        f"le mot de passe en clair est en base : {portant_le_mot_de_passe}"
-    )
+    assert not portant_le_mot_de_passe, f"le mot de passe en clair est en base : {portant_le_mot_de_passe}"
 
     for texte in (repr(acces), repr(acces.compte), repr(emise), str([acces])):
         assert MOT_DE_PASSE not in texte, texte

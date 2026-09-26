@@ -82,8 +82,13 @@ def test_cycliste_ftp_w_fournie_reste_bornee():
 def test_velos_et_periodes():
     d = dict(BASE)
     d["velos"] = [
-        {"nom": "Route", "usage": "route", "masse_kg": 9, "intervals_gear": "rcr",
-         "periodes": [{"debut": "2024-01-01", "fin": "2024-06-30"}, {"debut": "2025-01-01"}]},
+        {
+            "nom": "Route",
+            "usage": "route",
+            "masse_kg": 9,
+            "intervals_gear": "rcr",
+            "periodes": [{"debut": "2024-01-01", "fin": "2024-06-30"}, {"debut": "2025-01-01"}],
+        },
         {"nom": "CLM", "usage": "clm"},
     ]
     c = depuis_dict(d)
@@ -198,8 +203,7 @@ def test_charger_avec_profil_refuse_toujours_le_meme_toml(tmp_path: Path):
 def _toml_minimal(tmp_path: Path, extra: str = "") -> Path:
     f = tmp_path / "c.toml"
     f.write_text(
-        '[depart]\nnom="Test"\nlatitude=1.0\nlongitude=2.0\n'
-        "[cycliste]\nmasse_kg=80\nftp_w=250\n" + extra,
+        '[depart]\nnom="Test"\nlatitude=1.0\nlongitude=2.0\n[cycliste]\nmasse_kg=80\nftp_w=250\n' + extra,
         encoding="utf-8",
     )
     return f
@@ -579,6 +583,7 @@ def test_tenues_configurees():
     with pytest.raises(ErreurConfig, match="tenues.froid"):
         depuis_dict({**BASE, "tenue": {"tenues": {"froid": "collant"}}})
 
+
 def test_puissance_endurance_pct_est_lue_et_bornee():
     """L'ancienne clé reste lisible, et rend **exactement** la même puissance.
 
@@ -794,7 +799,7 @@ def test_un_tilde_ecrit_a_la_main_dans_le_toml_est_developpe(tmp_path: Path):
     chemin = tmp_path / "c.toml"
     chemin.write_text(
         '[depart]\nnom = "Ailleurs"\nlatitude = 0.0\nlongitude = 0.0\n'
-        '[cycliste]\nmasse_kg = 70\nftp_w = 200\n'
+        "[cycliste]\nmasse_kg = 70\nftp_w = 200\n"
         '[cache]\ndossier = "~/ailleurs/cache"\n',
         encoding="utf-8",
     )

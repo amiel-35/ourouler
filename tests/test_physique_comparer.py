@@ -212,9 +212,7 @@ def test_la_regression_retrouve_la_droite_qui_a_servi():
 
 def test_la_regression_pese_les_series_par_leur_longueur():
     """Une série de 10 km tire la droite bien plus qu'une de 500 m."""
-    lourdes = [
-        Serie(v_kmh=30.0, puissance_w=float(p), longueur_m=10_000.0) for p in range(160, 180, 2)
-    ]
+    lourdes = [Serie(v_kmh=30.0, puissance_w=float(p), longueur_m=10_000.0) for p in range(160, 180, 2)]
     aberrante = [Serie(v_kmh=5.0, puissance_w=170.0, longueur_m=500.0)]
     regression = regresser(lourdes + aberrante)
     assert regression is not None
@@ -302,8 +300,7 @@ def test_les_bandes_separent_les_puissances():
 def test_les_mailles_communes_informent_mais_ne_filtrent_pas():
     """Deux vélos qui n'ont aucune route en commun sont quand même comparés."""
     ailleurs = [
-        Serie(s.v_kmh, s.puissance_w, s.longueur_m, frozenset({(9999, 9999)}))
-        for s in jeu_de_series(30.5)
+        Serie(s.v_kmh, s.puissance_w, s.longueur_m, frozenset({(9999, 9999)})) for s in jeu_de_series(30.5)
     ]
     resultat = comparer(
         {"RCR": jeu_de_series(28.0), "BMC": ailleurs},
@@ -402,13 +399,9 @@ def test_comparer_en_json(tmp_path: Path, capsys):
     assert charge["zone_w"] == [pytest.approx(144.5, abs=0.1), pytest.approx(193.5, abs=0.1)]
     assert charge["velo"]["RCR"]["sorties"] == len(PUISSANCES)
     assert charge["velo"]["RCR"]["series"] == 2 * len(PUISSANCES)
-    assert charge["velo"]["RCR"]["regression"]["pente_kmh_par_w"] == pytest.approx(
-        PENTE_FABRIQUEE, abs=0.005
-    )
+    assert charge["velo"]["RCR"]["regression"]["pente_kmh_par_w"] == pytest.approx(PENTE_FABRIQUEE, abs=0.005)
     lue = charge["synthese"]["puissance_w"]
-    assert charge["synthese"]["vitesse_kmh"]["RCR"] == pytest.approx(
-        _vitesse(V_RCR_AU_MILIEU, lue), abs=0.2
-    )
+    assert charge["synthese"]["vitesse_kmh"]["RCR"] == pytest.approx(_vitesse(V_RCR_AU_MILIEU, lue), abs=0.2)
     assert charge["synthese"]["ecart_kmh"] == pytest.approx(2.5, abs=0.2)
     assert charge["synthese"]["ecart_w_v3"] == pytest.approx(3 * lue * 2.5 / 28.0, abs=5.0)
     assert charge["synthese"]["ecart_w_modele"] is None  # pas de calibration.json ici
@@ -479,8 +472,6 @@ def test_les_defauts_sont_ceux_du_schema_valide():
 def test_une_serie_pile_sur_la_borne_haute_tombe_dans_la_derniere_bande():
     """La zone est fermée des deux côtés : 194 W est admissible, il lui faut une bande."""
     limite = [Serie(v_kmh=32.0, puissance_w=194.0, longueur_m=1000.0)]
-    resultat = comparer(
-        {"RCR": limite, "BMC": []}, velos=("RCR", "BMC"), zone_w=(144.0, 194.0)
-    )
+    resultat = comparer({"RCR": limite, "BMC": []}, velos=("RCR", "BMC"), zone_w=(144.0, 194.0))
     assert resultat.bandes[-1].n["RCR"] == 1
     assert resultat.bandes[-1].vitesses["RCR"] == pytest.approx(32.0)

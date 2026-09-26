@@ -254,9 +254,7 @@ def _cumul(points: Sequence[PointTrace]) -> list[float]:
     return cumul[: len(points)]
 
 
-def _sous_echantillonner(
-    points: Sequence[PointTrace], cumul: Sequence[float], pas_m: float
-) -> list[int]:
+def _sous_echantillonner(points: Sequence[PointTrace], cumul: Sequence[float], pas_m: float) -> list[int]:
     """Indices des points retenus, espacés d'au moins `pas_m` le long du tracé.
 
     Le dernier point est toujours retenu : sans lui, une antenne qui finit sur
@@ -408,8 +406,7 @@ def _maximales(antennes: Sequence[Antenne]) -> list[Antenne]:
         if antenne.fin_idx <= antenne.debut_idx:
             continue
         if any(
-            antenne.debut_idx <= autre.fin_idx and autre.debut_idx <= antenne.fin_idx
-            for autre in retenues
+            antenne.debut_idx <= autre.fin_idx and autre.debut_idx <= antenne.fin_idx for autre in retenues
         ):
             continue
         retenues.append(antenne)
@@ -426,11 +423,7 @@ def _bornees(trace: Trace, antennes: Sequence[Antenne]) -> list[Antenne]:
     obtenir un tracé intact, pas une exception ni des points retirés au hasard.
     """
     dernier = len(trace.points) - 1
-    return [
-        a
-        for a in antennes
-        if 0 <= a.debut_idx < a.fin_idx <= dernier
-    ]
+    return [a for a in antennes if 0 <= a.debut_idx < a.fin_idx <= dernier]
 
 
 def _indices_retires(antennes: Sequence[Antenne]) -> set[int]:
@@ -459,8 +452,7 @@ def _repointer(points: Sequence[PointTrace]) -> list[PointTrace]:
     """Les mêmes points, avec des distances cumulées recalculées depuis le départ."""
     cumul = _cumul(points)
     return [
-        PointTrace(lat=p.lat, lon=p.lon, alt_m=p.alt_m, dist_m=d)
-        for p, d in zip(points, cumul, strict=True)
+        PointTrace(lat=p.lat, lon=p.lon, alt_m=p.alt_m, dist_m=d) for p, d in zip(points, cumul, strict=True)
     ]
 
 
@@ -486,9 +478,7 @@ def _resegmenter(
             # Entièrement dans l'antenne (ou réduit à un point) : il disparaît.
             continue
         intact = not any(i in retires for i in range(ancien_debut, ancien_fin + 1))
-        longueur = (
-            segment.longueur_m if intact else points[fin].dist_m - points[debut].dist_m
-        )
+        longueur = segment.longueur_m if intact else points[fin].dist_m - points[debut].dist_m
         resegmentes.append(
             Segment(
                 debut_idx=debut,

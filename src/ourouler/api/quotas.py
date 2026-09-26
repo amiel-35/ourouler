@@ -135,9 +135,7 @@ class Quotas:
     libelle: str = "générations"
     horloge: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     _verrou: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
-    _compteurs: dict[tuple[str, date], int] = field(
-        default_factory=dict, repr=False, compare=False
-    )
+    _compteurs: dict[tuple[str, date], int] = field(default_factory=dict, repr=False, compare=False)
 
     def refuser_si_epuise(self, proprietaire: Proprietaire) -> None:
         """Le refus de `consommer`, sans rien décompter — pour refuser **avant** un travail.

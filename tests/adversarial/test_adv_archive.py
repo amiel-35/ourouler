@@ -171,12 +171,11 @@ def test_un_jour_futur_est_refuse_sans_appel():
     with pytest.raises((ErreurConnecteur, ErreurUtilisateur)) as capture:
         client.horaires(fabriques.LAT0, fabriques.LON0, demain)
     assert not espion.requetes, (
-        f"{len(espion.requetes)} requête(s) émise(s) pour un jour futur : "
-        "le refus doit venir avant le réseau"
+        f"{len(espion.requetes)} requête(s) émise(s) pour un jour futur : le refus doit venir avant le réseau"
     )
-    assert demain.isoformat() in str(capture.value) or "futur" in sans_accents(
-        str(capture.value)
-    ).casefold(), f"le message ne dit pas ce qui cloche : « {capture.value} »"
+    assert (
+        demain.isoformat() in str(capture.value) or "futur" in sans_accents(str(capture.value)).casefold()
+    ), f"le message ne dit pas ce qui cloche : « {capture.value} »"
 
 
 def test_un_jour_anterieur_a_1940_est_refuse():
@@ -192,17 +191,14 @@ def test_un_jour_anterieur_a_1940_est_refuse():
     )
     if resultat is None:
         assert not espion.requetes, (
-            "le jour est refusé, mais après avoir appelé le service : "
-            f"{len(espion.requetes)} requête(s)"
+            f"le jour est refusé, mais après avoir appelé le service : {len(espion.requetes)} requête(s)"
         )
         assert str(PREMIERE_ANNEE) in str(erreur) or ancien.isoformat() in str(erreur), (
             f"le message ne dit pas la borne de l'archive : « {erreur} »"
         )
         return
     heures = _verifier_heures(resultat, f"horaires({ancien})")
-    assert heures == [], (
-        f"{len(heures)} heure(s) rendues pour {ancien}, antérieur au début de l'archive"
-    )
+    assert heures == [], f"{len(heures)} heure(s) rendues pour {ancien}, antérieur au début de l'archive"
 
 
 @pytest.mark.parametrize(
@@ -219,12 +215,8 @@ def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
         quoi=f"horaires({lat}, {lon})",
         erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
     )
-    assert resultat is None, (
-        f"horaires({lat}, {lon}) a rendu un résultat pour une coordonnée hors du globe"
-    )
-    assert not espion.requetes, (
-        f"requête émise pour ({lat}, {lon}) : la validation vient après le réseau"
-    )
+    assert resultat is None, f"horaires({lat}, {lon}) a rendu un résultat pour une coordonnée hors du globe"
+    assert not espion.requetes, f"requête émise pour ({lat}, {lon}) : la validation vient après le réseau"
 
 
 # --- réponses hostiles --------------------------------------------------------
@@ -387,9 +379,7 @@ def test_deux_mailles_distinctes_font_deux_appels():
     client = _client(module, espion)
     client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
     client.horaires(0.4011, 0.4017, fabriques_physique.JOUR_ARCHIVE)
-    assert len(espion.requetes) == 2, (
-        f"{len(espion.requetes)} requête(s) pour deux points distants de 60 km"
-    )
+    assert len(espion.requetes) == 2, f"{len(espion.requetes)} requête(s) pour deux points distants de 60 km"
 
 
 def test_deux_jours_distincts_font_deux_appels():
@@ -399,8 +389,7 @@ def test_deux_jours_distincts_font_deux_appels():
     client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE - timedelta(days=1))
     assert len(espion.requetes) == 2, (
-        f"{len(espion.requetes)} requête(s) pour deux jours différents : la mémoïsation "
-        "ignore la date"
+        f"{len(espion.requetes)} requête(s) pour deux jours différents : la mémoïsation ignore la date"
     )
 
 

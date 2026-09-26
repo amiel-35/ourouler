@@ -155,9 +155,7 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
         for fichier in fichiers:
             # Fermé tout de suite : `mkstemp` laissait son descripteur ouvert,
             # un par fichier déposé, jusqu'à la fin du processus.
-            with tempfile.NamedTemporaryFile(
-                prefix=PREFIXE_TEMPORAIRE, suffix=".bin", delete=False
-            ) as vide:
+            with tempfile.NamedTemporaryFile(prefix=PREFIXE_TEMPORAIRE, suffix=".bin", delete=False) as vide:
                 destination = Path(vide.name)
             chemins.append(destination)
             with destination.open("wb") as sortie:

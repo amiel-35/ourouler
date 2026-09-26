@@ -105,9 +105,7 @@ class FabriqueSMTPDouble:
 
 
 def fabrique_qui_explose(serveur: str, port: int):
-    raise AssertionError(
-        f"le client SMTP n'aurait pas dû être fabriqué (serveur={serveur!r}, port={port!r})"
-    )
+    raise AssertionError(f"le client SMTP n'aurait pas dû être fabriqué (serveur={serveur!r}, port={port!r})")
 
 
 # --- ourouler inviter ----------------------------------------------------------

@@ -69,9 +69,7 @@ def _demander_un_parcours(client, **champs):
     """
     schema = schema_openapi(client)
     chemin, methode, operation = route_pour(schema, "sortie", "boucle", "parcours")
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 @pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=[e for e, _ in ETATS_DESSINES])
@@ -386,9 +384,7 @@ def test_intervals_en_panne_ne_casse_pas_le_reste_du_produit():
     # d'Intervals — la voir échouer ne prouvait rien. « Le reste », dans E15,
     # c'est la boucle libre : demander un parcours sans séance.
     chemin, methode, operation = route_pour(schema, "boucle")
-    reponse = appeler_route(
-        client, schema, chemin, methode, operation, dict(DEMANDE_PARCOURS_MINIMALE)
-    )
+    reponse = appeler_route(client, schema, chemin, methode, operation, dict(DEMANDE_PARCOURS_MINIMALE))
     assert reponse.status_code == 200, (
         f"statut {reponse.status_code} : la boucle libre ne demande rien à Intervals et tombe "
         "quand même. E15 promet l'inverse : « Tout le reste fonctionne. »"

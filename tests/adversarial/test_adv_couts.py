@@ -86,9 +86,7 @@ def _droite(tags: list[dict[str, str]], *, pas_m: float = 1000.0):
 # --- classification des tronçons ---------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "highway", ["primary", "primary_link", "secondary", "secondary_link", "trunk"]
-)
+@pytest.mark.parametrize("highway", ["primary", "primary_link", "secondary", "secondary_link", "trunk"])
 def test_les_routes_a_trafic_sont_comptees_comme_telles(highway):
     module = module_couts
     couts = _evaluer(module, _droite([{"highway": highway}]))
@@ -247,9 +245,7 @@ def test_le_bruit_gps_ne_fabrique_pas_de_virages():
 
 def test_un_virage_a_gauche_net_est_compte_a_gauche():
     module = module_couts
-    trace = fabriques.trace_fictive(
-        fabriques.coude(cap_avant=90.0, cap_apres=0.0, pas_m=25.0, n=8)
-    )
+    trace = fabriques.trace_fictive(fabriques.coude(cap_avant=90.0, cap_apres=0.0, pas_m=25.0, n=8))
     couts = _evaluer(module, trace)
     assert couts.virages_gauche >= 1, "un virage de 90° vers le nord depuis l'est est à gauche"
     assert couts.virages_droite == 0, f"{couts.virages_droite} virage(s) à droite inventé(s)"
@@ -257,9 +253,7 @@ def test_un_virage_a_gauche_net_est_compte_a_gauche():
 
 def test_un_virage_a_droite_net_est_compte_a_droite():
     module = module_couts
-    trace = fabriques.trace_fictive(
-        fabriques.coude(cap_avant=0.0, cap_apres=90.0, pas_m=25.0, n=8)
-    )
+    trace = fabriques.trace_fictive(fabriques.coude(cap_avant=0.0, cap_apres=90.0, pas_m=25.0, n=8))
     couts = _evaluer(module, trace)
     assert couts.virages_droite >= 1, "tourner à l'est en venant du nord est un virage à droite"
     assert couts.virages_gauche == 0, f"{couts.virages_gauche} virage(s) à gauche inventé(s)"
@@ -293,14 +287,10 @@ def test_le_passage_du_meridien_zero_n_invente_pas_de_virage():
 
 def test_un_demi_tour_ne_compte_pas_des_deux_cotes():
     module = module_couts
-    trace = fabriques.trace_fictive(
-        fabriques.coude(cap_avant=0.0, cap_apres=185.0, pas_m=25.0, n=8)
-    )
+    trace = fabriques.trace_fictive(fabriques.coude(cap_avant=0.0, cap_apres=185.0, pas_m=25.0, n=8))
     couts = _evaluer(module, trace)
     assert couts.virages_droite == 0, "un demi-tour à −175° ne se compte pas aussi à droite"
-    assert couts.virages_gauche <= 2, (
-        f"{couts.virages_gauche} virages à gauche pour un seul demi-tour"
-    )
+    assert couts.virages_gauche <= 2, f"{couts.virages_gauche} virages à gauche pour un seul demi-tour"
 
 
 def test_un_virage_a_gauche_sur_une_route_a_trafic_est_signale():
@@ -310,8 +300,7 @@ def test_un_virage_a_gauche_sur_une_route_a_trafic_est_signale():
     couts = _evaluer(module, fabriques.trace_fictive(coords, tags=tags))
     if couts.virages_gauche:
         assert couts.virages_gauche_trafic >= 1, (
-            "le virage se fait entre deux tronçons `secondary` : il doit compter en virage "
-            "à gauche à trafic"
+            "le virage se fait entre deux tronçons `secondary` : il doit compter en virage à gauche à trafic"
         )
 
 

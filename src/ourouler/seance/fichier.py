@@ -54,9 +54,7 @@ def lire_fichier_seance(
     if extension == "zwo":
         return lire_zwo(chemin, ftp_w=ftp_w, jour=jour)
     if extension == "mrc":
-        return lire_mrc(
-            chemin, ftp_w=ftp_w, seuil_recuperation_pct=seuil_recuperation_pct, jour=jour
-        )
+        return lire_mrc(chemin, ftp_w=ftp_w, seuil_recuperation_pct=seuil_recuperation_pct, jour=jour)
     raise ErreurLecture(
         f"{chemin} : extension « {chemin.suffix or '(aucune)'} » inconnue "
         f"(attendu {', '.join('.' + e for e in EXTENSIONS)} — le .FIT n'est pas encore lu)"

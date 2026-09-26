@@ -163,9 +163,7 @@ def test_debut_naif_ne_fait_pas_planter_le_rattachement():
 @pytest.mark.parametrize("sport", ["VirtualRide", "virtualride", "VIRTUALRIDE"])
 def test_virtual_ride_va_au_home_trainer(sport):
     module = module_inventaire
-    resultat = _rattacher(
-        module, _config(VELOS), sport=sport, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
-    )
+    resultat = _rattacher(module, _config(VELOS), sport=sport, debut=datetime(2023, 5, 1, 12, tzinfo=UTC))
     assert resultat == HOME_TRAINER
 
 
@@ -258,9 +256,7 @@ def test_l_interieur_prime_sur_l_equipement():
 def test_l_interieur_prime_sur_la_periode():
     """Règle (1) intérieur avant (4) période."""
     module = module_inventaire
-    resultat = _rattacher(
-        module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF
-    )
+    resultat = _rattacher(module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF)
     assert resultat == HOME_TRAINER, "règle 1 avant règle 4"
 
 
@@ -269,9 +265,7 @@ def test_aucun_velo_de_route_configure():
     module = module_inventaire
     config = _config([{"nom": "Chrono", "usage": "clm"}])
     resultat, erreur = outils.robuste(
-        lambda: module.rattacher_velo(
-            _entree(module, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)), config
-        ),
+        lambda: module.rattacher_velo(_entree(module, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)), config),
         quoi="rattacher_velo sans vélo de route",
         erreurs_acceptees=(ErreurUtilisateur,),
     )
@@ -392,7 +386,7 @@ def test_anomalies_detectees(tmp_path, hostiles, generateur):
     donnees = module.rendre_json(module.inventaire(cache, _config(VELOS), date(2023, 12, 1)))
     outils.verifier_json(donnees, "rendre_json(inventaire)")
     listes = outils.trouver_cle(donnees, "anomal")
-    assert listes, 'rendre_json doit exposer les anomalies (clé contenant « anomalies »)'
+    assert listes, "rendre_json doit exposer les anomalies (clé contenant « anomalies »)"
     assert any(liste for liste in listes), f"aucune anomalie signalée : {listes}"
 
 

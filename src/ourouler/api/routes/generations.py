@@ -59,9 +59,7 @@ def generer_sortie(
     _verifier_quota(ctx, qui, ctx.quotas)
     try:
         config = _config(ctx, qui)
-        carte = ctx.fichiers.reserver(
-            qui, f"sortie_{demande.jour or date.today().isoformat()}.html"
-        )
+        carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
         seance = _chemin_seance(ctx, qui, demande.fichier_seance)
         # **Aucun GPX n'est écrit ici** (décision Q40 g). Le cœur remet les trois
         # textes à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc

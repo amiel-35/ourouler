@@ -148,15 +148,11 @@ def _resoudre(app: Any, methode: str, chemin: str) -> str:
 
 def table_de_resolution(app: Any) -> dict[str, Any]:
     routes = [r for r in _routes(app) if r.methods]
-    ordre = [
-        {"methodes": sorted(r.methods - {"HEAD"}), "chemin": r.path, "nom": r.name} for r in routes
-    ]
+    ordre = [{"methodes": sorted(r.methods - {"HEAD"}), "chemin": r.path, "nom": r.name} for r in routes]
     methodes = sorted({m for r in routes for m in r.methods} - {"HEAD"})
     chemins = sorted({_litteral(r.path) for r in routes})
     resolution = {
-        f"{methode} {chemin}": _resoudre(app, methode, chemin)
-        for chemin in chemins
-        for methode in methodes
+        f"{methode} {chemin}": _resoudre(app, methode, chemin) for chemin in chemins for methode in methodes
     }
     return {"ordre": ordre, "resolution": resolution}
 

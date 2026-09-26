@@ -181,8 +181,7 @@ def test_la_base_se_decide_sur_le_depart():
     )
     a, b = _conseiller(froide), _conseiller(rechauffee)
     assert a.base == b.base, (
-        f"base {a.base} contre {b.base} : la base a été décidée sur la moyenne du tracé, "
-        "pas sur le départ"
+        f"base {a.base} contre {b.base} : la base a été décidée sur la moyenne du tracé, pas sur le départ"
     )
     assert b.a_enlever, "un ressenti qui monte de 20 °C doit produire un « prévoir d'enlever »"
     assert not a.a_enlever, "rien ne change sur le tracé : rien à enlever"
@@ -244,12 +243,12 @@ def test_les_valeurs_par_defaut_sont_celles_du_contrat(ecrire_config):
 @pytest.mark.parametrize(
     "corps",
     [
-        '[tenue]\nbornes_c = [9.0, 3.0]\n',
-        '[tenue]\nvent_veste_kmh = -5.0\n',
-        '[seance]\nelasticite_z2_max = 2.0\n',
-        '[seance]\nelasticite_calme_max = 50.0\n',
-        '[seance]\nelasticite_calme_min = 0.5\n',
-        '[seance]\ndemi_tour_penalite = -1.0\n',
+        "[tenue]\nbornes_c = [9.0, 3.0]\n",
+        "[tenue]\nvent_veste_kmh = -5.0\n",
+        "[seance]\nelasticite_z2_max = 2.0\n",
+        "[seance]\nelasticite_calme_max = 50.0\n",
+        "[seance]\nelasticite_calme_min = 0.5\n",
+        "[seance]\ndemi_tour_penalite = -1.0\n",
     ],
     ids=[
         "bornes_decroissantes",

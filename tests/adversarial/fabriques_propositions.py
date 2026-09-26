@@ -195,9 +195,7 @@ def vivier_clones(n: int = 5, *, notes_distinctes: bool = True) -> list[VuePropo
     Avec `notes_distinctes=False`, même les notes sont égales — le classement
     dégénéré, où une normalisation naïve divise par une étendue nulle.
     """
-    return [
-        vue(i, note=(1.93 + 0.37 * i) if notes_distinctes else 1.93) for i in range(n)
-    ]
+    return [vue(i, note=(1.93 + 0.37 * i) if notes_distinctes else 1.93) for i in range(n)]
 
 
 def vivier_deux_familles(par_famille: int = 3) -> list[VueProposition]:
@@ -225,18 +223,34 @@ def vivier_contrastable() -> list[VueProposition]:
     deux extrêmes.
     """
     grappe = [
-        vue(("tete", k), note=1.0 + 0.01 * k, pluie_mm=3.0, demi_tours=2,
-            depassement_s=1800.0, densite_marqueurs_km=8.0,
-            vent_dos_retour=0.2)
+        vue(
+            ("tete", k),
+            note=1.0 + 0.01 * k,
+            pluie_mm=3.0,
+            demi_tours=2,
+            depassement_s=1800.0,
+            densite_marqueurs_km=8.0,
+            vent_dos_retour=0.2,
+        )
         for k in range(3)
     ]
     seche = vue(
-        "seche", note=3.0, pluie_mm=0.0, demi_tours=0, depassement_s=120.0,
-        densite_marqueurs_km=0.5, vent_dos_retour=0.9,
+        "seche",
+        note=3.0,
+        pluie_mm=0.0,
+        demi_tours=0,
+        depassement_s=120.0,
+        densite_marqueurs_km=0.5,
+        vent_dos_retour=0.9,
     )
     ventee = vue(
-        "ventee", note=3.1, pluie_mm=9.0, demi_tours=0, depassement_s=2400.0,
-        densite_marqueurs_km=0.6, vent_dos_retour=0.95,
+        "ventee",
+        note=3.1,
+        pluie_mm=9.0,
+        demi_tours=0,
+        depassement_s=2400.0,
+        densite_marqueurs_km=0.6,
+        vent_dos_retour=0.95,
     )
     return [*grappe, seche, ventee]
 
@@ -266,8 +280,7 @@ def vivier_sans_bloc(n: int = 5) -> list[VueProposition]:
     connues = (0.30, 0.45, 0.55, 0.70, 0.98)[:n]
     del connues  # la part de routes connues n'est pas un axe (voir `AXE_INTERDIT`)
     return [
-        vue(i, note=notes[i], densite_marqueurs_km=densites[i],
-            depassement_s=notes[i] * 3600.0)
+        vue(i, note=notes[i], densite_marqueurs_km=densites[i], depassement_s=notes[i] * 3600.0)
         for i in range(min(n, 5))
     ]
 
@@ -356,11 +369,7 @@ def choisir_reference(
     return VueChoix(
         retenues=ecrites,
         contraste_affirme=not tronque and len(ecrites) > 1,
-        motif=(
-            "aucune autre candidate ne se distingue assez de celles-ci"
-            if tronque
-            else ""
-        ),
+        motif=("aucune autre candidate ne se distingue assez de celles-ci" if tronque else ""),
         pool=list(pool),
     )
 
@@ -409,11 +418,7 @@ def ecrire_phrases_reference(
                     continue
                 # Les deux sens restent dicibles ; `sens` n'est qu'une tournure.
                 mien = p.axe(nom)
-                leur = (
-                    min(q.axe(nom) for q in autres)
-                    if sens == "min"
-                    else max(q.axe(nom) for q in autres)
-                )
+                leur = min(q.axe(nom) for q in autres) if sens == "min" else max(q.axe(nom) for q in autres)
                 avance = (leur - mien) / portee if sens == "min" else (mien - leur) / portee
                 if avance > 0 and (meilleur is None or avance > meilleur[0]):
                     meilleur = (avance, (nom, sens))
@@ -457,42 +462,104 @@ class Affirmation:
 #: « la plus sèche », « 20 minutes de moins », « elle évite les villages ».
 #: L'ordre compte : la tournure la plus spécifique est reconnue d'abord.
 AFFIRMATIONS: tuple[Affirmation, ...] = (
-    Affirmation("vent_dos_depart", ("vent dans le dos au départ", "vent dans le dos au depart",
-                                    "vous partez avec le vent"), "vent_dos_depart", "max",
-                orientation="depart-dos"),
-    Affirmation("vent_dos_retour", ("rentrez avec le vent dans le dos", "vent dans le dos au retour",
-                                    "vent dans le dos à la fin", "vent dans le dos a la fin",
-                                    "vent dans le dos pour rentrer"), "vent_dos_retour", "max",
-                orientation="retour-dos"),
-    Affirmation("vent_travers", ("vent de travers", "vent latéral", "vent lateral"),
-                "vent_travers", "max", orientation="travers"),
+    Affirmation(
+        "vent_dos_depart",
+        ("vent dans le dos au départ", "vent dans le dos au depart", "vous partez avec le vent"),
+        "vent_dos_depart",
+        "max",
+        orientation="depart-dos",
+    ),
+    Affirmation(
+        "vent_dos_retour",
+        (
+            "rentrez avec le vent dans le dos",
+            "vent dans le dos au retour",
+            "vent dans le dos à la fin",
+            "vent dans le dos a la fin",
+            "vent dans le dos pour rentrer",
+        ),
+        "vent_dos_retour",
+        "max",
+        orientation="retour-dos",
+    ),
+    Affirmation(
+        "vent_travers",
+        ("vent de travers", "vent latéral", "vent lateral"),
+        "vent_travers",
+        "max",
+        orientation="travers",
+    ),
     # « du vent de face au départ comme au retour » : une phrase qui distingue
     # par la négative, et que le lot écrit réellement. Ne pas la reconnaître
     # ferait passer pour muette une proposition qui dit très bien ce qu'elle est.
-    Affirmation("vent_face", ("vent de face au départ comme au retour",
-                              "vent de face au depart comme au retour",
-                              "du vent de face"), "vent_dos_retour", "min",
-                orientation="face"),
-    Affirmation("demi_tour", ("aucun demi-tour", "sans demi-tour", "pas de demi-tour"),
-                "demi_tours", "zero"),
+    Affirmation(
+        "vent_face",
+        (
+            "vent de face au départ comme au retour",
+            "vent de face au depart comme au retour",
+            "du vent de face",
+        ),
+        "vent_dos_retour",
+        "min",
+        orientation="face",
+    ),
+    Affirmation("demi_tour", ("aucun demi-tour", "sans demi-tour", "pas de demi-tour"), "demi_tours", "zero"),
     # « un seul demi-tour » / « 2 demi-tours seulement » : le lot les écrit, et
     # ce sont des superlatifs, pas des « zéro ».
-    Affirmation("demi_tour_moins", ("un seul demi-tour", "demi-tours seulement",
-                                    "demi-tour seulement"), "demi_tours", "min"),
-    Affirmation("pluie", ("la plus sèche", "la plus seche", "au sec", "sans pluie", "moins de pluie"),
-                "pluie_mm", "min"),
-    Affirmation("duree", ("minutes de moins", "la plus courte", "plus courte", "moins longue",
-                          "la plus proche de la séance", "tient la durée", "tient la duree"),
-                "depassement_s", "min"),
-    Affirmation("ville", ("évite les villages", "evite les villages", "évite les bourgs",
-                          "evite les bourgs", "évite la ville", "evite la ville",
-                          "sans traverser", "moins de feux", "la plus calme"),
-                "densite_marqueurs_km", "min"),
-    Affirmation("trafic", ("évite les grands axes", "evite les grands axes",
-                           "évite les départementales", "evite les departementales"),
-                "part_trafic", "min"),
-    Affirmation("terrain", ("les blocs tombent le mieux", "le mieux pour les blocs"),
-                "note_terrain", "min"),
+    Affirmation(
+        "demi_tour_moins",
+        ("un seul demi-tour", "demi-tours seulement", "demi-tour seulement"),
+        "demi_tours",
+        "min",
+    ),
+    Affirmation(
+        "pluie",
+        ("la plus sèche", "la plus seche", "au sec", "sans pluie", "moins de pluie"),
+        "pluie_mm",
+        "min",
+    ),
+    Affirmation(
+        "duree",
+        (
+            "minutes de moins",
+            "la plus courte",
+            "plus courte",
+            "moins longue",
+            "la plus proche de la séance",
+            "tient la durée",
+            "tient la duree",
+        ),
+        "depassement_s",
+        "min",
+    ),
+    Affirmation(
+        "ville",
+        (
+            "évite les villages",
+            "evite les villages",
+            "évite les bourgs",
+            "evite les bourgs",
+            "évite la ville",
+            "evite la ville",
+            "sans traverser",
+            "moins de feux",
+            "la plus calme",
+        ),
+        "densite_marqueurs_km",
+        "min",
+    ),
+    Affirmation(
+        "trafic",
+        (
+            "évite les grands axes",
+            "evite les grands axes",
+            "évite les départementales",
+            "evite les departementales",
+        ),
+        "part_trafic",
+        "min",
+    ),
+    Affirmation("terrain", ("les blocs tombent le mieux", "le mieux pour les blocs"), "note_terrain", "min"),
 )
 
 #: Ce qui trahit le langage de note plutôt que le langage de cycliste. Le
@@ -505,9 +572,7 @@ MOTIF_NOTE_CHIFFREE = re.compile(r"\d+[,.]\d{2}(?!\d)")
 def _sans_accents_bas(texte: str) -> str:
     import unicodedata
 
-    plat = "".join(
-        c for c in unicodedata.normalize("NFD", texte) if unicodedata.category(c) != "Mn"
-    )
+    plat = "".join(c for c in unicodedata.normalize("NFD", texte) if unicodedata.category(c) != "Mn")
     return plat.casefold()
 
 
@@ -542,9 +607,7 @@ MARGE = 1e-9
 def verifier_retenues_bien_formees(choix: VueChoix, *, nb_max: int = 3) -> None:
     """Le minimum : des retenues distinctes, tirées du vivier, en nombre borné."""
     cles = [p.cle for p in choix.retenues]
-    assert len(cles) <= nb_max, (
-        f"{len(cles)} propositions rendues pour {nb_max} demandées : {cles}"
-    )
+    assert len(cles) <= nb_max, f"{len(cles)} propositions rendues pour {nb_max} demandées : {cles}"
     assert len(set(map(repr, cles))) == len(cles), (
         f"la même candidate est proposée deux fois : {cles}. Deux cartes identiques "
         "ne sont pas deux propositions."
@@ -585,10 +648,7 @@ def verifier_pas_de_trio_de_clones(choix: VueChoix, *, seuil_recouvrement: float
     jumelles = []
     for i, a in enumerate(choix.retenues):
         for b in choix.retenues[i + 1 :]:
-            if all(
-                abs(a.axe(nom) - b.axe(nom)) <= MARGE * max(1.0, abs(a.axe(nom)))
-                for nom in AXES
-            ):
+            if all(abs(a.axe(nom) - b.axe(nom)) <= MARGE * max(1.0, abs(a.axe(nom))) for nom in AXES):
                 jumelles.append((a.cle, b.cle))
     if not jumelles:
         return
@@ -646,11 +706,7 @@ def verifier_plus_etale_que_le_tri(choix: VueChoix) -> None:
 def _ecart_minimal(groupe: Sequence[VueProposition], portees: dict[str, float]) -> float:
     if len(groupe) < 2:
         return 0.0
-    return min(
-        distance(a, b, portees)
-        for i, a in enumerate(groupe)
-        for b in groupe[i + 1 :]
-    )
+    return min(distance(a, b, portees) for i, a in enumerate(groupe) for b in groupe[i + 1 :])
 
 
 def verifier_phrases(choix: VueChoix) -> None:
@@ -730,11 +786,7 @@ def verifier_phrases_vraies(choix: VueChoix) -> None:
                     "Une phrase fausse est pire qu'une phrase absente."
                 )
                 continue
-            leur = (
-                min(q.axe(a.axe) for q in autres)
-                if a.sens == "min"
-                else max(q.axe(a.axe) for q in autres)
-            )
+            leur = min(q.axe(a.axe) for q in autres) if a.sens == "min" else max(q.axe(a.axe) for q in autres)
             mieux = mien <= leur + MARGE if a.sens == "min" else mien >= leur - MARGE
             assert mieux, (
                 f"candidate {p.cle!r} : « {p.phrase} » affirme être la meilleure sur {a.axe} "
@@ -851,8 +903,9 @@ def verifier_pas_de_marge_relachee(module: Any | None = None) -> None:
         )
 
 
-def _axes_gagnes(sujet: VueProposition, autres: Sequence[VueProposition],
-                 marges: dict[str, float]) -> set[str]:
+def _axes_gagnes(
+    sujet: VueProposition, autres: Sequence[VueProposition], marges: dict[str, float]
+) -> set[str]:
     """Les axes où `sujet` est meilleur que **tous** les autres, de la marge exigée."""
     gagnes: set[str] = set()
     for nom, marge in marges.items():
@@ -868,16 +921,12 @@ def _axes_gagnes(sujet: VueProposition, autres: Sequence[VueProposition],
     if all(mien < q.axe("demi_tours") for q in autres):
         gagnes.add("demi_tours")
     # Vent : « une catégorie relative dominante différente ».
-    if sujet.orientation is not None and all(
-        q.orientation != sujet.orientation for q in autres
-    ):
+    if sujet.orientation is not None and all(q.orientation != sujet.orientation for q in autres):
         gagnes.add("orientation")
     return gagnes
 
 
-def verifier_verrou_de_recouvrement(
-    choix: VueChoix, *, seuil_recouvrement: float | None = None
-) -> None:
+def verifier_verrou_de_recouvrement(choix: VueChoix, *, seuil_recouvrement: float | None = None) -> None:
     """Le seul verrou qui reste depuis Q43 : les tracés vont-ils ailleurs ?
 
     La règle de contraste en exigeait trois choses. Les deux premières — chaque
@@ -986,8 +1035,13 @@ def verifier_part_connue_hors_selection(choix: VueChoix) -> None:
     """
     for p in choix.retenues:
         plat = _sans_accents_bas(p.phrase or "")
-        for tournure in ("que vous connaissez", "routes connues", "deja roule",
-                         "routes nouvelles", "que vous ne connaissez pas"):
+        for tournure in (
+            "que vous connaissez",
+            "routes connues",
+            "deja roule",
+            "routes nouvelles",
+            "que vous ne connaissez pas",
+        ):
             assert _sans_accents_bas(tournure) not in plat, (
                 f"proposition {p.cle!r} : « {p.phrase} » distingue par les routes déjà "
                 "roulées. Doctrine et contrat §3.3.2 : « la part connue reste affichée, "
@@ -997,6 +1051,7 @@ def verifier_part_connue_hors_selection(choix: VueChoix) -> None:
 
 
 # --- densité de marqueurs -----------------------------------------------------
+
 
 #: Les marqueurs que la densité compte : « feux, passages piétons,
 #: ralentisseurs » — c'est-à-dire ce que `terrain._noeuds_tagues` sait déjà
@@ -1111,9 +1166,7 @@ def densite_reference(trace: Trace) -> Densite:
     return Densite(compter_marqueurs(trace) / (longueur_m / 1000.0), True)
 
 
-def verifier_densite(
-    fn: Callable[..., Any], *, lire: Callable[[Any], Densite] | None = None
-) -> None:
+def verifier_densite(fn: Callable[..., Any], *, lire: Callable[[Any], Densite] | None = None) -> None:
     """La batterie de la densité, et l'invariant « l'inconnu n'est ni bonus ni malus ».
 
     `fn(trace)` rend n'importe quoi que `lire` sait convertir en `Densite`.
@@ -1204,9 +1257,7 @@ def verifier_densite(
         f"nœuds empilés : densité {empiles.par_km!r}"
     )
     reference_empiles = trace_pour_densite(5000.0, 0)
-    assert empiles.par_km == pytest_approx(
-        3.0 / (reference_empiles.distance_m / 1000.0), rel=1e-9
-    ), (
+    assert empiles.par_km == pytest_approx(3.0 / (reference_empiles.distance_m / 1000.0), rel=1e-9), (
         f"trois nœuds marqués sur 5 km font 0,6 /km, pas {empiles.par_km!r}. Le nœud qui porte "
         "un feu **et** un ralentisseur ne compte qu'une fois : « se compter deux fois serait "
         "pire que de se manquer »."
@@ -1301,8 +1352,7 @@ def verifier_gardes_vent(poser: Callable[..., bool]) -> None:
         "comparaison de travers."
     )
     assert reponses[-1], (
-        "45 km/h et toujours pas de question : le seuil ne peut pas être au-dessus de tout "
-        f"({balayage})"
+        f"45 km/h et toujours pas de question : le seuil ne peut pas être au-dessus de tout ({balayage})"
     )
 
     # --- garde 2 : l'horizon de 3 jours
@@ -1347,9 +1397,7 @@ def verifier_gardes_vent(poser: Callable[..., bool]) -> None:
         "dans le dos » sans savoir d'où il vient"
     )
     for absurde in (float("nan"), float("inf")):
-        assert not appel(vent_kmh=absurde), (
-            f"vent {absurde!r} : une valeur non finie n'est pas un vent"
-        )
+        assert not appel(vent_kmh=absurde), f"vent {absurde!r} : une valeur non finie n'est pas un vent"
     # La direction non finie a son vérificateur à elle (`verifier_direction_non_finie`) :
     # c'est un défaut réel du lot au 16/09/2026, et le garder ici ferait
     # échouer toute la batterie pour un seul point, en masquant les autres.
@@ -1388,7 +1436,10 @@ def boucle_avec_marqueurs(n_marqueurs: int, *, rayon_m: float = 4000.0, n: int =
     pas = max(1, n // max(n_marqueurs, 1))
     noeuds = {i * pas: {"highway": "traffic_signals"} for i in range(n_marqueurs)}
     return fabriques_seance.boucle_plate(
-        rayon_m=rayon_m, n=n, tags={"highway": "tertiary"}, node_tags=noeuds,
+        rayon_m=rayon_m,
+        n=n,
+        tags={"highway": "tertiary"},
+        node_tags=noeuds,
         nom=f"boucle à {n_marqueurs} marqueurs",
     )
 
@@ -1585,9 +1636,7 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
     if "densite_marqueurs_km" not in lus:
         for nom in ("densite", "marqueur"):
             valeurs = [
-                v
-                for v in _profond(candidate, nom)
-                if isinstance(v, (int, float)) and not isinstance(v, bool)
+                v for v in _profond(candidate, nom) if isinstance(v, (int, float)) and not isinstance(v, bool)
             ]
             if valeurs:
                 poser("densite_marqueurs_km", valeurs[0])
@@ -1678,8 +1727,7 @@ def choix_depuis_json(doc: dict) -> VueChoix:
     texte = " ".join(motifs)
     plat = _sans_accents_bas(texte)
     aveu = any(
-        m in plat
-        for m in ("se ressemblent", "pas contrast", "peu contrast", "non contrast", "indiscernab")
+        m in plat for m in ("se ressemblent", "pas contrast", "peu contrast", "non contrast", "indiscernab")
     )
     equivalence = any(m in plat for m in ("se valent", "se valaient", "ne se detache"))
     return VueChoix(

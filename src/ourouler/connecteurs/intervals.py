@@ -67,8 +67,7 @@ class ClientIntervals:
     ):
         if not athlete_id or not api_key:
             raise ErreurConnecteur(
-                "Intervals.icu : athlete_id et api_key sont requis "
-                "(Intervals.icu → Settings → Developer)"
+                "Intervals.icu : athlete_id et api_key sont requis (Intervals.icu → Settings → Developer)"
             )
         self.athlete_id = str(athlete_id)
         self.base_url = base_url.rstrip("/")
@@ -114,9 +113,7 @@ class ClientIntervals:
         reponse = self._get(f"/api/v1/activity/{activite_id}/file", "activity/{id}/file")
         contenu = reponse.content
         if not contenu:
-            raise ErreurConnecteur(
-                f"Intervals.icu activity/{activite_id}/file : réponse vide"
-            )
+            raise ErreurConnecteur(f"Intervals.icu activity/{activite_id}/file : réponse vide")
         return contenu, _extension(reponse, contenu)
 
     def intervalles(self, activite_id: str) -> list[dict]:
@@ -132,15 +129,11 @@ class ClientIntervals:
         est une erreur, jamais une liste vide : « aucun intervalle » et « le
         service a répondu autre chose » ne sont pas la même situation.
         """
-        reponse = self._get(
-            f"/api/v1/activity/{activite_id}/intervals", "activity/{id}/intervals"
-        )
+        reponse = self._get(f"/api/v1/activity/{activite_id}/intervals", "activity/{id}/intervals")
         try:
             charge = reponse.json()
         except ValueError as e:
-            raise ErreurConnecteur(
-                "Intervals.icu activity/{id}/intervals : réponse JSON illisible"
-            ) from e
+            raise ErreurConnecteur("Intervals.icu activity/{id}/intervals : réponse JSON illisible") from e
         if isinstance(charge, dict):
             charge = charge.get("icu_intervals")
             if charge is None:
@@ -202,9 +195,7 @@ class ClientIntervals:
         dans l'instance, y compris quand il est vide.
         """
         if self._equipements is None:
-            reponse = self._get(
-                f"/api/v1/athlete/{self.athlete_id}/gear", "athlete/{id}/gear"
-            )
+            reponse = self._get(f"/api/v1/athlete/{self.athlete_id}/gear", "athlete/{id}/gear")
             liste = _liste_de_dicts(reponse, "athlete/{id}/gear")
             self._equipements = {
                 str(e["id"]): str(e.get("name") or "")
@@ -231,8 +222,7 @@ class ClientIntervals:
         jusqua = jusqua or depuis
         if jusqua < depuis:
             raise ErreurUtilisateur(
-                f"Intervals.icu events : plage invalide ({depuis.isoformat()} "
-                f"> {jusqua.isoformat()})"
+                f"Intervals.icu events : plage invalide ({depuis.isoformat()} > {jusqua.isoformat()})"
             )
         reponse = self._get(
             f"/api/v1/athlete/{self.athlete_id}/events",
@@ -262,9 +252,7 @@ class ClientIntervals:
                 headers={"User-Agent": USER_AGENT},
             )
         except httpx.HTTPError as e:
-            raise ErreurConnecteur(
-                f"Intervals.icu {libelle} : appel impossible ({type(e).__name__})"
-            ) from e
+            raise ErreurConnecteur(f"Intervals.icu {libelle} : appel impossible ({type(e).__name__})") from e
         if reponse.status_code != 200:
             raise ErreurConnecteur(
                 f"Intervals.icu {libelle} : HTTP {reponse.status_code}{_indice(reponse.status_code)}"
@@ -272,9 +260,7 @@ class ClientIntervals:
         return reponse
 
 
-def resoudre_athlete_id(
-    api_key: str, http: httpx.Client | None = None, base_url: str = BASE_URL
-) -> str:
+def resoudre_athlete_id(api_key: str, http: httpx.Client | None = None, base_url: str = BASE_URL) -> str:
     """L'identifiant de l'athlète propriétaire de cette clé, sans le connaître d'avance.
 
     Un invité hébergé branche Intervals
@@ -312,9 +298,7 @@ def resoudre_athlete_id(
             headers={"User-Agent": USER_AGENT},
         )
     except httpx.HTTPError as e:
-        raise ErreurConnecteur(
-            f"Intervals.icu athlete/0 : appel impossible ({type(e).__name__})"
-        ) from e
+        raise ErreurConnecteur(f"Intervals.icu athlete/0 : appel impossible ({type(e).__name__})") from e
     if reponse.status_code != 200:
         raise ErreurConnecteur(
             f"Intervals.icu athlete/0 : HTTP {reponse.status_code}{_indice(reponse.status_code)}"
@@ -368,9 +352,9 @@ def _champ_velo(charge: dict, noms: tuple[str, ...]) -> float | None:
             if not isinstance(entree, dict):
                 continue
             types = entree.get("types")
-            types_normalises = {
-                str(t).strip().casefold() for t in types
-            } if isinstance(types, list) else set()
+            types_normalises = (
+                {str(t).strip().casefold() for t in types} if isinstance(types, list) else set()
+            )
             if types_normalises & set(_TYPES_VELO):
                 for nom in noms:
                     valeur = _nombre_positif(entree.get(nom))
@@ -407,9 +391,7 @@ def _liste_de_dicts(reponse: httpx.Response, libelle: str) -> list[dict]:
     except ValueError as e:
         raise ErreurConnecteur(f"Intervals.icu {libelle} : réponse JSON illisible") from e
     if not isinstance(charge, list):
-        raise ErreurConnecteur(
-            f"Intervals.icu {libelle} : tableau attendu, reçu {type(charge).__name__}"
-        )
+        raise ErreurConnecteur(f"Intervals.icu {libelle} : tableau attendu, reçu {type(charge).__name__}")
     intrus = [type(e).__name__ for e in charge if not isinstance(e, dict)]
     if intrus:
         raise ErreurConnecteur(

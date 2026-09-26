@@ -183,9 +183,7 @@ def puissance_requise(v_ms: float, pente: float, vent_face_ms: float, p: Paramet
     _finis(v_ms=v_ms, pente=pente, vent_face_ms=vent_face_ms)
     theta = math.atan(pente)
     v_air = v_ms + vent_face_ms
-    resistance = (
-        p.crr * p.masse_totale_kg * G * math.cos(theta) + p.masse_totale_kg * G * math.sin(theta)
-    )
+    resistance = p.crr * p.masse_totale_kg * G * math.cos(theta) + p.masse_totale_kg * G * math.sin(theta)
     trainee = 0.5 * p.rho * p.cda_m2 * v_air * abs(v_air)
     return (resistance * v_ms + trainee * v_ms) / p.rendement
 
@@ -296,9 +294,7 @@ def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
     """
     _finis(vitesse_kmh=vitesse_kmh)
     if vitesse_kmh < 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)"
-        )
+        raise ErreurUtilisateur(f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)")
     return puissance_requise(vitesse_kmh / 3.6, 0.0, 0.0, p)
 
 
@@ -379,37 +375,25 @@ def facteur_compteur_defaut(
         part_arret=part_arret,
     )
     if puissance_w <= 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : puissance positive attendue, reçu {puissance_w!r} W"
-        )
+        raise ErreurUtilisateur(f"modèle physique : puissance positive attendue, reçu {puissance_w!r} W")
     if denivele_m_par_km < 0:
-        raise ErreurUtilisateur(
-            f"modèle physique : dénivelé de référence négatif ({denivele_m_par_km} m/km)"
-        )
+        raise ErreurUtilisateur(f"modèle physique : dénivelé de référence négatif ({denivele_m_par_km} m/km)")
     if not 0.0 <= part_arret < 1.0:
-        raise ErreurUtilisateur(
-            f"modèle physique : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}"
-        )
+        raise ErreurUtilisateur(f"modèle physique : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}")
 
     v_plat = vitesse_a_plat_ms(puissance_w, p)
     if v_plat <= 0:
-        raise ErreurUtilisateur(
-            "modèle physique : vitesse à plat nulle — paramètres de vélo inexploitables"
-        )
+        raise ErreurUtilisateur("modèle physique : vitesse à plat nulle — paramètres de vélo inexploitables")
     pente = denivele_m_par_km / 500.0
     # Même plancher et même plafond que `simuler` : sous `V_MIN_MS` le cycliste
     # met pied à terre, au-dessus de `V_MAX_DESCENTE_KMH` il freine.
     v_montee = max(vitesse_regime(puissance_w, pente, 0.0, p), V_MIN_MS)
-    v_descente = min(
-        vitesse_regime(puissance_w, -pente, 0.0, p), V_MAX_DESCENTE_KMH / 3.6
-    )
+    v_descente = min(vitesse_regime(puissance_w, -pente, 0.0, p), V_MAX_DESCENTE_KMH / 3.6)
     v_mouvement = 2.0 / (1.0 / v_montee + 1.0 / v_descente)
     return (v_mouvement / v_plat) * (1.0 - part_arret)
 
 
-def moyenne_compteur_kmh(
-    puissance_w: float, p: Parametres, facteur: float | None = None
-) -> float:
+def moyenne_compteur_kmh(puissance_w: float, p: Parametres, facteur: float | None = None) -> float:
     """La moyenne que le compteur affichera, en km/h — la troisième valeur.
 
     `facteur` est le `facteur_compteur` du vélo, mesuré sur l'historique du
@@ -426,9 +410,7 @@ def moyenne_compteur_kmh(
     else:
         _finis(facteur=facteur)
         if facteur <= 0:
-            raise ErreurUtilisateur(
-                f"modèle physique : facteur compteur positif attendu, reçu {facteur!r}"
-            )
+            raise ErreurUtilisateur(f"modèle physique : facteur compteur positif attendu, reçu {facteur!r}")
     return vitesse_a_plat_kmh(puissance_w, p) * facteur
 
 
@@ -469,9 +451,7 @@ class FourchettePorteAPorte:
                 f"{self.bas!r}, {self.mediane!r}, {self.haut!r}"
             )
         if self.provenance not in ("mesure", "defaut"):
-            raise ErreurUtilisateur(
-                f"fourchette du porte à porte : provenance {self.provenance!r} inconnue"
-            )
+            raise ErreurUtilisateur(f"fourchette du porte à porte : provenance {self.provenance!r} inconnue")
 
 
 @dataclass(frozen=True)
@@ -504,9 +484,7 @@ def temps_ecoule(temps_estime_s: float, fourchette: FourchettePorteAPorte) -> Po
     """
     _finis(temps_estime_s=temps_estime_s)
     if temps_estime_s < 0:
-        raise ErreurUtilisateur(
-            f"temps écoulé : temps en mouvement négatif ({temps_estime_s} s)"
-        )
+        raise ErreurUtilisateur(f"temps écoulé : temps en mouvement négatif ({temps_estime_s} s)")
     return PorteAPorte(
         bas_s=temps_estime_s * fourchette.bas,
         mediane_s=temps_estime_s * fourchette.mediane,
@@ -549,9 +527,7 @@ def simuler(
         raise ErreurUtilisateur("simuler : tracé de longueur nulle")
 
     bornes = _bornes_pas(total)
-    altitudes = moyenne_glissante(
-        [_altitude(points, distances, d) for d in bornes], FENETRE_ALTITUDE
-    )
+    altitudes = moyenne_glissante([_altitude(points, distances, d) for d in bornes], FENETRE_ALTITUDE)
     puissance = puissance_w if callable(puissance_w) else (lambda _d, _p=float(puissance_w): _p)
 
     v_max_descente = V_MAX_DESCENTE_KMH / 3.6

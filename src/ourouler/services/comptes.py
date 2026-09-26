@@ -169,8 +169,7 @@ def reinitialiser(
     if not sans_courriel:
         if parametres_brevo is None:
             raise ValueError(  # bug d'appel : cli.py doit charger service.toml avant d'appeler ceci
-                "executer_reinitialiser appelé sans parametres_brevo alors que "
-                "--sans-courriel n'est pas posé"
+                "executer_reinitialiser appelé sans parametres_brevo alors que --sans-courriel n'est pas posé"
             )
         message = message_reinitialisation(
             destinataire=adresse,

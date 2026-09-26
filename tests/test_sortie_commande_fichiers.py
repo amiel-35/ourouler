@@ -33,9 +33,7 @@ pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 # --- les fichiers écrits -------------------------------------------------------
 
 
-def test_le_gpx_et_la_carte_sont_ecrits_hors_du_dossier_courant(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_gpx_et_la_carte_sont_ecrits_hors_du_dossier_courant(tmp_path: Path, monkeypatch, capsys):
     """Q23 : par défaut, les fichiers produits ne vont plus dans le dossier courant.
 
     Avant ce correctif, ce test s'appelait
@@ -70,9 +68,7 @@ def test_le_gpx_ecrit_est_le_parcours_place(tmp_path: Path, monkeypatch, capsys)
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
     place = charge["candidates"][0]["placement"]
-    texte = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.gpx").read_text(
-        encoding="utf-8"
-    )
+    texte = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.gpx").read_text(encoding="utf-8")
     relu = lire_gpx_trace(texte.encode("utf-8"))
     assert relu.distance_m == pytest.approx(place["distance_totale_m"], rel=0.01)
     assert "sans demi-tour" in texte, texte[:400]
@@ -81,9 +77,7 @@ def test_le_gpx_ecrit_est_le_parcours_place(tmp_path: Path, monkeypatch, capsys)
 # --- aucun GPX à la génération, un GPX au choix (Q40 g) ------------------------
 
 
-def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(tmp_path: Path, monkeypatch, capsys):
     """Q40 (g) : « aucun GPX à la génération, et on le fait à la demande. »
 
     Les trois propositions sont contrastées exprès ; n'écrire que celle du
@@ -120,9 +114,7 @@ def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(
         assert lire_gpx_trace(gpx.texte.encode("utf-8")).points
 
 
-def test_sans_recueil_la_ligne_de_commande_ecrit_toujours_son_gpx(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sans_recueil_la_ligne_de_commande_ecrit_toujours_son_gpx(tmp_path: Path, monkeypatch, capsys):
     """La ligne de commande ne change pas : `--sortie` (ou le nom daté) est écrit."""
     demande = tmp_path / "choisi.gpx"
     code = lancer(tmp_path, monkeypatch, json=True, sortie=str(demande))
@@ -146,8 +138,6 @@ def test_la_carte_embarque_les_memes_gpx_que_le_recueil(tmp_path: Path, monkeypa
         recueil_gpx=recueillis.extend,
     )
     capsys.readouterr()
-    page = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(
-        encoding="utf-8"
-    )
+    page = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(encoding="utf-8")
     for gpx in recueillis:
         assert gpx.nom_fichier in page

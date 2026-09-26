@@ -120,9 +120,7 @@ def longueurs(
                 # La moitié de la récupération sert à dépasser le bout du
                 # segment ; l'autre moitié ramène dessus. C'est donc bien la
                 # moitié, pas la totalité, qu'il faut trouver en route.
-                au_dela_m=(
-                    None if (recup is None or v_recup is None) else v_recup * recup.duree_s / 2
-                ),
+                au_dela_m=(None if (recup is None or v_recup is None) else v_recup * recup.duree_s / 2),
             )
         )
     return mesures
@@ -358,9 +356,7 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
         lignes.append(f"⚠ {message}")
     lignes.append("")
 
-    lignes.append(
-        f"  {'#':>2}  {'type':<16}{'durée':>7}  {'puissance':<22}{'route':>9}{'au-delà':>10}"
-    )
+    lignes.append(f"  {'#':>2}  {'type':<16}{'durée':>7}  {'puissance':<22}{'route':>9}{'au-delà':>10}")
     for mesure in mesures:
         lignes.append(_ligne(mesure))
     lignes.append("")
@@ -439,8 +435,7 @@ def _avertissements(seance: Seance) -> list[str]:
         )
     if meta.get("etapes_libres_reclassees"):
         detail = ", ".join(
-            f"#{r['indice'] + 1} → {LIBELLES_TYPE[r['type']]}"
-            for r in meta["etapes_libres_reclassees"]
+            f"#{r['indice'] + 1} → {LIBELLES_TYPE[r['type']]}" for r in meta["etapes_libres_reclassees"]
         )
         messages.append(
             f"étape(s) libre(s), sans puissance ni zone : ce ne sont pas des blocs "
@@ -471,16 +466,12 @@ def rendre_json(seance: Seance, mesures: list[LongueurEtape], source: SourceVite
         "nom": seance.nom,
         "duree_s": round(seance.duree_s),
         "n_blocs": len(seance.blocs()),
-        "distance_estimee_m": round(
-            sum(m.longueur_m for m in mesures if m.longueur_m is not None), 1
-        ),
+        "distance_estimee_m": round(sum(m.longueur_m for m in mesures if m.longueur_m is not None), 1),
         "vitesses": {
             "provenance": source.provenance,
             "velo": source.velo,
             "calibree": source.calibree,
-            "vitesse_kmh": None
-            if source.vitesse_ms is None
-            else round(source.vitesse_ms * 3.6, 2),
+            "vitesse_kmh": None if source.vitesse_ms is None else round(source.vitesse_ms * 3.6, 2),
         },
         "meta": seance.meta,
         "avertissements": _avertissements(seance),

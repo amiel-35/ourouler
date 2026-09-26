@@ -107,19 +107,13 @@ def test_analyser_rend_une_fourchette_porte_a_porte_et_une_arrivee(tmp_path: Pat
 
     # Le temps sans arrêt (L9.1) — jamais un seul chiffre au porte à porte.
     assert charge["temps_estime_s"] > 0
-    assert (
-        charge["temps_ecoule_bas_s"]
-        <= charge["temps_ecoule_s"]
-        <= charge["temps_ecoule_haut_s"]
-    )
+    assert charge["temps_ecoule_bas_s"] <= charge["temps_ecoule_s"] <= charge["temps_ecoule_haut_s"]
     assert charge["temps_ecoule_source"] == "mesure"
     assert charge["temps_ecoule_bas_s"] == pytest.approx(charge["temps_estime_s"] * 1.02, rel=1e-3)
     assert charge["temps_ecoule_haut_s"] == pytest.approx(charge["temps_estime_s"] * 1.15, rel=1e-3)
 
     # Trois heures d'arrivée, dans l'ordre, dérivées du même départ.
-    assert (
-        charge["heure_arrivee_bas"] <= charge["heure_arrivee"] <= charge["heure_arrivee_haut"]
-    )
+    assert charge["heure_arrivee_bas"] <= charge["heure_arrivee"] <= charge["heure_arrivee_haut"]
 
     # La météo par tronçon, dans la même forme qu'une candidate de boucle
     # (F0.1) : flèches de vent et échantillons, pour réutiliser Carte/
@@ -169,9 +163,7 @@ def test_analyser_refuse_un_parcours_trop_long(tmp_path: Path):
     config = config_de_test(tmp_path / "cache")
     gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=DISTANCE_MAX_ANALYSE_M + 10_000.0)
     with pytest.raises(ErreurUtilisateur, match="km"):
-        executer_analyser(
-            args_analyser(gpx=str(gpx), puissance=200.0, depart="2026-05-16T05:00"), config
-        )
+        executer_analyser(args_analyser(gpx=str(gpx), puissance=200.0, depart="2026-05-16T05:00"), config)
 
 
 # --- relecture de L9.8 : heures porte à porte, horizon, plusieurs traces ------
@@ -217,8 +209,7 @@ def test_sur_300_km_la_meteo_est_datee_au_porte_a_porte(tmp_path: Path, capsys):
     def ecarts_s(charge: dict) -> list[float]:
         depart = datetime.fromisoformat(charge["depart"])
         return [
-            (datetime.fromisoformat(e["t"]) - depart).total_seconds()
-            for e in charge["meteo"]["echantillons"]
+            (datetime.fromisoformat(e["t"]) - depart).total_seconds() for e in charge["meteo"]["echantillons"]
         ]
 
     a, b = ecarts_s(sans_arret), ecarts_s(avec_arrets)
@@ -237,9 +228,7 @@ def test_rien_au_dela_de_l_horizon_n_est_une_prevision(tmp_path: Path, capsys):
     """Départ le dernier jour couvert, 20 h, 300 km : la fin tombe le lendemain,
     au-delà de l'horizon. Même si Open-Meteo rendait ces heures (le bouchon rend
     tout ce qu'on lui demande), elles sont vides et marquées."""
-    charge = _analyse_longue(
-        tmp_path, capsys, 1.0, _demain("20:00"), meteo={"horizon_jours": 1}
-    )
+    charge = _analyse_longue(tmp_path, capsys, 1.0, _demain("20:00"), meteo={"horizon_jours": 1})
     meteo = charge["meteo"]
     limite = datetime.combine(
         date.today() + timedelta(days=2), time(0), tzinfo=datetime.fromisoformat(charge["depart"]).tzinfo

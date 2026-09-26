@@ -59,8 +59,6 @@ def json_apprentissage(rapport: RapportApprentissage, depuis: date) -> dict:
     }
 
 
-
-
 def texte_stats(stats: Statistiques, appris: dict[str, float] | None) -> str:
     if stats.km_total <= 0:
         return (
@@ -90,8 +88,7 @@ def texte_stats(stats: Statistiques, appris: dict[str, float] | None) -> str:
     if appris is None:
         lignes.append("")
         lignes.append(
-            "Aucun poids appris pour l'instant : `ourouler routes poids --appliquer` "
-            "les mesure et les écrit."
+            "Aucun poids appris pour l'instant : `ourouler routes poids --appliquer` les mesure et les écrit."
         )
     lignes.append("")
     lignes.extend(_secondaire("maxspeed", stats.km_par_maxspeed, stats.km_total))
@@ -136,8 +133,6 @@ def json_stats(stats: Statistiques, appris: dict[str, float] | None) -> dict:
         "km_par_maxspeed": {k: round(v, 1) for k, v in stats.km_par_maxspeed.items()},
         "km_par_surface": {k: round(v, 1) for k, v in stats.km_par_surface.items()},
     }
-
-
 
 
 def texte_poids(
@@ -212,15 +207,11 @@ def json_poids(
     }
 
 
-
-
 def _tableau(titres: tuple[str, ...], cellules: list[list[str]]) -> list[str]:
     """Un tableau aligné à droite, titres compris. Vide si aucune ligne."""
     if not cellules:
         return [f"  {titres[0]} : aucune donnée"]
-    largeurs = [
-        max([len(t)] + [len(ligne[i]) for ligne in cellules]) for i, t in enumerate(titres)
-    ]
+    largeurs = [max([len(t)] + [len(ligne[i]) for ligne in cellules]) for i, t in enumerate(titres)]
     lignes = ["  " + "  ".join(t.rjust(n) for t, n in zip(titres, largeurs, strict=True))]
     for ligne in cellules:
         lignes.append("  " + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
@@ -229,5 +220,3 @@ def _tableau(titres: tuple[str, ...], cellules: list[list[str]]) -> list[str]:
 
 def _libelle(classe: str) -> str:
     return classe or LIBELLE_SANS_HIGHWAY
-
-

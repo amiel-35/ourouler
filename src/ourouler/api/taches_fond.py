@@ -286,10 +286,7 @@ def annuler_et_attendre(proprietaire: str, delai_s: float = 120.0) -> bool:
     with _verrou_registre:
         # `_termine` et non `statut` : un job « fini » n'a pas encore rendu
         # la main tant que son `au_echec` et son `enfin` tournent.
-        en_cours = [
-            j for j in _jobs.values()
-            if j.proprietaire == proprietaire and not j._termine.is_set()
-        ]
+        en_cours = [j for j in _jobs.values() if j.proprietaire == proprietaire and not j._termine.is_set()]
     for job in en_cours:
         job._annule.set()
     echeance = time.monotonic() + delai_s
@@ -365,9 +362,7 @@ def dernier(proprietaire: str, nature: str, sujet: str | None = None) -> Job | N
         candidats = [
             j
             for j in _jobs.values()
-            if j.proprietaire == proprietaire
-            and j.nature == nature
-            and (sujet is None or j.sujet == sujet)
+            if j.proprietaire == proprietaire and j.nature == nature and (sujet is None or j.sujet == sujet)
         ]
     return max(candidats, key=lambda j: j.demarre_le, default=None)
 
@@ -380,9 +375,7 @@ def _purger() -> None:
     """
     if len(_jobs) <= JOBS_GARDES:
         return
-    termines = sorted(
-        (j for j in _jobs.values() if j.statut != STATUT_EN_COURS), key=lambda j: j.demarre_le
-    )
+    termines = sorted((j for j in _jobs.values() if j.statut != STATUT_EN_COURS), key=lambda j: j.demarre_le)
     for job in termines[: len(_jobs) - JOBS_GARDES]:
         _jobs.pop(job.id, None)
 

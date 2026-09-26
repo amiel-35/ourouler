@@ -66,8 +66,8 @@ def _appeler_sans_lire(application, entetes: list[tuple[bytes, bytes]]) -> tuple
         lus += 1
         if lus == 1:
             entete = (
-                b"--x\r\nContent-Disposition: form-data; name=\"fichiers\"; "
-                b"filename=\"a.gpx\"\r\nContent-Type: application/octet-stream\r\n\r\n"
+                b'--x\r\nContent-Disposition: form-data; name="fichiers"; '
+                b'filename="a.gpx"\r\nContent-Type: application/octet-stream\r\n\r\n'
             )
             return {"type": "http.request", "body": entete, "more_body": True}
         return {"type": "http.request", "body": b"x" * 1024, "more_body": True}
@@ -126,7 +126,7 @@ def test_quota_epuise_refus_avant_de_lire_le_corps(tmp_path: Path):
 
 def _gpx(minute: int) -> bytes:
     return (
-        "<?xml version='1.0'?>\n<gpx version=\"1.1\" creator=\"essai\"><trk><trkseg>"
+        '<?xml version=\'1.0\'?>\n<gpx version="1.1" creator="essai"><trk><trkseg>'
         f'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T08:{minute:02d}:00Z</time></trkpt>'
         f'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T08:{minute + 1:02d}:00Z</time></trkpt>'
         "</trkseg></trk></gpx>\n"
@@ -233,9 +233,7 @@ def test_l_application_reelle_coupe_un_flux_sans_fin_a_la_borne(tmp_path: Path, 
     from ourouler.api import application as module_application
 
     monkeypatch.setattr(module_application, "BORNES_CORPS", {CHEMIN: 10_000})
-    statut, corps, lus = _appeler_sans_lire(
-        _application(tmp_path), [(b"x-compte-essai", b"essai-a")]
-    )
+    statut, corps, lus = _appeler_sans_lire(_application(tmp_path), [(b"x-compte-essai", b"essai-a")])
     assert statut == 413
     assert corps["erreur"]["code"] == "fichier_trop_gros"
     assert lus <= 12, f"{lus} morceaux de 1 Ko lus pour une borne de 10 Ko"

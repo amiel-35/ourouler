@@ -142,9 +142,7 @@ def info_compteur(
     liees = valeurs_liees(config, nom_velo, position=position, fichier_calibration=fichier_calibration)
     if liees is None:
         return None
-    fourchette = fourchette_du_velo(
-        velo_demande(config, nom_velo), _fichier(config, fichier_calibration)
-    )
+    fourchette = fourchette_du_velo(velo_demande(config, nom_velo), _fichier(config, fichier_calibration))
     return ftp.bloc_compteur(liees, fourchette)
 
 

@@ -122,9 +122,7 @@ class Echantillon:
         """
         return self.longueur_m / self.v_ms if self.v_ms > 0 and self.longueur_m > 0 else 0.0
 
-    def puissance_cinetique_w(
-        self, masse_totale_kg: float, rendement: float = RENDEMENT_DEFAUT
-    ) -> float:
+    def puissance_cinetique_w(self, masse_totale_kg: float, rendement: float = RENDEMENT_DEFAUT) -> float:
         """La puissance qu'a coûtée (ou rendue) le changement de vitesse du tronçon.
 
         `m · (v_fin² − v_début²) / (2 · Δt)`, au pédalier donc divisée par le
@@ -216,9 +214,7 @@ def echantillonner(
     return echantillons
 
 
-def _decouper(
-    points: Sequence[Point], distances: Sequence[float]
-) -> list[tuple[int, int, float, float]]:
+def _decouper(points: Sequence[Point], distances: Sequence[float]) -> list[tuple[int, int, float, float]]:
     """(début, fin, longueur, durée) de chaque tronçon d'environ 200 m."""
     troncons = []
     debut = 0
@@ -336,14 +332,10 @@ def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
     équilibre : la garder reviendrait à demander au modèle d'expliquer un
     arrêt par de la traînée.
     """
-    return any(
-        p.vitesse_ms is not None and float(p.vitesse_ms) < SEUIL_ARRET_MS for p in points[i : j + 1]
-    )
+    return any(p.vitesse_ms is not None and float(p.vitesse_ms) < SEUIL_ARRET_MS for p in points[i : j + 1])
 
 
-def _qualifier(
-    echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float
-) -> None:
+def _qualifier(echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float) -> None:
     """Pose `retenu` et `motif` sur chaque échantillon, selon les filtres ci-dessus."""
     vitesse_min_ms = vitesse_min_kmh / 3.6
     puissance_max = FACTEUR_FTP_MAX * ftp_w
@@ -421,5 +413,3 @@ def _vent_de_face(heure: HeureArchive | None, cap: float | None) -> float | None
         return None
     a_10m = (heure.vent_kmh / 3.6) * math.cos(math.radians(heure.vent_depuis_deg - cap))
     return vent_au_cycliste(a_10m)
-
-

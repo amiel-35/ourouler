@@ -67,6 +67,7 @@ def base_routes_existante(dossier_cache: Path) -> BaseRoutes | None:
     except ErreurUtilisateur:
         return None
 
+
 #: Distance des boucles d'exposition, en kilomètres. Assez long pour sortir de
 #: l'agglomération et rencontrer les mêmes classes de routes qu'une vraie
 #: sortie, assez court pour que huit appels restent une affaire de secondes.
@@ -152,9 +153,7 @@ def executer(
     if action == "apprendre":
         return _apprendre(demande, contexte, base, client_brouter)
     if action == "stats":
-        return ResultatStats(
-            stats=base.statistiques(), appris=lire_poids(contexte.dossier_cache / NOM_POIDS)
-        )
+        return ResultatStats(stats=base.statistiques(), appris=lire_poids(contexte.dossier_cache / NOM_POIDS))
     return _poids(demande, contexte, base, client_brouter)
 
 
@@ -202,8 +201,7 @@ def _poids(
     stats = base.statistiques()
     if stats.km_total <= 0:
         raise ErreurUtilisateur(
-            "routes poids : aucune route apprise — lancer d'abord "
-            "`ourouler routes apprendre`"
+            "routes poids : aucune route apprise — lancer d'abord `ourouler routes apprendre`"
         )
     client = _client(contexte.profil, client_brouter)
     traces, echecs = _boucles_exposition(client, contexte.profil)

@@ -213,9 +213,7 @@ def marqueurs_positions(trace: Trace) -> list[tuple[float, str]]:
         if nature is not None:
             natures[segment.fin_idx] = nature
     paires = [
-        (trace.points[idx].dist_m, nature)
-        for idx, nature in natures.items()
-        if 0 <= idx < len(trace.points)
+        (trace.points[idx].dist_m, nature) for idx, nature in natures.items() if 0 <= idx < len(trace.points)
     ]
     paires.sort(key=lambda p: p[0])
     return paires
@@ -229,9 +227,7 @@ def dans_fenetre(
     return [(p, n) for p, n in positions if lo - marge_m <= p <= hi + marge_m]
 
 
-def plus_longue_portion_libre_km(
-    positions_arret: list[float], debut_m: float, fin_m: float
-) -> float | None:
+def plus_longue_portion_libre_km(positions_arret: list[float], debut_m: float, fin_m: float) -> float | None:
     """La plus longue portion sans arrêt à l'intérieur de l'étape, en km.
 
     `None` si moins de deux arrêts : voir la justification de la mesure dans
@@ -510,8 +506,10 @@ def executer_q1(
                     mesurer_emplacement(positions, emplacement, type_etape=type_etape, sortie=sortie_id)
                 )
             if bavard:
-                print(f"  {sortie_id} : {trace.distance_m / 1000:.1f} km, "
-                      f"{len(placement.blocs())} bloc(s) placé(s)")
+                print(
+                    f"  {sortie_id} : {trace.distance_m / 1000:.1f} km, "
+                    f"{len(placement.blocs())} bloc(s) placé(s)"
+                )
     return mesures, manques
 
 
@@ -705,8 +703,10 @@ def executer_q2(
             )
             comptees += 1
         if bavard:
-            print(f"  {sortie_id} : {len(blocs)} bloc(s), {len(recups)} récup(s), "
-                  f"{comptees} étape(s) mesurée(s)")
+            print(
+                f"  {sortie_id} : {len(blocs)} bloc(s), {len(recups)} récup(s), "
+                f"{comptees} étape(s) mesurée(s)"
+            )
     return mesures, manques
 
 
@@ -782,8 +782,10 @@ def bilan_par_type(mesures: list[MesureEtape]) -> None:
         sous = [m for m in mesures if m.type_etape == type_etape]
         if not sous:
             continue
-        print(f"\n  {LIBELLE_TYPE[type_etape]} (n={len(sous)}, "
-              f"{sum(m.longueur_km for m in sous):.0f} km cumulés) :")
+        print(
+            f"\n  {LIBELLE_TYPE[type_etape]} (n={len(sous)}, "
+            f"{sum(m.longueur_km for m in sous):.0f} km cumulés) :"
+        )
         arrets = [m.arrets_par_km for m in sous if m.arrets_par_km is not None]
         ralentit = [m.ralentit_par_km for m in sous if m.ralentit_par_km is not None]
         imprimer_distribution("arrêts/km      ", arrets)
@@ -824,17 +826,25 @@ def conclure_q1(mesures: list[MesureEtape]) -> None:
     print("\n--- Q1 : par type d'étape ---")
     bilan_par_type(mesures)
     print("\n--- Q1 : bloc contre récupération, appariés par sortie ---")
-    rapporter_test("arrêts/km — bloc plus bas que récup",
-                    paires_par_sortie(mesures, "bloc", "recuperation", "arrets_par_km"))
-    rapporter_test("ralentit/km — bloc plus bas que récup",
-                    paires_par_sortie(mesures, "bloc", "recuperation", "ralentit_par_km"))
+    rapporter_test(
+        "arrêts/km — bloc plus bas que récup",
+        paires_par_sortie(mesures, "bloc", "recuperation", "arrets_par_km"),
+    )
+    rapporter_test(
+        "ralentit/km — bloc plus bas que récup",
+        paires_par_sortie(mesures, "bloc", "recuperation", "ralentit_par_km"),
+    )
     print("\n--- Q1 : contrôle — l'échauffement, jamais noté lui non plus, bat-il aussi la récup ? ---")
     print("    (s'il bat la récup aussi nettement que le bloc, l'écart mesuré sur les blocs")
     print("     pourrait n'être que l'effet de la longueur, pas d'un vrai choix de terrain)")
-    rapporter_test("arrêts/km — échauffement plus bas que récup (contrôle)",
-                    paires_par_sortie(mesures, "echauffement", "recuperation", "arrets_par_km"))
-    rapporter_test("ralentit/km — échauffement plus bas que récup (contrôle)",
-                    paires_par_sortie(mesures, "echauffement", "recuperation", "ralentit_par_km"))
+    rapporter_test(
+        "arrêts/km — échauffement plus bas que récup (contrôle)",
+        paires_par_sortie(mesures, "echauffement", "recuperation", "arrets_par_km"),
+    )
+    rapporter_test(
+        "ralentit/km — échauffement plus bas que récup (contrôle)",
+        paires_par_sortie(mesures, "echauffement", "recuperation", "ralentit_par_km"),
+    )
 
     blocs = [m for m in mesures if m.type_etape == "bloc"]
     recups = [m for m in mesures if m.type_etape == "recuperation"]
@@ -868,10 +878,14 @@ def conclure_q2(mesures: list[MesureEtape]) -> None:
     print("\n--- Q2 : par type d'étape ---")
     bilan_par_type(mesures)
     print("\n--- Q2 : bloc contre récupération, appariés par sortie ---")
-    rapporter_test("arrêts/km — bloc plus bas que récup",
-                    paires_par_sortie(mesures, "bloc", "recuperation", "arrets_par_km"))
-    rapporter_test("ralentit/km — bloc plus bas que récup",
-                    paires_par_sortie(mesures, "bloc", "recuperation", "ralentit_par_km"))
+    rapporter_test(
+        "arrêts/km — bloc plus bas que récup",
+        paires_par_sortie(mesures, "bloc", "recuperation", "arrets_par_km"),
+    )
+    rapporter_test(
+        "ralentit/km — bloc plus bas que récup",
+        paires_par_sortie(mesures, "bloc", "recuperation", "ralentit_par_km"),
+    )
     print("\n--- Q2 : contrôle — l'échauffement/le retour au calme battent-ils aussi la récup ? ---")
     print("    (même logique que le contrôle Q1 : ni l'un ni l'autre n'est choisi pour son terrain)")
     paires_ec = paires_par_sortie(mesures, "echauffement", "recuperation", "arrets_par_km")
@@ -961,7 +975,9 @@ def analyser(argv: list[str] | None = None) -> argparse.Namespace:
     analyseur = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     analyseur.add_argument("--config", help="fichier de configuration (défaut : celui du mainteneur)")
     analyseur.add_argument(
-        "--azimuts", type=int, default=AZIMUTS_Q1,
+        "--azimuts",
+        type=int,
+        default=AZIMUTS_Q1,
         help=f"directions testées par séance synthétique, Q1 (défaut {AZIMUTS_Q1})",
     )
     analyseur.add_argument(

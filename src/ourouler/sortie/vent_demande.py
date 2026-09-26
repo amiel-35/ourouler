@@ -153,6 +153,7 @@ def interroger(
                 "— on ne promet pas une orientation qu'on ne sait pas prévoir"
             ),
         )
+
     def _demander(nom: str):
         return client.previsions(
             [(depart_lieu.latitude, depart_lieu.longitude)],
@@ -171,19 +172,25 @@ def interroger(
         # contradiction que le cycliste verrait tout de suite.
         if not modele_repli:
             return QuestionVent(
-                vent_kmh=None, vent_depuis_deg=None, posee=False,
+                vent_kmh=None,
+                vent_depuis_deg=None,
+                posee=False,
                 motif=f"{modele} ne couvre pas cette fenêtre et aucun modèle de repli n'est configuré",
             )
         try:
             points = _demander(modele_repli)
         except (ErreurConnecteur, ErreurUtilisateur) as e:
             return QuestionVent(
-                vent_kmh=None, vent_depuis_deg=None, posee=False,
+                vent_kmh=None,
+                vent_depuis_deg=None,
+                posee=False,
                 motif=f"vent au départ indisponible, repli {modele_repli} compris ({e})",
             )
     except (ErreurConnecteur, ErreurUtilisateur) as e:
         return QuestionVent(
-            vent_kmh=None, vent_depuis_deg=None, posee=False,
+            vent_kmh=None,
+            vent_depuis_deg=None,
+            posee=False,
             motif=f"vent au départ indisponible ({e})",
         )
     heures = points[0].heures if points else []
@@ -205,7 +212,9 @@ def interroger(
         )
     if vitesse < SEUIL_VENT_SENSIBLE_KMH:
         return QuestionVent(
-            vent_kmh=vitesse, vent_depuis_deg=direction, posee=False,
+            vent_kmh=vitesse,
+            vent_depuis_deg=direction,
+            posee=False,
             motif=(
                 f"{vitesse:.0f} km/h au départ, sous les {SEUIL_VENT_SENSIBLE_KMH:.0f} km/h "
                 "à partir desquels on sent le vent sur le visage : l'orientation ne change "

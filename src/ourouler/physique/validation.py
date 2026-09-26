@@ -84,9 +84,7 @@ class Validation:
         return max(self.sorties, key=lambda s: abs(s.erreur_relative), default=None)
 
 
-def valider(
-    sorties_test: Sequence[tuple[Activite, list[HeureArchive]]], p: Parametres
-) -> Validation:
+def valider(sorties_test: Sequence[tuple[Activite, list[HeureArchive]]], p: Parametres) -> Validation:
     """Rejoue chaque sortie à sa puissance moyenne et son vent réels, et compare les temps.
 
     La puissance injectée est la **moyenne en mouvement** de la sortie, pas son
@@ -221,9 +219,7 @@ def temps_mouvement_s(activite: Activite) -> float | None:
     return float(activite.duree_s) if activite.duree_s else None
 
 
-def vent_le_long(
-    activite: Activite, vent: Sequence[HeureArchive]
-) -> Callable[[float, float], float] | None:
+def vent_le_long(activite: Activite, vent: Sequence[HeureArchive]) -> Callable[[float, float], float] | None:
     """`vent(dist_m, cap_deg)` pour la simulation, daté par l'heure **réelle** de passage.
 
     Utiliser l'heure réelle plutôt que l'avancement simulé évite d'avoir à
@@ -244,9 +240,7 @@ def vent_le_long(
         # parcours linéaire coûtait N par pas de simulation, et la calibration
         # à CdA seul rejoue chaque sortie une dizaine de fois.
         i = bisect.bisect_left(distances, dist_m)
-        if i >= len(distances) or (
-            i > 0 and dist_m - distances[i - 1] <= distances[i] - dist_m
-        ):
+        if i >= len(distances) or (i > 0 and dist_m - distances[i - 1] <= distances[i] - dist_m):
             i -= 1
         return instants[bisect.bisect_left(distances, distances[i])]
 

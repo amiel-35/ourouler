@@ -346,12 +346,8 @@ def executer(
     # récolter trois blocs vides, puis un message sur ce qu'Open-Meteo ne
     # couvre pas — là où le cycliste veut lire « pas de météo ce jour-là » et
     # recevoir sa boucle.
-    dernier_jour = portee.dernier_jour_couvert(
-        profil.meteo.horizon_jours, aujourdhui=date.today()
-    )
-    meteo_absente = (
-        portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
-    )
+    dernier_jour = portee.dernier_jour_couvert(profil.meteo.horizon_jours, aujourdhui=date.today())
+    meteo_absente = portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
 
     # La question du vent se pose **avant** la recherche :
     # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
@@ -411,9 +407,7 @@ def executer(
     selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
 
     meilleure = propositions[0]
-    tenue = (
-        conseiller_tenue(meilleure.meteo, profil.tenue) if meilleure.meteo is not None else None
-    )
+    tenue = conseiller_tenue(meilleure.meteo, profil.tenue) if meilleure.meteo is not None else None
     gpx_propositions = _gpx_propositions(seance, demande, selection)
     chemin_gpx = None
     if recueil_gpx is None:
@@ -447,9 +441,7 @@ def executer(
         # toujours un vélo (`_parametres` lève sinon), donc ce bloc n'est
         # `None` qu'en test avec une configuration construite à la main. Lu
         # ici et non dans le rendu : il relit la calibration du vélo.
-        compteur_info=info_compteur(
-            profil, demande.velo, fichier_calibration=contexte.fichier_calibration
-        ),
+        compteur_info=info_compteur(profil, demande.velo, fichier_calibration=contexte.fichier_calibration),
     )
     return ResultatSortie(
         propositions=propositions,
@@ -650,9 +642,7 @@ def _parametres(profil: Profil, velo: str | None, fichier_calibration: Path) -> 
     return parametres, f"{provenance} ({choisi.nom}){suite}"
 
 
-def _distance(
-    demande: Demande, seance: Seance, parametres: Parametres, config: Profil
-) -> tuple[float, str]:
+def _distance(demande: Demande, seance: Seance, parametres: Parametres, config: Profil) -> tuple[float, str]:
     """(distance en km, d'où elle vient). `--distance` gagne toujours."""
     if demande.distance_km is not None:
         return demande.distance_km, "demandée"
@@ -669,9 +659,7 @@ def _distance(
     # Une étape libre se roule à l'allure d'endurance : c'est l'hypothèse la
     # plus plate qui soit, et infiniment meilleure que zéro.
     connues = [m.longueur_m for m in mesures if m.longueur_m is not None]
-    libres_s = sum(
-        m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0
-    )
+    libres_s = sum(m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0)
     metres = sum(connues)
     libres_sans_ftp = False
     if libres_s > 0:
@@ -743,9 +731,7 @@ def executer_vent(
     """
     profil = contexte.profil
     jour, depart_heure = demande.jour, demande.depart
-    dernier_jour = portee.dernier_jour_couvert(
-        profil.meteo.horizon_jours, aujourdhui=date.today()
-    )
+    dernier_jour = portee.dernier_jour_couvert(profil.meteo.horizon_jours, aujourdhui=date.today())
     if jour > dernier_jour:
         # Même règle que `executer` : au-delà de l'horizon on ne demande rien à
         # Open-Meteo, on dit ce qu'on ne sait pas.
@@ -1126,9 +1112,7 @@ def _ecrire_gpx(
     return chemin
 
 
-def _gpx_propositions(
-    seance: Seance, demande: Demande, selection: contraste.Selection
-) -> list[GpxPropose]:
+def _gpx_propositions(seance: Seance, demande: Demande, selection: contraste.Selection) -> list[GpxPropose]:
     """Le GPX de **chaque** proposition retenue, en mémoire, rien sur le disque.
 
     Ces textes étaient déjà fabriqués, une fois, pour la page du jour, qui les

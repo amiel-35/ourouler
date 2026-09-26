@@ -135,8 +135,10 @@ def main() -> None:
     if not libres:
         raise SystemExit("aucune sortie exploitable — vérifier le cache et la date de début")
 
-    print(f"FTP de référence : {ftp:.0f} W · extérieur ≥ {DUREE_MINIMALE_S // 3600} h "
-          f"· depuis {args.depuis} · {ecartees} fichiers écartés\n")
+    print(
+        f"FTP de référence : {ftp:.0f} W · extérieur ≥ {DUREE_MINIMALE_S // 3600} h "
+        f"· depuis {args.depuis} · {ecartees} fichiers écartés\n"
+    )
     populations = (
         ("sans nom de séance structurée", libres),
         ("avec nom de séance structurée", structurees),

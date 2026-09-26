@@ -24,6 +24,7 @@ Les vieilles séances à blocs réelles (« 4x8 SV1 outdoor » du 22/04) restent
 utilisables mais sortent de la fenêtre météo d'Open-Meteo : le placement
 tourne, la pluie et le vent manquent.
 """
+
 import sys
 from dataclasses import replace
 
@@ -41,8 +42,10 @@ def etendue(client, jour, **kw):
     etapes[0] = replace(etapes[0], duree_s=OUVERTURE_S, libelle="Z2 d'ouverture (extérieur)")
     etapes[-1] = replace(etapes[-1], duree_s=FERMETURE_S, libelle="Z2 de fin (extérieur)")
     duree = sum(e.duree_s for e in etapes)
-    print(f"[test] séance « {s.nom} » : {s.duree_s/60:.0f} min -> {duree/60:.0f} min "
-          f"(ouverture {OUVERTURE_S/60:.0f}, fermeture {FERMETURE_S/60:.0f})\n")
+    print(
+        f"[test] séance « {s.nom} » : {s.duree_s / 60:.0f} min -> {duree / 60:.0f} min "
+        f"(ouverture {OUVERTURE_S / 60:.0f}, fermeture {FERMETURE_S / 60:.0f})\n"
+    )
     return replace(s, etapes=etapes, duree_s=duree)
 
 

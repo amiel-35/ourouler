@@ -116,9 +116,7 @@ def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
         # fichier — elles doivent voir l'ancien ou le nouveau, jamais un
         # fichier à moitié écrit.
         provisoire = chemin.with_name(chemin.name + ".provisoire")
-        provisoire.write_text(
-            json.dumps(charge, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        provisoire.write_text(json.dumps(charge, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         provisoire.replace(chemin)
     except OSError as e:
         raise ErreurUtilisateur(f"calibration : écriture impossible dans {chemin} ({e})") from e

@@ -218,8 +218,13 @@ def test_chercher_adresse_ne_masque_pas_une_panne_du_repli():
 
 def candidat(label: str, commune: str | None, code_postal: str | None = None, score: float = 0.9):
     return Candidat(
-        label=label, latitude=0.1, longitude=0.2, score=score, source="ban",
-        commune=commune, code_postal=code_postal,
+        label=label,
+        latitude=0.1,
+        longitude=0.2,
+        score=score,
+        source="ban",
+        commune=commune,
+        code_postal=code_postal,
     )
 
 

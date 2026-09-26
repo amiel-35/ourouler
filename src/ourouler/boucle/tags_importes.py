@@ -98,9 +98,7 @@ class Greffage:
         return any(s.tags for s in self.segments)
 
 
-def greffer(
-    trace_gpx: Trace, trace_reroutee: Trace, *, seuil_m: float = SEUIL_RAPPROCHEMENT_M
-) -> Greffage:
+def greffer(trace_gpx: Trace, trace_reroutee: Trace, *, seuil_m: float = SEUIL_RAPPROCHEMENT_M) -> Greffage:
     """Les `Segment` à poser sur `trace_gpx`, tags empruntés à `trace_reroutee`.
 
     Voir la docstring du module pour l'algorithme et le choix du seuil. Un

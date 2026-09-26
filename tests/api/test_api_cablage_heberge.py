@@ -89,8 +89,7 @@ def test_en_personnel_ni_cache_ni_quota_n_est_branche(tmp_path: Path, monkeypatc
     monkeypatch.setenv("OUROULER_MODE", "personnel")
     fichier = tmp_path / "serveur.toml"
     fichier.write_text(
-        '[depart]\nnom="Nulle part"\nlatitude=1.0\nlongitude=2.0\n'
-        "[cycliste]\nmasse_kg=75\nftp_w=250\n",
+        '[depart]\nnom="Nulle part"\nlatitude=1.0\nlongitude=2.0\n[cycliste]\nmasse_kg=75\nftp_w=250\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("OUROULER_CONFIG", str(fichier))
@@ -114,7 +113,7 @@ def test_generations_par_jour_absente_vaut_le_defaut(tmp_path: Path):
 
 
 def test_generations_par_jour_sans_section_quotas_vaut_le_defaut(tmp_path: Path):
-    chemin = _service_toml(tmp_path, "[brevo]\nserveur = \"exemple.test\"\n")
+    chemin = _service_toml(tmp_path, '[brevo]\nserveur = "exemple.test"\n')
     environ = {"OUROULER_SERVICE": str(chemin)}
     assert exploitation.generations_par_jour(environ) == GENERATIONS_PAR_JOUR_DEFAUT
 
@@ -145,9 +144,7 @@ def test_generations_par_jour_sous_un_refuse(tmp_path: Path, valeur: int):
 
 def test_consultations_meteo_par_jour_absente_vaut_le_defaut(tmp_path: Path):
     environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
-    assert (
-        exploitation.consultations_meteo_par_jour(environ) == CONSULTATIONS_METEO_PAR_JOUR_DEFAUT
-    )
+    assert exploitation.consultations_meteo_par_jour(environ) == CONSULTATIONS_METEO_PAR_JOUR_DEFAUT
 
 
 def test_consultations_meteo_par_jour_invalide_refuse(tmp_path: Path):
@@ -166,9 +163,7 @@ def test_consultations_meteo_par_jour_sous_un_refuse(tmp_path: Path, valeur: int
 
 
 def test_les_deux_plafonds_cohabitent_dans_le_meme_fichier(tmp_path: Path):
-    chemin = _service_toml(
-        tmp_path, "[quotas]\ngenerations_par_jour = 3\nconsultations_meteo_par_jour = 9\n"
-    )
+    chemin = _service_toml(tmp_path, "[quotas]\ngenerations_par_jour = 3\nconsultations_meteo_par_jour = 9\n")
     environ = {"OUROULER_SERVICE": str(chemin)}
     assert exploitation.generations_par_jour(environ) == 3
     assert exploitation.consultations_meteo_par_jour(environ) == 9

@@ -180,9 +180,7 @@ def test_construire_second_avis_absent_donne_confiance_inconnue(second):
     au lieu d'une table entière en « inconnu ».
     """
     points = couronne(DEPART, 8, [15.0])
-    r = construire(
-        DEPART, points, previsions(points, [[0.0, 0.0]] * len(points)), second, DEBUT, 2
-    )
+    r = construire(DEPART, points, previsions(points, [[0.0, 0.0]] * len(points)), second, DEBUT, 2)
     assert len(r.cellules) == (1 + 8) * 2
     assert all(c.confiance == CONFIANCE_INCONNUE for c in r.cellules)
     assert all(c.pluie_second_avis_mm is None for c in r.cellules)

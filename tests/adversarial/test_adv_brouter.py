@@ -183,9 +183,7 @@ def test_les_messages_en_microdegres_ou_en_degres_ne_donnent_jamais_une_trace_ab
     """
     module = module_brouter
     coords = fabriques.ligne(5, pas_m=500.0, cap_deg=45.0)
-    client, _ = _client(
-        module, _reponse(coords, tags=TAGS_DISTINCTS, microdegres=microdegres)
-    )
+    client, _ = _client(module, _reponse(coords, tags=TAGS_DISTINCTS, microdegres=microdegres))
     trace, erreur = robuste(
         lambda: client.itineraire([DEPART, ARRIVEE]),
         quoi=f"itineraire(messages en {'microdegrés' if microdegres else 'degrés'})",
@@ -234,9 +232,9 @@ def test_chaque_troncon_est_rattache_au_point_qui_le_termine(microdegres):
         return
 
     fabriques.verifier_trace(trace, quoi="messages espacés", distance_max_km=50.0)
-    assert [s.tags.get("highway") for s in trace.segments] == [
-        t["highway"] for t in TAGS_DISTINCTS[:3]
-    ], "tronçons rattachés dans le désordre"
+    assert [s.tags.get("highway") for s in trace.segments] == [t["highway"] for t in TAGS_DISTINCTS[:3]], (
+        "tronçons rattachés dans le désordre"
+    )
     assert [s.fin_idx for s in trace.segments] == [3, 6, 9], (
         f"fins de tronçon aux indices {[s.fin_idx for s in trace.segments]} : les messages "
         "citent les points 3, 6 et 9 de la géométrie"
@@ -288,9 +286,9 @@ def test_la_bande_d_ambiguite_autour_des_axes_est_lue_dans_la_bonne_unite(microd
     fabriques.verifier_trace(trace, quoi="bande d'ambiguïté", distance_max_km=50.0)
     if not trace.segments:
         return  # lecture dégradée assumée : pas de segments, pas de mensonge
-    assert [s.tags.get("highway") for s in trace.segments] == [
-        t["highway"] for t in TAGS_DISTINCTS
-    ], "tronçons rattachés dans le désordre : l'unité des coordonnées a été mal lue"
+    assert [s.tags.get("highway") for s in trace.segments] == [t["highway"] for t in TAGS_DISTINCTS], (
+        "tronçons rattachés dans le désordre : l'unité des coordonnées a été mal lue"
+    )
     assert [s.fin_idx for s in trace.segments] == [2, 4, 6, 8], (
         f"fins de tronçon aux indices {[s.fin_idx for s in trace.segments]}, attendu [2, 4, 6, 8]"
     )
@@ -462,9 +460,7 @@ def test_le_repr_du_client_ne_montre_pas_le_mot_de_passe():
 
 def test_sans_utilisateur_aucune_authentification_n_est_inventee():
     module = module_brouter
-    client, espion = _client(
-        module, _reponse(fabriques.ligne(3)), utilisateur="", mot_de_passe=""
-    )
+    client, espion = _client(module, _reponse(fabriques.ligne(3)), utilisateur="", mot_de_passe="")
     client.itineraire([DEPART, ARRIVEE])
     entetes = espion.requetes[0].headers
     assert "authorization" not in entetes or not entetes["authorization"].strip(), (

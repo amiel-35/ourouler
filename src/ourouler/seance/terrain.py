@@ -540,9 +540,7 @@ def _couloir(trace: Trace, debut_m: float, longueur_m: float) -> _Couloir:
     if derniere is None:
         return vide
     idx_a, idx_b, d0, d1 = derniere
-    points.append(
-        _interpoler(trace.points[idx_a], trace.points[idx_b], (min(d1, fin) - d0) / (d1 - d0))
-    )
+    points.append(_interpoler(trace.points[idx_a], trace.points[idx_b], (min(d1, fin) - d0) / (d1 - d0)))
     return _Couloir(
         points=points,
         parts=parts,
@@ -873,8 +871,7 @@ def _motifs(
         pesees.append(
             (
                 releve.montee_m * POIDS_M_MONTEE,
-                f"montée de {releve.montee_m:.0f} m au-delà de "
-                f"{_pourcent(PENTE_MONTEE_TOLEREE)}",
+                f"montée de {releve.montee_m:.0f} m au-delà de {_pourcent(PENTE_MONTEE_TOLEREE)}",
             )
         )
     if releve.irregularite >= SEUIL_MOTIF_IRREGULARITE:

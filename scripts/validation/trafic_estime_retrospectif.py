@@ -324,8 +324,7 @@ def imprimer_absente(reelles: list[KmParAnneauClasse], proposees: list[KmParAnne
         if somme <= 0:
             continue
         print(
-            f"  {titre} : {100.0 * absente / somme:.1f} % des km sans classe "
-            f"({absente:.0f}/{somme:.0f} km)"
+            f"  {titre} : {100.0 * absente / somme:.1f} % des km sans classe ({absente:.0f}/{somme:.0f} km)"
         )
     print(
         "  Cette part n'entre dans aucun ratio « classe haute » plus bas : elle est\n"
@@ -406,9 +405,7 @@ def standardiser(
         for anneau, total_anneau_km in resume.total.items():
             if anneau not in taux:
                 continue  # bande sans référence proposée à cet anneau : exclu des deux côtés
-            classe_km = sum(
-                km for (a, e), km in resume.classe.items() if a == anneau and e in etiquettes
-            )
+            classe_km = sum(km for (a, e), km in resume.classe.items() if a == anneau and e in etiquettes)
             observe += classe_km
             attendu += total_anneau_km * taux[anneau]
             km_utilises += total_anneau_km
@@ -519,8 +516,10 @@ def executer(arguments: argparse.Namespace) -> int:
     cache = Cache(dossier)
     client = ClientBrouter(config.brouter, evitements=config.evitements)
 
-    print(f"Sorties réelles (depuis {config.historique_depuis.isoformat()}, "
-          f"à moins de {RAYON_DEPART_M / 1000:g} km du départ) :")
+    print(
+        f"Sorties réelles (depuis {config.historique_depuis.isoformat()}, "
+        f"à moins de {RAYON_DEPART_M / 1000:g} km du départ) :"
+    )
     reelles, bandes_reelles, manques_reels = collecter_reelles(
         cache,
         client,
@@ -553,7 +552,10 @@ def executer(arguments: argparse.Namespace) -> int:
         reelles, bandes_reelles, par_bande, titre="classes hautes (5, 6)", etiquettes=CLASSES_HAUTES
     )
     imprimer_standardisation(
-        reelles, bandes_reelles, par_bande, titre="absente (pour référence, hors ratio de classe)",
+        reelles,
+        bandes_reelles,
+        par_bande,
+        titre="absente (pour référence, hors ratio de classe)",
         etiquettes=frozenset({ABSENTE}),
     )
     imprimer_par_classe(reelles, bandes_reelles, par_bande)
@@ -577,8 +579,7 @@ def analyser(argv: list[str] | None = None) -> argparse.Namespace:
         dest="distance_min",
         type=float,
         default=DISTANCE_MIN_PAR_DEFAUT_KM,
-        help="ne garder que les sorties d'au moins tant de km "
-        f"(défaut : {DISTANCE_MIN_PAR_DEFAUT_KM:g})",
+        help=f"ne garder que les sorties d'au moins tant de km (défaut : {DISTANCE_MIN_PAR_DEFAUT_KM:g})",
     )
     analyseur.add_argument("--bavard", action="store_true", help="imprimer chaque mesure")
     return analyseur.parse_args(argv)

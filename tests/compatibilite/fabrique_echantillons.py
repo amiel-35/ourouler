@@ -58,7 +58,7 @@ SEL_FIXE = bytes(range(16))
 #: Ce qu'on range à la main dans le dépôt de fichiers : une séance ZWO et une
 #: MRC minimales, inventées. Le dépôt garde les octets tels quels.
 ZWO = (
-    '<workout_file><name>Filet 0d</name><sportType>bike</sportType><workout>'
+    "<workout_file><name>Filet 0d</name><sportType>bike</sportType><workout>"
     '<SteadyState Duration="600" Power="0.6"/><SteadyState Duration="300" Power="0.9"/>'
     "</workout></workout_file>\n"
 )
@@ -269,9 +269,7 @@ def vider_sqlite(chemin: Path) -> dict[str, Any]:
             lignes = cx.execute(f"SELECT * FROM {nom}").fetchall()
             tables[nom] = {
                 "colonnes": colonnes,
-                "lignes": sorted(
-                    ([_valeur(v) for v in ligne] for ligne in lignes), key=json.dumps
-                ),
+                "lignes": sorted(([_valeur(v) for v in ligne] for ligne in lignes), key=json.dumps),
             }
     finally:
         cx.close()

@@ -23,9 +23,7 @@ from ourouler.rendu.carte import COULEURS_BLOCS
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 
 
-def test_la_carte_se_parse_en_html_et_porte_le_nom_de_la_seance(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_la_carte_se_parse_en_html_et_porte_le_nom_de_la_seance(tmp_path: Path, monkeypatch, capsys):
     page = carte_produite(tmp_path, monkeypatch)
     capsys.readouterr()
     donnees = json.loads(re.search(r"^const D = (\{.*\});$", page, re.M).group(1))
@@ -101,9 +99,7 @@ def test_l_attribution_openstreetmap_est_un_lien_vers_la_licence(tmp_path: Path,
     )
 
 
-def test_la_charge_json_de_la_carte_ne_peut_pas_fermer_le_script(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_la_charge_json_de_la_carte_ne_peut_pas_fermer_le_script(tmp_path: Path, monkeypatch, capsys):
     """C3 : `<` est neutralisé à la sérialisation, pas seulement en amont.
 
     Rien aujourd'hui ne fait entrer `</script>` dans la charge — tout le texte

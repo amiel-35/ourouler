@@ -29,7 +29,7 @@ def _gpx() -> bytes:
     return (
         b"<?xml version='1.0'?>\n"
         b'<gpx version="1.1" creator="essai">\n'
-        b'<trk><name>essai</name><trkseg>\n'
+        b"<trk><name>essai</name><trkseg>\n"
         b'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T08:00:00Z</time></trkpt>\n'
         b'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T08:01:00Z</time></trkpt>\n'
         b"</trkseg></trk>\n</gpx>\n"
@@ -127,9 +127,7 @@ def test_json_rend_une_forme_stable(tmp_path: Path):
     job = imports_fond.lancer(cache, "a", depots)
     _attendre(job)
     charge = job.json()
-    assert set(charge) == {
-        "id", "statut", "traites", "total", "rapport", "erreur", "code_erreur"
-    }
+    assert set(charge) == {"id", "statut", "traites", "total", "rapport", "erreur", "code_erreur"}
     assert charge["erreur"] is None
     assert charge["code_erreur"] is None
     assert charge["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}

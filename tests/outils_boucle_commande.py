@@ -186,6 +186,7 @@ def _cellule(lignes: list[str], entete: str, titre: str) -> float:
     fin = entete.index(titre) + len(titre)
     return float(lignes[lignes.index(entete) + 1][:fin].rsplit(None, 2)[-2])
 
+
 # --- colonne « temps estimé » ---------------------------------------------------
 #
 # La colonne « temps estimé » vient du modèle calibré si `calibration.json`

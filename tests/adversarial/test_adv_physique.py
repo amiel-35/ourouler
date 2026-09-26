@@ -47,6 +47,7 @@ TOLERANCE_RECIPROQUE_W = 0.1
 
 ERREURS = (ErreurUtilisateur, ValueError)
 
+
 #: Une exception d'appelant, reconnaissable et dérivée d'`Exception` : un
 #: `except Exception:` dans `simuler` doit se voir, pas passer inaperçu.
 class BoumAppelant(Exception):
@@ -195,12 +196,8 @@ def test_vitesse_regime_croit_avec_la_puissance(pente, vent):
             )
             for puissance in (0.0, 25.0, 50.0, 100.0, 150.0, 200.0, 300.0, 400.0, 600.0)
         ]
-    reculs = [
-        (a, b) for a, b in zip(vitesses, vitesses[1:], strict=False) if b < a - 1e-6
-    ]
-    assert not reculs, (
-        f"la vitesse recule quand la puissance monte (pente={pente}, vent={vent}) : {vitesses}"
-    )
+    reculs = [(a, b) for a, b in zip(vitesses, vitesses[1:], strict=False) if b < a - 1e-6]
+    assert not reculs, f"la vitesse recule quand la puissance monte (pente={pente}, vent={vent}) : {vitesses}"
 
 
 def test_vitesse_regime_reste_bornee_avec_un_vent_de_dos_plus_rapide_que_le_cycliste():
@@ -337,8 +334,7 @@ def _verifier_simulation(simulation: Any, trace: Trace, quoi: str) -> None:
     cumul_t = 0.0
     for i, segment in enumerate(simulation.par_segment):
         assert len(segment) == 4, (
-            f"{quoi}.par_segment[{i}] : le contrat décrit (dist_m, pente, v_kmh, t_s), "
-            f"reçu {segment!r}"
+            f"{quoi}.par_segment[{i}] : le contrat décrit (dist_m, pente, v_kmh, t_s), reçu {segment!r}"
         )
         dist, pente, v_kmh, t_s = segment
         _nombre(dist, f"{quoi}.par_segment[{i}].dist_m")
@@ -538,12 +534,10 @@ def test_simuler_avec_un_vent_le_long_du_trace():
     _verifier_simulation(avec, trace, "simuler(vent de face 6 m/s)")
     assert vus, "la fonction de vent n'a jamais été appelée"
     assert all(0.0 <= cap < 360.0 for _, cap in vus), (
-        f"caps hors de [0, 360) transmis à la fonction de vent : "
-        f"{sorted({round(c) for _, c in vus})[:10]}"
+        f"caps hors de [0, 360) transmis à la fonction de vent : {sorted({round(c) for _, c in vus})[:10]}"
     )
     assert avec.temps_s > sans.temps_s, (
-        f"6 m/s de vent de face ne changent rien au temps ({avec.temps_s:.0f} s contre "
-        f"{sans.temps_s:.0f} s)"
+        f"6 m/s de vent de face ne changent rien au temps ({avec.temps_s:.0f} s contre {sans.temps_s:.0f} s)"
     )
 
 

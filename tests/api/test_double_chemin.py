@@ -188,9 +188,7 @@ def _comparer_au_scenario_meteo(obtenu: dict[str, Any], tmp_path: Path) -> None:
     comparer_a_la_reference(obtenu, reference, False, REGENERER)
 
 
-def test_la_mutation_du_nouveau_chemin_rougit_la_reference_en_nouveau(
-    tmp_path: Path, rejeu, meteo_faussee
-):
+def test_la_mutation_du_nouveau_chemin_rougit_la_reference_en_nouveau(tmp_path: Path, rejeu, meteo_faussee):
     obtenu = _appel_meteo(tmp_path, rejeu, "nouveau")
     with pytest.raises(pytest.fail.Exception, match="changement de comportement"):
         _comparer_au_scenario_meteo(obtenu, tmp_path)

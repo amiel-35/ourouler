@@ -134,9 +134,7 @@ DEFAUT_RETENU = "défaut retenu par le mainteneur le 16/09/2026, correction en c
 # =============================================================================
 
 
-def test_sortie_json_publie_au_plus_trois_propositions_avec_une_phrase(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sortie_json_publie_au_plus_trois_propositions_avec_une_phrase(tmp_path: Path, monkeypatch, capsys):
     """`sortie --json` publie des propositions, trois au plus, chacune avec sa phrase.
 
     Garde d'entrée du fichier : sans propositions publiées, les tests qui
@@ -171,9 +169,7 @@ def test_sortie_json_publie_au_plus_trois_propositions_avec_une_phrase(
 # =============================================================================
 
 
-def test_des_candidates_identiques_ne_font_pas_trois_propositions(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_des_candidates_identiques_ne_font_pas_trois_propositions(tmp_path: Path, monkeypatch, capsys):
     """Le moteur rend **le même anneau** à chaque direction : rien à contraster.
 
     Même tracé, donc même pluie, même relief, même orientation au vent, mêmes
@@ -186,9 +182,7 @@ def test_des_candidates_identiques_ne_font_pas_trois_propositions(
     (voir les points remontés au mainteneur). On n'exige donc rien de chiffré,
     seulement qu'on ne présente pas deux fois la même sortie comme deux choix.
     """
-    doc = _doc(
-        tmp_path, monkeypatch, capsys, brouter=f53.moteur_brouter_clone(), candidates=5
-    )
+    doc = _doc(tmp_path, monkeypatch, capsys, brouter=f53.moteur_brouter_clone(), candidates=5)
     choix = _choix_ou_skip(doc)
     f53.verifier_retenues_bien_formees(choix)
     f53.verifier_pas_de_trio_de_clones(choix)
@@ -202,9 +196,7 @@ def test_le_chemin_deux_propositions_existe_vraiment(tmp_path: Path, monkeypatch
     la porte de sortie n'a jamais été empruntée — le cas qu'elle couvre est
     précisément celui-là.
     """
-    doc = _doc(
-        tmp_path, monkeypatch, capsys, brouter=f53.moteur_brouter_clone(), candidates=5
-    )
+    doc = _doc(tmp_path, monkeypatch, capsys, brouter=f53.moteur_brouter_clone(), candidates=5)
     choix = _choix_ou_skip(doc)
     assert len(choix.retenues) < 3, (
         f"{len(choix.retenues)} propositions rendues sur cinq candidates au tracé **identique**. "
@@ -214,9 +206,7 @@ def test_le_chemin_deux_propositions_existe_vraiment(tmp_path: Path, monkeypatch
     )
 
 
-def test_les_propositions_ne_sont_pas_le_sommet_d_un_tri_unique(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_les_propositions_ne_sont_pas_le_sommet_d_un_tri_unique(tmp_path: Path, monkeypatch, capsys):
     """Cinq directions contrastables : les retenues doivent être éloignées.
 
     Le relief et la pluie sont réglés par direction pour que le classement par
@@ -243,15 +233,11 @@ def test_les_propositions_ne_sont_pas_le_sommet_d_un_tri_unique(
     choix = _choix_ou_skip(doc)
     f53.verifier_retenues_bien_formees(choix)
     if len(choix.retenues) < 2:
-        pytest.skip(
-            "le lot n'a rendu qu'une proposition sur ce vivier : l'étalement ne se pose pas"
-        )
+        pytest.skip("le lot n'a rendu qu'une proposition sur ce vivier : l'étalement ne se pose pas")
     f53.verifier_pas_de_trio_de_clones(choix)
 
 
-def test_les_propositions_respectent_le_verrou_de_recouvrement(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_les_propositions_respectent_le_verrou_de_recouvrement(tmp_path: Path, monkeypatch, capsys):
     """La condition qui reste du §3.3.3 bis, et qui porte désormais tout.
 
     **Ce test gardait la règle retirée le 17/09/2026** (Q43) : il exigeait
@@ -283,9 +269,7 @@ def test_les_propositions_respectent_le_verrou_de_recouvrement(
     f53.verifier_verrou_de_recouvrement(choix)
 
 
-def test_aucune_phrase_ne_se_donne_un_avantage_qu_elle_n_a_pas(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_aucune_phrase_ne_se_donne_un_avantage_qu_elle_n_a_pas(tmp_path: Path, monkeypatch, capsys):
     """Ce que les marges du §3.3.3 bis gardent après Q43 : le droit d'écrire.
 
     Elles ne décident plus qui entre dans le trio. Elles décident toujours ce
@@ -344,9 +328,7 @@ def test_aucune_proposition_n_est_publiee_deux_fois(tmp_path: Path, monkeypatch,
     # affirmé sans avoir rien constaté. Un test qui ne sait pas identifier ses
     # objets doit refuser de conclure, jamais conclure au pire.
     cles_utiles = ("numero", "nom", "azimut_deg", "distance_km", "duree_s", "pluie_mm")
-    empreintes = [
-        tuple(c.get(k) for k in cles_utiles) for c in proposees
-    ]
+    empreintes = [tuple(c.get(k) for k in cles_utiles) for c in proposees]
     lisibles = [e for e in empreintes if any(v is not None for v in e)]
     assert len(lisibles) == len(empreintes), (
         f"{len(empreintes) - len(lisibles)} proposition(s) sans aucun champ d'identité parmi "
@@ -523,9 +505,7 @@ def test_une_phrase_n_est_jamais_du_langage_de_note(tmp_path: Path, monkeypatch,
     donc elle n'a rien à faire dans la phrase qui dit ce qui distingue.
     """
     h = f53.harnais()
-    doc = _doc(
-        tmp_path, monkeypatch, capsys, meteo=h.moteur_meteo(pluie=h.pluie_au_nord), candidates=5
-    )
+    doc = _doc(tmp_path, monkeypatch, capsys, meteo=h.moteur_meteo(pluie=h.pluie_au_nord), candidates=5)
     choix = _choix_ou_skip(doc)
     for p in choix.retenues:
         assert not f53.phrase_est_en_langage_de_note(p.phrase or ""), (
@@ -558,9 +538,7 @@ def _seance_endurance():
     return [W.evenement(W.sortie_libre(), nom="EF 2 h fabriquée")]
 
 
-def test_une_seance_sans_bloc_ne_fait_pas_tomber_la_commande(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_seance_sans_bloc_ne_fait_pas_tomber_la_commande(tmp_path: Path, monkeypatch, capsys):
     """`note_terrain` vaut zéro pour toutes : le classement est dégénéré.
 
     C'est le cas qui casse une normalisation min-max écrite sans garde — toutes
@@ -677,17 +655,11 @@ def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     que le groupe de deux soit valide, et regarde la phrase attribuée.
     """
     prescrite = 7200.0
-    tient = _proposition_factice(
-        duree_s=7151.0, pluie_mm=0.0, longueur_m=54_000.0, cap_deg=90.0
-    )
-    ampute = _proposition_factice(
-        duree_s=2905.0, pluie_mm=5.0, longueur_m=22_000.0, cap_deg=270.0
-    )
+    tient = _proposition_factice(duree_s=7151.0, pluie_mm=0.0, longueur_m=54_000.0, cap_deg=90.0)
+    ampute = _proposition_factice(duree_s=2905.0, pluie_mm=5.0, longueur_m=22_000.0, cap_deg=270.0)
 
     selection = contraste.choisir([tient, ampute], combien=2)
-    par_duree = {
-        r.proposition.placement.duree_totale_s: r for r in selection.retenues
-    }
+    par_duree = {r.proposition.placement.duree_totale_s: r for r in selection.retenues}
     retenue_amputee = par_duree.get(2905.0)
     if retenue_amputee is None:
         # Depuis le correctif du 16/09/2026, la candidate amputée n'est plus
@@ -794,9 +766,7 @@ def test_la_part_de_routes_connues_reste_publiee():
     )
 
 
-def test_aucune_phrase_ne_distingue_par_les_routes_connues(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_aucune_phrase_ne_distingue_par_les_routes_connues(tmp_path: Path, monkeypatch, capsys):
     """Le contrôle observable de la même règle, sur la vraie sortie."""
     h = f53.harnais()
     doc = _doc(
@@ -810,9 +780,7 @@ def test_aucune_phrase_ne_distingue_par_les_routes_connues(
     f53.verifier_part_connue_hors_selection(_choix_ou_skip(doc))
 
 
-def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(tmp_path: Path, monkeypatch, capsys):
     """La prémisse de tout le §3.3.2, vérifiée sans dépendre du lot.
 
     Ce test **ne saute jamais** : il tourne dès aujourd'hui et continuera après
@@ -849,9 +817,7 @@ def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(
     )
 
 
-def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(tmp_path: Path, monkeypatch, capsys):
     """**L'effet produit des deux écarts ci-dessus**, sur le cas courant du mainteneur.
 
     La règle : « les axes de contraste ne peuvent pas reposer sur la
@@ -1049,15 +1015,20 @@ def _interdire_le_disque(appel, *, quoi: str) -> None:
 
     monkey = pytest.MonkeyPatch()
     try:
+
         def refus(*a, **kw):
             raise AssertionError(
                 f"{quoi} ouvre un fichier : le cœur ne sait pas où il tourne (CLAUDE.md règle 2)"
             )
 
         monkey.setattr(builtins, "open", refus)
-        monkey.setattr(Path, "home", lambda: (_ for _ in ()).throw(AssertionError(
-            f"{quoi} lit le foyer de l'utilisateur (CLAUDE.md règle 2)"
-        )))
+        monkey.setattr(
+            Path,
+            "home",
+            lambda: (_ for _ in ()).throw(
+                AssertionError(f"{quoi} lit le foyer de l'utilisateur (CLAUDE.md règle 2)")
+            ),
+        )
         monkey.setattr(os, "environ", _EnvironInterdit(quoi))
         appel()
     finally:
@@ -1171,8 +1142,13 @@ def test_la_densite_est_finie_sur_un_trace_sans_point():
 
     fn = compter
     vide = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None,
-        temps_moteur_s=None, meta={},
+        nom="vide",
+        points=[],
+        segments=[],
+        distance_m=0.0,
+        denivele_m=None,
+        temps_moteur_s=None,
+        meta={},
     )
     lue = _lire_densite(fn(vide))
     assert math.isfinite(lue.par_km), f"tracé vide : densité {lue.par_km!r}"
@@ -1204,9 +1180,7 @@ def test_la_densite_de_marqueurs_est_publiee(tmp_path: Path, monkeypatch, capsys
         "(contrat §3.3.2) et elle remplace la détection de zone bâtie."
     )
     for valeur in trouves:
-        assert math.isfinite(valeur) and valeur >= 0, (
-            f"densité publiée non exploitable : {valeur!r}"
-        )
+        assert math.isfinite(valeur) and valeur >= 0, f"densité publiée non exploitable : {valeur!r}"
 
 
 # =============================================================================
@@ -1214,9 +1188,7 @@ def test_la_densite_de_marqueurs_est_publiee(tmp_path: Path, monkeypatch, capsys
 # =============================================================================
 
 
-def test_aucun_champ_de_candidate_n_est_perpetuellement_nul(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_aucun_champ_de_candidate_n_est_perpetuellement_nul(tmp_path: Path, monkeypatch, capsys):
     """Un champ toujours `null` est un piège pour qui lit la sortie.
 
     Demandé par le mainteneur après la réconciliation : `candidates[]` ne doit
@@ -1248,9 +1220,7 @@ def test_aucun_champ_de_candidate_n_est_perpetuellement_nul(
     )
 
 
-def test_la_sortie_json_reste_serialisable_et_sans_coordonnee_reelle(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_la_sortie_json_reste_serialisable_et_sans_coordonnee_reelle(tmp_path: Path, monkeypatch, capsys):
     """Le lot ajoute des champs : ils doivent rester du JSON, et rien de réel.
 
     Le départ du harnais est (0, 0) et les anneaux sont fabriqués autour : si
@@ -1354,6 +1324,7 @@ def test_le_binder_refuse_une_signature_qu_il_ne_sait_pas_piloter():
     sur `date.today()` — un test dont le résultat dépend du jour où il tourne
     est un test qui mentira un jour.
     """
+
     def sans_aujourdhui(client, depart_lieu, *, depart_heure, jour, modele):  # pragma: no cover
         raise AssertionError("ne doit jamais être appelée")
 

@@ -114,8 +114,16 @@ def interpreter_simulation(
 def json_simulation(r: ResultatSimulation) -> dict:
     """Le JSON de `ourouler simuler --json`."""
     return rendu.rendre_json_simulation(
-        r.simulation, r.trace, r.velo, r.parametres, r.provenance, r.puissance_w,
-        meteo=r.meteo, pauses=r.pauses, arrivee=r.arrivee, alerte=r.alerte,
+        r.simulation,
+        r.trace,
+        r.velo,
+        r.parametres,
+        r.provenance,
+        r.puissance_w,
+        meteo=r.meteo,
+        pauses=r.pauses,
+        arrivee=r.arrivee,
+        alerte=r.alerte,
     )
 
 
@@ -170,11 +178,23 @@ def interpreter_analyse(
 def json_analyse(r: ResultatAnalyse) -> dict:
     """Le JSON d'`ourouler analyser --json`."""
     return rendu.rendre_json_analyse(
-        r.simulation, r.trace, r.velo, r.parametres, r.provenance, r.puissance_w,
-        meteo=r.meteo, ecoule=r.ecoule, depart=r.depart, arrivee_bas=r.arrivee_bas,
-        arrivee_mediane=r.arrivee_mediane, arrivee_haut=r.arrivee_haut,
-        alerte=r.alerte, meteo_absente=r.meteo_absente, fourchette=r.fourchette,
-        panne=r.panne, avertissements_trace=r.avertissements_trace,
+        r.simulation,
+        r.trace,
+        r.velo,
+        r.parametres,
+        r.provenance,
+        r.puissance_w,
+        meteo=r.meteo,
+        ecoule=r.ecoule,
+        depart=r.depart,
+        arrivee_bas=r.arrivee_bas,
+        arrivee_mediane=r.arrivee_mediane,
+        arrivee_haut=r.arrivee_haut,
+        alerte=r.alerte,
+        meteo_absente=r.meteo_absente,
+        fourchette=r.fourchette,
+        panne=r.panne,
+        avertissements_trace=r.avertissements_trace,
         vitesse_a_vent_nul_kmh=r.vitesse_a_vent_nul_kmh,
     )
 
@@ -189,9 +209,19 @@ def analyser_depuis_namespace(
     else:
         print(
             rendu.rendre_texte_analyse(
-                r.simulation, r.trace, r.velo, r.parametres, r.provenance, r.puissance_w,
-                meteo=r.meteo, ecoule=r.ecoule, depart=r.depart, arrivee_mediane=r.arrivee_mediane,
-                alerte=r.alerte, meteo_absente=r.meteo_absente, panne=r.panne,
+                r.simulation,
+                r.trace,
+                r.velo,
+                r.parametres,
+                r.provenance,
+                r.puissance_w,
+                meteo=r.meteo,
+                ecoule=r.ecoule,
+                depart=r.depart,
+                arrivee_mediane=r.arrivee_mediane,
+                alerte=r.alerte,
+                meteo_absente=r.meteo_absente,
+                panne=r.panne,
             )
         )
     return 0

@@ -296,8 +296,11 @@ def creer_application(
             f"creer_application : chemin_api {chemin_api!r} inconnu — attendu "
             + ", ".join(double_chemin.CHEMINS)
         )
-    donnes = [nom for nom, v in (("socle", socle), ("config", config),
-                                 ("chemin_config", chemin_config)) if v is not None]
+    donnes = [
+        nom
+        for nom, v in (("socle", socle), ("config", config), ("chemin_config", chemin_config))
+        if v is not None
+    ]
     if len(donnes) > 1:
         raise ValueError(
             f"creer_application : {' et '.join(donnes)} donnés ensemble — le profil vient "
@@ -468,9 +471,7 @@ def creer_application(
             erreur.status_code,
             ("requete_invalide", "la requête a été refusée par le serveur"),
         )
-        return _reponse_erreur_utf8(
-            ErreurApi(code=code, message=message, statut=erreur.status_code or 400)
-        )
+        return _reponse_erreur_utf8(ErreurApi(code=code, message=message, statut=erreur.status_code or 400))
 
     @app.exception_handler(Exception)
     async def _erreur_inattendue(requete: Request, erreur: Exception) -> JSONResponse:

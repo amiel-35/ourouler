@@ -48,6 +48,7 @@ _DEGRES_PAR_SEMICERCLE = 180.0 / 2**31
 _BOM_UTF8 = b"\xef\xbb\xbf"
 _BLANCS = (b" ", b"\t", b"\r", b"\n")
 
+
 def _sans_preambule_xml(contenu: bytes) -> bytes:
     """Retire un préambule de BOM(s) et de blancs avant le premier `<`.
 
@@ -84,9 +85,7 @@ def lecteur_pour(extension: str) -> Callable[[Entree], Activite]:
     extension = extension.lower().lstrip(".")
     lecteur = LECTEURS.get(extension)
     if lecteur is None:
-        raise ErreurLecture(
-            f"extension « {extension} » inconnue (attendu {', '.join(EXTENSIONS)})"
-        )
+        raise ErreurLecture(f"extension « {extension} » inconnue (attendu {', '.join(EXTENSIONS)})")
     return lecteur
 
 
@@ -369,9 +368,7 @@ def _point_tcx(trackpoint: ET.Element) -> Point | None:
         alt_m=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}AltitudeMeters")),
         dist_m=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}DistanceMeters")),
         cadence_rpm=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}Cadence")),
-        fc_bpm=_flottant(
-            _texte_balise(trackpoint, f"{_NS_TCX}HeartRateBpm/{_NS_TCX}Value")
-        ),
+        fc_bpm=_flottant(_texte_balise(trackpoint, f"{_NS_TCX}HeartRateBpm/{_NS_TCX}Value")),
     )
     # Les extensions Garmin (TPX) portent la puissance et la vitesse.
     for element in trackpoint.iter():
@@ -417,9 +414,7 @@ def _assembler(
 ) -> Activite:
     non_monotones = sum(1 for a, b in zip(points, points[1:], strict=False) if b.t < a.t)
     if non_monotones:
-        avertissements.append(
-            f"{non_monotones} horodatage(s) non monotone(s) : points réordonnés par date"
-        )
+        avertissements.append(f"{non_monotones} horodatage(s) non monotone(s) : points réordonnés par date")
         points = sorted(points, key=lambda p: p.t)
     meta = {k: v for k, v in meta.items() if v is not None}
     if avertissements:

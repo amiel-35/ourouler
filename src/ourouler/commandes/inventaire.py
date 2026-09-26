@@ -47,9 +47,7 @@ def json_inventaire(resultat: ResultatInventaire) -> dict:
     return sortie
 
 
-def executer_depuis_namespace(
-    args: argparse.Namespace, config: Config, cache: Cache | None = None
-) -> int:
+def executer_depuis_namespace(args: argparse.Namespace, config: Config, cache: Cache | None = None) -> int:
     """Exécute `ourouler inventaire`. Renvoie le code de sortie (0 = succès)."""
     ctx = contexte(config)
     resultat = service.executer(lire_options(args, ctx.profil), ctx, cache=cache)

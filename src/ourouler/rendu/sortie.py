@@ -157,9 +157,7 @@ def page_jour(
     )
 
 
-def vent_depart_json(
-    question: vent_demande.QuestionVent, jour: date, depart_heure: datetime
-) -> dict:
+def vent_depart_json(question: vent_demande.QuestionVent, jour: date, depart_heure: datetime) -> dict:
     """Le vent au départ et ce que chaque préférence en ferait, en JSON.
 
     `azimuts_par_choix` porte **des listes**, y compris pour les préférences
@@ -178,18 +176,13 @@ def vent_depart_json(
         "vent_kmh": question.vent_kmh,
         "vent_depuis_deg": question.vent_depuis_deg,
         "vent_depuis_nom": (
-            nom_de_azimut(question.vent_depuis_deg)
-            if question.vent_depuis_deg is not None
-            else None
+            nom_de_azimut(question.vent_depuis_deg) if question.vent_depuis_deg is not None else None
         ),
         "seuil_kmh": SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "choix": list(orientation.CHOIX),
         "azimuts_par_choix": {
-            choix: [
-                {"azimut_deg": a, "nom": nom_de_azimut(a)}
-                for a in question.azimuts_pour(choix)
-            ]
+            choix: [{"azimut_deg": a, "nom": nom_de_azimut(a)} for a in question.azimuts_pour(choix)]
             for choix in orientation.CHOIX
         },
     }
@@ -279,9 +272,7 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
 
     titres = [t for t, mesure in COLONNES if mesure is None or mesure in presentes]
     cellules = [_cellules(p, presentes, compteur_info) for p in propositions]
-    largeurs = [
-        max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
-    ]
+    largeurs = [max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)]
     marge = " " * (len(MARQUE_RETENUE) + 1)
     lignes.append(marge + "  ".join(t.rjust(n) for t, n in zip(titres, largeurs, strict=True)))
     for proposition, ligne in zip(propositions, cellules, strict=True):
@@ -461,9 +452,7 @@ def _details_proposition(retenue) -> str:
         morceaux.append(", ".join(arrets))
     else:
         morceaux.append("marqueurs inconnus")
-    morceaux.append(
-        "aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)"
-    )
+    morceaux.append("aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)")
     if profil.part_trafic is not None:
         # Le % de `primary` seul, pas le composite primary + secondary +
         # trunk qui multiplierait par quatre ce qui doit inquiéter
@@ -540,17 +529,13 @@ def _ligne_modele_meteo(propositions: list[Proposition], config: Config) -> list
     return [f"Météo : modèle {meteo.modele_utilise}."]
 
 
-def _entete(
-    propositions: list[Proposition], contexte: _Contexte, presentes: set[str]
-) -> list[str]:
+def _entete(propositions: list[Proposition], contexte: _Contexte, presentes: set[str]) -> list[str]:
     seance, demande, config = contexte.seance, contexte.demande, contexte.config
     # Trois cas et non deux : une réponse à la question
     # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
     # les directions » alors qu'on a cherché au sud-ouest serait faux.
     azimuts_vent = (
-        contexte.question_vent.azimuts_pour(demande.vent)
-        if contexte.question_vent is not None
-        else ()
+        contexte.question_vent.azimuts_pour(demande.vent) if contexte.question_vent is not None else ()
     )
     if demande.azimut_deg is not None:
         direction = f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
@@ -590,9 +575,7 @@ def _entete(
     lignes += _ligne_modele_meteo(propositions, config)
     lignes += _lignes_vent(contexte)
     if seance.meta.get("puissance_approximee"):
-        lignes.append(
-            "⚠ puissances approximées : la séance est prescrite en zones de fréquence cardiaque."
-        )
+        lignes.append("⚠ puissances approximées : la séance est prescrite en zones de fréquence cardiaque.")
     if seance.meta.get("seances_ignorees"):
         # S1 : `ourouler seance` le disait, `ourouler sortie` non — et c'est
         # justement la commande qui construit une boucle entière pour la séance
@@ -639,16 +622,12 @@ def _mesures_presentes(propositions: list[Proposition]) -> set[str]:
         presentes.add("connu")
     if any(p.demi_tours for p in propositions):
         presentes.add("demi_tours")
-    if any(
-        abs(p.distance_parcours_m - p.trace.distance_m) > ECART_PARCOURS_M for p in propositions
-    ):
+    if any(abs(p.distance_parcours_m - p.trace.distance_m) > ECART_PARCOURS_M for p in propositions):
         presentes.add("parcours")
     return presentes
 
 
-def _cellules(
-    proposition: Proposition, presentes: set[str], compteur_info: dict | None = None
-) -> list[str]:
+def _cellules(proposition: Proposition, presentes: set[str], compteur_info: dict | None = None) -> list[str]:
     trace, couts, meteo = proposition.trace, proposition.couts, proposition.meteo
     partiels = bool(trace.meta.get("couts_partiels"))
     cellules = [
@@ -823,14 +802,9 @@ def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
     if compteur_info is None:
         return duree_h_min(placement.duree_totale_s)
     pp = porte_a_porte(placement.duree_totale_s, compteur_info)
-    return (
-        f"{duree_h_min(pp.bas_s)}-{duree_h_min(pp.haut_s)} / "
-        f"{duree_h_min(placement.duree_totale_s)}"
-    )
+    return f"{duree_h_min(pp.bas_s)}-{duree_h_min(pp.haut_s)} / {duree_h_min(placement.duree_totale_s)}"
 
 
 def _duree_longue(secondes: float) -> str:
     minutes = int(round(secondes / 60))
     return f"{minutes} min" if minutes < 60 else f"{minutes // 60} h {minutes % 60:02d}"
-
-

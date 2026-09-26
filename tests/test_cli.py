@@ -249,9 +249,7 @@ def test_seance_refuse_une_option_inconnue():
 # tests couvrent le branchement dans `ourouler config`, pas le calcul
 # lui-même (couvert par tests/test_physique_modele.py).
 
-CONFIG_VELO = (
-    CONFIG + '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\ncda_m2=0.30\ncrr=0.005\n'
-)
+CONFIG_VELO = CONFIG + '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\ncda_m2=0.30\ncrr=0.005\n'
 CONFIG_VELO_MESURE = CONFIG_VELO + "facteur_compteur=0.85\n"
 
 

@@ -76,8 +76,14 @@ def test_ecrire_puis_relire(tmp_path: Path):
     ecrire_calibration(
         chemin,
         "RCR",
-        {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0, "date": "2026-09-13",
-         "n_sorties": 74, "mae": 0.048},
+        {
+            "cda_m2": 0.31,
+            "crr": 0.0045,
+            "masse_totale_kg": 100.0,
+            "date": "2026-09-13",
+            "n_sorties": 74,
+            "mae": 0.048,
+        },
     )
     lue = lire_calibration(chemin, "RCR")
     assert isinstance(lue, Calibration)
@@ -222,7 +228,7 @@ def _en_tcx(activite, jour: date) -> bytes:
             f"<LongitudeDegrees>{p.lon:.7f}</LongitudeDegrees></Position>"
             f"<AltitudeMeters>{p.alt_m:.2f}</AltitudeMeters>"
             f"<DistanceMeters>{p.dist_m:.2f}</DistanceMeters>"
-            "<Extensions><TPX xmlns=\"http://www.garmin.com/xmlschemas/ActivityExtension/v2\">"
+            '<Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">'
             f"<Speed>{p.vitesse_ms:.3f}</Speed><Watts>{p.puissance_w:.0f}</Watts>"
             "</TPX></Extensions>"
             "</Trackpoint>"
@@ -311,9 +317,7 @@ def test_calibrer_un_velo_inconnu(tmp_path: Path):
 def test_depuis_invalide(tmp_path: Path):
     config = config_de_test(tmp_path / "cache")
     with pytest.raises(ErreurUtilisateur, match="AAAA-MM-JJ"):
-        executer_calibrer(
-            args(velo="RCR", depuis="hier"), config, client_archive=archive_bouchonnee()
-        )
+        executer_calibrer(args(velo="RCR", depuis="hier"), config, client_archive=archive_bouchonnee())
 
 
 # --- ourouler simuler ---------------------------------------------------------
@@ -369,9 +373,7 @@ def test_simuler_avec_la_calibration(tmp_path: Path, capsys):
     assert charge["arrets_modelises"] is False
     # 20 km plats à 200 W avec ces paramètres : entre 30 et 40 km/h.
     assert 30.0 < charge["vitesse_moy_kmh"] < 40.0
-    assert charge["temps_mouvement_s"] == pytest.approx(
-        20_000 / (charge["vitesse_moy_kmh"] / 3.6), rel=0.01
-    )
+    assert charge["temps_mouvement_s"] == pytest.approx(20_000 / (charge["vitesse_moy_kmh"] / 3.6), rel=0.01)
 
 
 def test_simuler_refuse_une_puissance_absurde(tmp_path: Path):
@@ -462,9 +464,7 @@ def test_simuler_l_arrivee_porte_le_total_des_pauses(tmp_path: Path, capsys):
     sans_pause = json.loads(capsys.readouterr().out)
 
     executer_simuler(
-        args_simuler(
-            gpx=str(gpx), depart="2026-05-16T05:00", pause=["5:0h30"], json=True
-        ),
+        args_simuler(gpx=str(gpx), depart="2026-05-16T05:00", pause=["5:0h30"], json=True),
         config,
         client_meteo=client_meteo_bouchonne(),
     )
@@ -609,9 +609,7 @@ def test_calibrer_ecarte_un_fichier_multisport(tmp_path: Path, capsys):
     C'est la forme que prend un triathlon dans le cache : trois segments
     Intervals qui citent le même enregistrement, dont seul l'un est du vélo.
     """
-    cache = cache_de_sorties(
-        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600
-    )
+    cache = cache_de_sorties(tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600)
     octets = _en_tcx(sortie_synthetique(duree_s=2600), date(2026, 2, 1)).replace(
         b'Sport="Biking"', b'Sport="Running"'
     )
@@ -632,9 +630,7 @@ def test_calibrer_ecarte_un_fichier_multisport(tmp_path: Path, capsys):
     charge = json.loads(capsys.readouterr().out)
     assert charge["sorties_ecartees"].get("multisport") == 1
     assert charge["sorties_calibrables"] == 6
-    assert all(
-        "triathlon" not in s["nom"] for s in charge["validation"]["sorties"]
-    )
+    assert all("triathlon" not in s["nom"] for s in charge["validation"]["sorties"])
 
 
 # --- le rapport chiffre la résistance totale (point 5 de la relecture) --------
@@ -642,9 +638,7 @@ def test_calibrer_ecarte_un_fichier_multisport(tmp_path: Path, capsys):
 
 def test_le_rapport_donne_la_resistance_a_27_et_35(tmp_path: Path, capsys):
     """Ce que les données mesurent passe devant ; CdA et Crr sont relégués au détail."""
-    cache_de_sorties(
-        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 9)], duree_s=2600
-    )
+    cache_de_sorties(tmp_path / "cache", [date(2026, 1, j) for j in range(1, 9)], duree_s=2600)
     config = config_de_test(tmp_path / "cache")
     executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
     texte = capsys.readouterr().out
@@ -663,9 +657,7 @@ def test_le_rapport_donne_la_resistance_a_27_et_35(tmp_path: Path, capsys):
 
 
 def test_la_resistance_est_dans_le_json(tmp_path: Path, capsys):
-    cache_de_sorties(
-        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600
-    )
+    cache_de_sorties(tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600)
     config = config_de_test(tmp_path / "cache")
     executer_calibrer(args(velo="RCR", json=True), config, client_archive=archive_bouchonnee())
     charge = json.loads(capsys.readouterr().out)
@@ -705,12 +697,8 @@ def test_la_resistance_ne_depend_que_du_couple_cda_crr(tmp_path: Path):
 
 def test_le_pneu_donne_le_crr_d_un_velo_jamais_calibre(tmp_path: Path):
     """Sans calibration : le CdA du jeu de l'usage, le Crr du pneu déclaré."""
-    config = config_de_test(
-        tmp_path, velos=[{"nom": "RCR", "usage": "route", "pneu": "course_rapide"}]
-    )
-    parametres, provenance = parametres_du_velo(
-        config, config.velo("RCR"), chemin_calibration(config)
-    )
+    config = config_de_test(tmp_path, velos=[{"nom": "RCR", "usage": "route", "pneu": "course_rapide"}])
+    parametres, provenance = parametres_du_velo(config, config.velo("RCR"), chemin_calibration(config))
     assert provenance == "littérature"
     assert parametres.cda_m2 == litterature.ROUTE_AMATEUR_HAUT.cda_m2
     assert parametres.crr == litterature.PNEUS["course_rapide"].crr
@@ -754,13 +742,9 @@ def test_calibrer_crr_libre_garde_l_ancien_ajustement(tmp_path: Path, capsys):
     cache_de_sorties(tmp_path / "cache", jours, duree_s=2600)
     config = config_de_test(
         tmp_path / "cache",
-        velos=[
-            {"nom": "RCR", "usage": "route", "capteur_puissance": "CAPTEUR 0001", "pneu": "vtt"}
-        ],
+        velos=[{"nom": "RCR", "usage": "route", "capteur_puissance": "CAPTEUR 0001", "pneu": "vtt"}],
     )
-    executer_calibrer(
-        args(velo="RCR", crr_libre=True), config, client_archive=archive_bouchonnee()
-    )
+    executer_calibrer(args(velo="RCR", crr_libre=True), config, client_archive=archive_bouchonnee())
     assert "mal séparé" in capsys.readouterr().out
     brut = json.loads(chemin_calibration(config).read_text(encoding="utf-8"))["velos"]["RCR"]
     assert brut["crr_source"] == "ajuste"
@@ -837,9 +821,7 @@ def test_un_crr_ecrit_a_la_main_est_fige_par_calibrer(tmp_path: Path, capsys):
     cache_de_sorties(tmp_path / "cache", jours, duree_s=2600)
     config = config_de_test(
         tmp_path / "cache",
-        velos=[
-            {"nom": "RCR", "usage": "route", "capteur_puissance": "CAPTEUR 0001", "crr": 0.0045}
-        ],
+        velos=[{"nom": "RCR", "usage": "route", "capteur_puissance": "CAPTEUR 0001", "crr": 0.0045}],
     )
     executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
     brut = json.loads(chemin_calibration(config).read_text(encoding="utf-8"))["velos"]["RCR"]
@@ -858,8 +840,13 @@ def test_pas_d_alerte_quand_le_pneu_n_a_pas_change(tmp_path: Path):
     ecrire_calibration(
         chemin,
         "RCR",
-        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 100.0, "crr_source": "pneu",
-         "pneu": "course_rapide"},
+        {
+            "cda_m2": 0.33,
+            "crr": 0.005,
+            "masse_totale_kg": 100.0,
+            "crr_source": "pneu",
+            "pneu": "course_rapide",
+        },
     )
     assert alerte_calibration(config.velo("RCR"), chemin) is None
 
@@ -898,8 +885,13 @@ def test_simuler_dit_que_le_pneu_a_change(tmp_path: Path, capsys):
     ecrire_calibration(
         chemin,
         "RCR",
-        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 100.0, "crr_source": "pneu",
-         "pneu": "course_rapide"},
+        {
+            "cda_m2": 0.33,
+            "crr": 0.005,
+            "masse_totale_kg": 100.0,
+            "crr_source": "pneu",
+            "pneu": "course_rapide",
+        },
     )
     executer_simuler(args_simuler(gpx=str(gpx_plat(tmp_path / "plat.gpx"))), config)
     assert ALERTE_PNEU_CHANGE in capsys.readouterr().out

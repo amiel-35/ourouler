@@ -94,11 +94,7 @@ def test_ramp_reste_un_bloc_meme_en_tete():
 
 
 def test_freeride_type_par_position():
-    doc = zwo(
-        '<FreeRide Duration="60"/>'
-        '<SteadyState Duration="300" Power="0.9"/>'
-        '<FreeRide Duration="60"/>'
-    )
+    doc = zwo('<FreeRide Duration="60"/><SteadyState Duration="300" Power="0.9"/><FreeRide Duration="60"/>')
     seance = lire_zwo(doc, ftp_w=FTP, jour=JOUR)
 
     assert [e.type for e in seance.etapes] == ["echauffement", "bloc", "calme"]
@@ -151,10 +147,7 @@ def test_sans_ftp_aucune_puissance_calculee():
 
 
 def test_textevent_ignore_sans_erreur():
-    doc = zwo(
-        '<textevent timeoffset="10" message="Allez !"/>'
-        '<SteadyState Duration="60" Power="0.7"/>'
-    )
+    doc = zwo('<textevent timeoffset="10" message="Allez !"/><SteadyState Duration="60" Power="0.7"/>')
     seance = lire_zwo(doc, ftp_w=FTP, jour=JOUR)
     assert len(seance.etapes) == 1
 
@@ -176,7 +169,7 @@ def test_pas_du_tout_xml():
 
 
 def test_xml_tronque_au_milieu_d_une_balise():
-    contenu = b"<workout_file><workout><SteadyState Duration=\"600\" Power=\"0.6\""
+    contenu = b'<workout_file><workout><SteadyState Duration="600" Power="0.6"'
     with pytest.raises(ErreurLecture, match="illisible"):
         lire_zwo(contenu, ftp_w=FTP, jour=JOUR)
 

@@ -173,9 +173,7 @@ def azimuts(azimut_deg: float, nb: int) -> list[float]:
     return sortie
 
 
-def _plus_proche(
-    courte: Candidate, longue: Candidate | None, tolerance: float
-) -> Candidate:
+def _plus_proche(courte: Candidate, longue: Candidate | None, tolerance: float) -> Candidate:
     """Des deux essais d'un azimut, celle qui répond le mieux à la demande.
 
     `courte` tient déjà dans la bande, sous la cible ; `longue` est ce qu'a

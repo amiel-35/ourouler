@@ -63,9 +63,7 @@ _journal = logging.getLogger(__name__)
 #: Même code que le générique des services externes non reconnus
 #: (`classer._connecteur` dans `api/erreurs.py`) : ce n'est ni un bug du
 #: serveur ni une faute du cycliste, c'est un service qui ne répond pas.
-MESSAGE_BASE_INDISPONIBLE = (
-    "la base de données des comptes ne répond pas — réessayer dans un instant"
-)
+MESSAGE_BASE_INDISPONIBLE = "la base de données des comptes ne répond pas — réessayer dans un instant"
 
 
 class GardeAvantCorps:

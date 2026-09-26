@@ -71,9 +71,7 @@ def test_la_colonne_vent_face_dit_sur_combien_d_echantillons(tmp_path: Path, mon
     trouve = re.search(r"(\d+) % \((\d+)/(\d+)\)", ligne)
     assert trouve, ligne
     connus, total = int(trouve.group(2)), int(trouve.group(3))
-    assert connus < total, (
-        f"ce bouchon doit produire un dénominateur partiel, reçu {connus}/{total}"
-    )
+    assert connus < total, f"ce bouchon doit produire un dénominateur partiel, reçu {connus}/{total}"
 
 
 def test_le_denominateur_du_vent_est_dans_le_json(tmp_path: Path, monkeypatch, capsys):
@@ -132,9 +130,7 @@ def test_un_dossier_de_sortie_inexistant_est_refuse_avant_tout_appel(tmp_path: P
         lire_options(args(sortie=str(manquant)), config_de_test())
 
 
-def test_un_dossier_de_sortie_non_inscriptible_est_refuse_avant_tout_appel(
-    tmp_path: Path, monkeypatch
-):
+def test_un_dossier_de_sortie_non_inscriptible_est_refuse_avant_tout_appel(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     interdit = tmp_path / "interdit"
     interdit.mkdir()
@@ -158,9 +154,7 @@ def test_aucun_appel_reseau_quand_la_sortie_est_impossible(tmp_path: Path, monke
     )
     meteo = ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(interdit)))
     with pytest.raises(ErreurUtilisateur):
-        executer(
-            args(sortie=str(tmp_path / "absent" / "x.gpx")), config_de_test(), brouter, meteo
-        )
+        executer(args(sortie=str(tmp_path / "absent" / "x.gpx")), config_de_test(), brouter, meteo)
 
 
 def test_une_ecriture_qui_echoue_sort_en_erreur_utilisateur(tmp_path: Path, monkeypatch):
@@ -181,9 +175,7 @@ def test_une_ecriture_qui_echoue_sort_en_erreur_utilisateur(tmp_path: Path, monk
         executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
 
 
-def test_un_fichier_de_sortie_existant_n_est_pas_ecrase_sans_ecraser(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_un_fichier_de_sortie_existant_n_est_pas_ecrase_sans_ecraser(tmp_path: Path, monkeypatch, capsys):
     """Point 19, tranché par le superviseur : `--sortie` ne remplace pas en silence."""
     monkeypatch.chdir(tmp_path)
     voulu = tmp_path / "ma_boucle.gpx"
@@ -197,9 +189,7 @@ def test_un_fichier_de_sortie_existant_n_est_pas_ecrase_sans_ecraser(
     assert "--ecraser" in str(capture.value), "et dire quoi faire"
     assert voulu.read_text(encoding="utf-8") == ancien, "le fichier ne doit pas bouger"
 
-    code = executer(
-        args(sortie=str(voulu), ecraser=True), config_de_test(), moteur_brouter(), moteur_meteo()
-    )
+    code = executer(args(sortie=str(voulu), ecraser=True), config_de_test(), moteur_brouter(), moteur_meteo())
     assert code == 0 and voulu.is_file()
 
 
@@ -298,9 +288,7 @@ def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch,
     assert charge["candidates"][0]["denivele_source"] == "moteur"
 
     chemin = gpx_de_test(tmp_path)
-    executer(
-        args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo()
-    )
+    executer(args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     assert charge["candidates"][0]["denivele_source"] == "tracé rerouté"
 

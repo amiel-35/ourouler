@@ -163,7 +163,6 @@ def test_la_longueur_du_segment_de_sortie_est_haversine_pas_recopiee():
     assert segment.longueur_m == pytest.approx(1113.0, rel=0.01)
 
 
-
 def test_un_point_isole_sans_tag_devient_un_segment_a_tags_vides():
     reroutee = _ligne_reroutee(6)
     points = [_point(0.00001, i * 0.0005, i * 0.0005 * METRES_PAR_DEGRE) for i in range(6)]

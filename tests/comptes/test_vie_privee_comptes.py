@@ -122,9 +122,7 @@ def _zwo(nom: str) -> bytes:
 
 def _entrer(app, jeton: str) -> tuple[str, dict[str, str]]:
     """Active l'invitation, ouvre la session, rend (proprietaire, cookies)."""
-    reponse = _requete(
-        app, "POST", f"{PREFIXE}/entrer", json={"jeton": jeton, "secret": MOT_DE_PASSE}
-    )
+    reponse = _requete(app, "POST", f"{PREFIXE}/entrer", json={"jeton": jeton, "secret": MOT_DE_PASSE})
     assert reponse.status_code == 200, reponse.text
     proprietaire = reponse.json()["donnees"]["proprietaire"]
     jeton_session = reponse.cookies.get(NOM_COOKIE)
@@ -158,9 +156,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
         cookies=cookies,
         json={
             "depart": {"nom": f"depart-{MARQUE}"},
-            "velos": [
-                {"nom": f"velo-{MARQUE}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
-            ],
+            "velos": [{"nom": f"velo-{MARQUE}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}],
         },
     )
     assert profil.status_code == 200, f"le profil n'a pas pu s'écrire : {profil.text[:300]}"
@@ -172,9 +168,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
         cookies=cookies,
         files={"fichier": (f"seance-{MARQUE}.zwo", _zwo(MARQUE), "application/xml")},
     )
-    assert depot_fichier.status_code == 200, (
-        f"le fichier n'a pas pu se déposer : {depot_fichier.text[:300]}"
-    )
+    assert depot_fichier.status_code == 200, f"le fichier n'a pas pu se déposer : {depot_fichier.text[:300]}"
     id_fichier = depot_fichier.json()["fichier"]["id"]
 
     # Pas de route qui écrit le journal sans un service externe bouchonné

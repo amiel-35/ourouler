@@ -120,7 +120,5 @@ def chemin_api_de_l_environnement(monkeypatch: pytest.MonkeyPatch, request):
         yield
     finally:
         double_chemin.journal.removeHandler(recueil)
-    if chemin == double_chemin.CHEMIN_DOUBLE and not request.node.get_closest_marker(
-        "ecart_attendu"
-    ):
+    if chemin == double_chemin.CHEMIN_DOUBLE and not request.node.get_closest_marker("ecart_attendu"):
         assert not lignes, f"écarts entre l'ancien et le nouveau chemin : {lignes}"

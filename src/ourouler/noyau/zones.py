@@ -86,15 +86,11 @@ def bornes_zone(
     if not isinstance(numero, int) or isinstance(numero, bool):
         raise ErreurUtilisateur(f"zones : numéro de zone entier attendu, reçu {numero!r}")
     if not 1 <= numero <= len(zones):
-        raise ErreurUtilisateur(
-            f"zones : Z{numero} n'existe pas — la table en compte {len(zones)}"
-        )
+        raise ErreurUtilisateur(f"zones : Z{numero} n'existe pas — la table en compte {len(zones)}")
     return zones[numero - 1]
 
 
-def zone_ouverte(
-    numero: int, zones: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT
-) -> bool:
+def zone_ouverte(numero: int, zones: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT) -> bool:
     """Vrai pour la première et la dernière zone de la table.
 
     La première est ouverte vers le bas (son 0 est le pédalage à vide, pas une
@@ -201,9 +197,7 @@ def position_endurance(
 #: défaut, soit 0,2105. Le défaut est posé ainsi pour que la dérivation ne
 #: change aucun comportement observable : `puissance_endurance_pct(
 #: POSITION_ENDURANCE_DEFAUT)` rend exactement 0,60.
-POSITION_ENDURANCE_DEFAUT = position_endurance(
-    PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT
-)
+POSITION_ENDURANCE_DEFAUT = position_endurance(PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT)
 
 
 @dataclass(frozen=True)

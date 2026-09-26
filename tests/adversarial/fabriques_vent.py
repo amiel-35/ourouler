@@ -48,9 +48,7 @@ def facteur_hauteur_du_projet() -> float:
     return float(FACTEUR_VENT_HAUTEUR)
 
 
-def attendu_ms(
-    ecart_deg: float, *, vent_kmh: float = VENT_KMH, facteur: float | None = None
-) -> float:
+def attendu_ms(ecart_deg: float, *, vent_kmh: float = VENT_KMH, facteur: float | None = None) -> float:
     """La composante de face attendue, en m/s, pour un écart (vent − cap) donné."""
     f = facteur_hauteur_du_projet() if facteur is None else facteur
     return (vent_kmh / 3.6) * math.cos(math.radians(ecart_deg)) * f

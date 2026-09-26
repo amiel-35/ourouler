@@ -366,9 +366,7 @@ def test_fenetre_du_changement_d_heure_reste_monotone_en_utc():
     module = module_openmeteo
     horaire = _heures_json(5, debut=HEURES_CHANGEMENT[0])
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0, horaire)))
-    (prevision,) = client.previsions(
-        [(0.0, 0.0)], modele="m", debut=HEURES_CHANGEMENT[0], horizon_h=5
-    )
+    (prevision,) = client.previsions([(0.0, 0.0)], modele="m", debut=HEURES_CHANGEMENT[0], horizon_h=5)
     instants = [h.t for h in prevision.heures]
     assert instants == HEURES_CHANGEMENT, f"instants rendus : {instants}"
     assert instants == sorted(instants) and len(set(instants)) == 5
@@ -418,8 +416,7 @@ def _rapport(
     def _heures(nom: str, pluies: dict | None) -> list[dict]:
         serie = (pluies or {}).get(nom, [0.0] * len(instants))
         return [
-            {"t": t, "pluie_mm": serie[i], "vent_depuis_deg": vent_depuis_deg}
-            for i, t in enumerate(instants)
+            {"t": t, "pluie_mm": serie[i], "vent_depuis_deg": vent_depuis_deg} for i, t in enumerate(instants)
         ]
 
     principale = [_prevision(openmeteo, p.lat, p.lon, _heures(p.nom, pluie_principale)) for p in points]
@@ -427,9 +424,7 @@ def _rapport(
         second = []
     else:
         second = [_prevision(openmeteo, p.lat, p.lon, _heures(p.nom, pluie_second)) for p in points]
-    rapport = rapport_module.construire(
-        DEPART, points, principale, second, instants[0], len(instants)
-    )
+    rapport = rapport_module.construire(DEPART, points, principale, second, instants[0], len(instants))
     return rapport_module, rapport
 
 
@@ -499,9 +494,7 @@ def test_vent_relatif(direction, vent_depuis_deg, attendu):
 )
 def test_confiance(principale, second, attendu):
     """Seuils littéraux du contrat : désaccord si l'un ≥ 0,3 et l'autre < 0,1."""
-    _, rapport = _rapport(
-        pluie_principale={"N": [principale]}, pluie_second={"N": [second]}
-    )
+    _, rapport = _rapport(pluie_principale={"N": [principale]}, pluie_second={"N": [second]})
     cellule = _cellule(rapport, "N")
     assert cellule.confiance == attendu, (
         f"pluie {principale} / {second} : attendu {attendu}, reçu {cellule.confiance!r}"
@@ -519,10 +512,28 @@ def test_second_avis_absent_donne_inconnu():
 
 def test_meilleure_direction_choisit_le_moins_arrose():
     module, rapport = _rapport(
-        pluie_principale={"N": [0.0], "NE": [3.0], "E": [3.0], "SE": [3.0], "S": [3.0],
-                          "SO": [3.0], "O": [3.0], "NO": [3.0], "ici": [3.0]},
-        pluie_second={"N": [0.0], "NE": [3.0], "E": [3.0], "SE": [3.0], "S": [3.0],
-                      "SO": [3.0], "O": [3.0], "NO": [3.0], "ici": [3.0]},
+        pluie_principale={
+            "N": [0.0],
+            "NE": [3.0],
+            "E": [3.0],
+            "SE": [3.0],
+            "S": [3.0],
+            "SO": [3.0],
+            "O": [3.0],
+            "NO": [3.0],
+            "ici": [3.0],
+        },
+        pluie_second={
+            "N": [0.0],
+            "NE": [3.0],
+            "E": [3.0],
+            "SE": [3.0],
+            "S": [3.0],
+            "SO": [3.0],
+            "O": [3.0],
+            "NO": [3.0],
+            "ici": [3.0],
+        },
     )
     nom, motif = rapport.meilleure_direction()
     assert nom == "N", f"direction conseillée {nom!r} alors que seul le nord est sec"
@@ -538,12 +549,26 @@ def test_meilleure_direction_egalite_prefere_le_vent_de_face_a_l_aller():
     _, rapport = _rapport(
         vent_depuis_deg=0.0,
         pluie_principale={
-            "N": [0.15], "S": [0.10], "NE": [3.0], "E": [3.0], "SE": [3.0],
-            "SO": [3.0], "O": [3.0], "NO": [3.0], "ici": [3.0],
+            "N": [0.15],
+            "S": [0.10],
+            "NE": [3.0],
+            "E": [3.0],
+            "SE": [3.0],
+            "SO": [3.0],
+            "O": [3.0],
+            "NO": [3.0],
+            "ici": [3.0],
         },
         pluie_second={
-            "N": [0.15], "S": [0.10], "NE": [3.0], "E": [3.0], "SE": [3.0],
-            "SO": [3.0], "O": [3.0], "NO": [3.0], "ici": [3.0],
+            "N": [0.15],
+            "S": [0.10],
+            "NE": [3.0],
+            "E": [3.0],
+            "SE": [3.0],
+            "SO": [3.0],
+            "O": [3.0],
+            "NO": [3.0],
+            "ici": [3.0],
         },
     )
     nom, _ = rapport.meilleure_direction()
@@ -552,9 +577,7 @@ def test_meilleure_direction_egalite_prefere_le_vent_de_face_a_l_aller():
 
 def test_meilleure_direction_sans_donnee():
     module, rapport = _rapport(
-        pluie_principale=dict.fromkeys(
-            ("ici", "N", "NE", "E", "SE", "S", "SO", "O", "NO"), [None]
-        ),
+        pluie_principale=dict.fromkeys(("ici", "N", "NE", "E", "SE", "S", "SO", "O", "NO"), [None]),
         pluie_second=dict.fromkeys(("ici", "N", "NE", "E", "SE", "S", "SO", "O", "NO"), [None]),
     )
     resultat, _ = outils.robuste(
@@ -683,8 +706,16 @@ def _valeurs_de_cellule(cellule: Any) -> dict[str, Any]:
     return {
         nom: getattr(cellule, nom)
         for nom in (
-            "direction", "distance_km", "t", "pluie_mm", "pluie_second_avis_mm",
-            "vent_kmh", "vent_depuis_deg", "vent_relatif", "ressenti_c", "confiance",
+            "direction",
+            "distance_km",
+            "t",
+            "pluie_mm",
+            "pluie_second_avis_mm",
+            "vent_kmh",
+            "vent_depuis_deg",
+            "vent_relatif",
+            "ressenti_c",
+            "confiance",
         )
     }
 

@@ -151,9 +151,7 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
     # ajoute la pénalité de séance non tenue (correction du 13/09 : un retour
     # au calme tombé à 0 min ne doit plus donner le meilleur placement), donc
     # elle n'est plus bornée par les notes de couloir — l'identité, elle, l'est.
-    assert placement.note_totale == pytest.approx(
-        placement.note_terrain + placement.penalite_seance
-    ), (
+    assert placement.note_totale == pytest.approx(placement.note_terrain + placement.penalite_seance), (
         f"note_totale = {placement.note_totale} alors que note_terrain + penalite_seance vaut "
         f"{placement.note_terrain + placement.penalite_seance} : la note ne se décompose plus"
     )
@@ -191,9 +189,9 @@ def test_une_seance_tient_sur_une_boucle_propre():
         f"note de terrain {placement.note_terrain} sur une boucle plate sans obstacle — "
         f"motifs : {[m for e in placement.blocs() for m in e.note.motifs]}"
     )
-    assert [e.debut_m for e in placement.blocs()] == sorted(
-        e.debut_m for e in placement.blocs()
-    ), "les blocs doivent être placés dans l'ordre de la séance"
+    assert [e.debut_m for e in placement.blocs()] == sorted(e.debut_m for e in placement.blocs()), (
+        "les blocs doivent être placés dans l'ordre de la séance"
+    )
 
 
 def test_le_placement_ne_modifie_ni_la_seance_ni_le_trace():
@@ -225,10 +223,12 @@ def test_une_seance_sans_bloc_ne_place_rien():
     seance = fabriques_seance.seance(
         mod,
         [
-            fabriques_seance.etape(mod, "echauffement", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
-                             elastique=True),
-            fabriques_seance.etape(mod, "calme", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
-                             elastique=True),
+            fabriques_seance.etape(
+                mod, "echauffement", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W, elastique=True
+            ),
+            fabriques_seance.etape(
+                mod, "calme", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W, elastique=True
+            ),
         ],
     )
     placement = _placer(seance, _boucle())
@@ -331,6 +331,7 @@ def test_les_ecarts_entre_blocs_ne_dependent_pas_de_l_elasticite():
     large = _placer(seance, trace, elasticite=(-0.05, 0.20))
     if serre is None or large is None or len(serre.blocs()) < 2:
         pytest.skip("pas de placement à deux blocs : l'écart n'est pas observable")
+
     def ecart(p: Any) -> float:
         premier = p.blocs()[0]
         return p.blocs()[1].debut_m - (premier.debut_m + premier.longueur_m)

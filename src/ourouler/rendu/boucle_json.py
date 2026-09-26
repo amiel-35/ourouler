@@ -45,9 +45,7 @@ def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
     return {
         "utilise": meteo.modele_utilise,
         "repli": meteo.repli,
-        "bascule_km": (
-            round(meteo.bascule_dist_m / 1000.0, 3) if meteo.bascule_dist_m is not None else None
-        ),
+        "bascule_km": (round(meteo.bascule_dist_m / 1000.0, 3) if meteo.bascule_dist_m is not None else None),
     }
 
 
@@ -110,10 +108,7 @@ def rendre_json(
         # candidate plus courte que la cible n'y a simplement aucun effet,
         # voir `boucle.horaire`) — ce que l'utilisateur a demandé, pas une
         # réinterprétation par tracé.
-        "pauses": [
-            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)}
-            for p in demande.pauses
-        ],
+        "pauses": [{"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in demande.pauses],
         # La troisième valeur de l'écran de FTP (`ecran_ftp.info_compteur`),
         # publiée ici pour que `temps_ecoule_s` de chaque candidate se
         # vérifie de tête : `null` sans vélo dans la configuration — pas de
@@ -149,9 +144,7 @@ def rendre_json(
             "litterature": _litterature_json(modele),
             "alerte": modele.alerte or None,
         },
-        "candidates": [
-            _candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations
-        ],
+        "candidates": [_candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations],
     }
 
 
@@ -214,9 +207,7 @@ def _candidate_json(
         # au-dessus du calcul de `heure_arrivee`.
         "heure_arrivee": heure_arrivee.isoformat(),
         "vitesse_meteo_kmh": (
-            None
-            if evaluation.vitesse_meteo_kmh is None
-            else round(evaluation.vitesse_meteo_kmh, 2)
+            None if evaluation.vitesse_meteo_kmh is None else round(evaluation.vitesse_meteo_kmh, 2)
         ),
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,

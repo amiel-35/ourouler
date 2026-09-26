@@ -188,13 +188,11 @@ def placer(
     prealables: list[str] = []
     if idx_ouverture is None:
         prealables.append(
-            "aucune Z2 d'ouverture élastique : la séance est posée telle quelle, "
-            "sans levier de placement"
+            "aucune Z2 d'ouverture élastique : la séance est posée telle quelle, sans levier de placement"
         )
     if idx_fermeture is None:
         prealables.append(
-            "aucun retour au calme élastique : rien n'absorbe la distance restante "
-            "après le dernier bloc"
+            "aucun retour au calme élastique : rien n'absorbe la distance restante après le dernier bloc"
         )
 
     duree_ouverture = seance.etapes[idx_ouverture].duree_s if idx_ouverture is not None else 0.0
@@ -504,8 +502,7 @@ def _avertir_fin(terrain: _Terrain, etat: _Etat, avertissements: list[str], *, f
     """Ce qu'il faut dire de la fin de séance : tracé restant, retour à l'envers."""
     if not fermee and etat.sens > 0 and terrain.total - etat.position_m > 0:
         avertissements.append(
-            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé "
-            "après la dernière étape"
+            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé après la dernière étape"
         )
     if etat.sens < 0:
         avertissements.append(
@@ -764,9 +761,7 @@ def _variante_demi_tour(
     return [recup_emp, bloc_emp], essai
 
 
-def _route_au_dela(
-    trace: Trace, terrain: _Terrain, position_m: float, besoin_m: float, sens: int
-) -> bool:
+def _route_au_dela(trace: Trace, terrain: _Terrain, position_m: float, besoin_m: float, sens: int) -> bool:
     """`terrain.route_au_dela`, appliqué dans le sens de marche.
 
     La fonction d'origine ne connaît que le sens du tracé ; après un premier
@@ -844,8 +839,7 @@ def _fermer(
         duree_txt = f"{duree / 60:.0f} min au lieu des {etape.duree_s / 60:.0f} prescrites"
         if ecart < bas:
             avertissements.append(
-                f"retour au calme raccourci : {duree_txt} ({ecart:+.0%}) — "
-                f"{MOTIF_SEANCE_AMPUTEE}"
+                f"retour au calme raccourci : {duree_txt} ({ecart:+.0%}) — {MOTIF_SEANCE_AMPUTEE}"
             )
         elif ecart > haut:
             avertissements.append(
@@ -886,8 +880,7 @@ def _puissance(etape: Etape, avertissements: list[str], idx: int) -> float:
     cible = etape.puissance_cible_w
     if cible is None or not math.isfinite(cible) or cible <= 0:
         avertissements.append(
-            f"{_nom(etape, idx)} : aucune puissance cible, vitesse estimée à "
-            f"{PUISSANCE_SANS_CIBLE_W:.0f} W"
+            f"{_nom(etape, idx)} : aucune puissance cible, vitesse estimée à {PUISSANCE_SANS_CIBLE_W:.0f} W"
         )
         return PUISSANCE_SANS_CIBLE_W
     return float(cible)
@@ -929,5 +922,3 @@ def _plus_de_route(etat: _Etat, terrain: _Terrain, etape: Etape, idx: int) -> st
         f"plus de route au km {etat.position_m / 1000:.1f} sur "
         f"{terrain.total / 1000:.1f} km pour {_nom(etape, idx)}"
     )
-
-

@@ -80,9 +80,7 @@ class ChampVent:
         sortie, elle doit seulement se dire.
         """
         self.facteur_hauteur = facteur_hauteur if math.isfinite(facteur_hauteur) else 0.0
-        connus = sorted(
-            (e for e in echantillons if _utilisable(e)), key=lambda e: float(e.dist_m)
-        )
+        connus = sorted((e for e in echantillons if _utilisable(e)), key=lambda e: float(e.dist_m))
         self.positions = [float(e.dist_m) for e in connus]
         self.vitesses_ms = [float(e.vent_kmh) / 3.6 for e in connus]
         self.directions_deg = [float(e.vent_depuis_deg) for e in connus]
@@ -146,6 +144,5 @@ def _utilisable(e: Echantillon) -> bool:
     série et rendrait toute recherche par dichotomie absurde.
     """
     return all(
-        valeur is not None and math.isfinite(valeur)
-        for valeur in (e.dist_m, e.vent_kmh, e.vent_depuis_deg)
+        valeur is not None and math.isfinite(valeur) for valeur in (e.dist_m, e.vent_kmh, e.vent_depuis_deg)
     )

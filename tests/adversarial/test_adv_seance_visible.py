@@ -103,9 +103,7 @@ class _Patch:
 
 def placer(monkeypatch: Any, seance: Any, trace: Any, **kw: Any) -> Any:
     """`placer` sur un terrain factice, avec le refus rangé dans le message d'échec."""
-    options = {
-        cle: kw.pop(cle) for cle in ("bon", "mauvais", "pente", "demi_tour") if cle in kw
-    }
+    options = {cle: kw.pop(cle) for cle in ("bon", "mauvais", "pente", "demi_tour") if cle in kw}
     appels = fab.terrain_factice(monkeypatch, **options)
     module = module_placement
     resultat = module.placer(seance, trace, fab.parametres(), **kw)
@@ -185,10 +183,7 @@ def test_placer_rend_toutes_les_etapes_et_la_note_des_non_blocs_est_optionnelle(
     """
     motif = motif_absence()
     if motif:  # pragma: no cover - chemin nominal avant fusion
-        pytest.fail(
-            f"{motif}. Tous les autres tests de ce fichier sont en skip et ne "
-            "vérifient rien."
-        )
+        pytest.fail(f"{motif}. Tous les autres tests de ce fichier sont en skip et ne vérifient rien.")
 
     module = module_placement
     annotation = str(module.Emplacement.__annotations__.get("note", ""))
@@ -492,9 +487,7 @@ def test_un_demi_tour_ecrete_ne_perd_pas_de_distance(monkeypatch):
         demi_tour=True,
         penalite_demi_tour=1.0,
     )
-    jalons = sum(
-        abs(b - a) for a, b in zip(resultat.jalons_m[:-1], resultat.jalons_m[1:], strict=True)
-    )
+    jalons = sum(abs(b - a) for a, b in zip(resultat.jalons_m[:-1], resultat.jalons_m[1:], strict=True))
     assert abs(resultat.distance_totale_m - jalons) > 1_000.0, (
         "cette fixture doit reproduire l'écrêtage du jalon de demi-tour, sinon elle "
         f"ne teste rien : jalons {jalons:.0f} m, distance {resultat.distance_totale_m:.0f} m"
@@ -584,9 +577,7 @@ def test_la_note_de_terrain_ne_se_dilue_pas_dans_les_non_blocs(monkeypatch):
     """
     exiger_lot()
     seance = fab.seance_2x20()
-    resultat, _ = placer(
-        monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0), mauvais=10.0
-    )
+    resultat, _ = placer(monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0), mauvais=10.0)
     dilue = (10.0 * 1200.0 + 10.0 * 1200.0) / (3600.0 + 1200.0 + 240.0 + 1200.0 + 1800.0)
     assert resultat.note_terrain == pytest.approx(10.0, abs=1e-12), (
         f"note_terrain = {resultat.note_terrain!r} au lieu de 10,0. "
@@ -611,9 +602,7 @@ def test_evaluer_couloir_n_est_appele_que_sur_les_blocs(monkeypatch):
     seance = fab.seance_2x20()
     resultat, appels = placer(monkeypatch, seance, fab.trace_droite(78_000.0))
     non_blocs = {
-        round(e.longueur_m, 3)
-        for e in resultat.emplacements
-        if seance.etapes[e.etape_idx].type != "bloc"
+        round(e.longueur_m, 3) for e in resultat.emplacements if seance.etapes[e.etape_idx].type != "bloc"
     }
     evaluees = {round(longueur, 3) for _, longueur, _, _ in appels}
     communes = non_blocs & evaluees - {0.0}
@@ -646,8 +635,7 @@ def test_la_note_de_terrain_est_la_moyenne_ponderee_des_seuls_blocs(monkeypatch)
     poids = [float(seance.etapes[e.etape_idx].duree_s) for e in blocs]
     attendu = sum(fab.note_de(e) * p for e, p in zip(blocs, poids, strict=True)) / sum(poids)
     assert resultat.note_terrain == pytest.approx(attendu, abs=1e-12), (
-        f"note_terrain = {resultat.note_terrain!r}, recalculée sur les seuls blocs "
-        f"= {attendu!r}"
+        f"note_terrain = {resultat.note_terrain!r}, recalculée sur les seuls blocs = {attendu!r}"
     )
     assert len({fab.note_de(e) for e in blocs}) == 2, (
         "cette fixture doit produire deux notes différentes, sinon la pondération "
@@ -666,11 +654,18 @@ def test_la_note_d_un_bloc_reste_lisible_sans_passer_par_un_optionnel(monkeypatc
     seance = fab.seance_2x20()
     resultat, _ = placer(monkeypatch, seance, fab.trace_droite(78_000.0), bon=(-2.0, -1.0))
     for e in fab.blocs_de(resultat, seance):
-        for champ in ("note", "motifs", "pente_moyenne", "pente_max", "carrefours",
-                      "km_batis", "descente_m", "montee_m"):
+        for champ in (
+            "note",
+            "motifs",
+            "pente_moyenne",
+            "pente_max",
+            "carrefours",
+            "km_batis",
+            "descente_m",
+            "montee_m",
+        ):
             assert hasattr(e.note, champ), (
-                f"la note du bloc {e.etape_idx} a perdu `{champ}` : l'affichage et la "
-                "carte le lisent"
+                f"la note du bloc {e.etape_idx} a perdu `{champ}` : l'affichage et la carte le lisent"
             )
         assert e.note.motifs, "un couloir hors du bon segment doit porter un motif"
 
@@ -936,17 +931,14 @@ def test_le_compte_de_blocs_bien_places_ne_compte_que_des_blocs(monkeypatch, cas
     attendu = GOLDEN[cas]
     seance = fab.seance_2x20()
     trace = fab.trace_droite(attendu["trace_m"])
-    resultat, _ = placer(
-        monkeypatch, seance, trace, **attendu["options"], **attendu.get("kw", {})
-    )
+    resultat, _ = placer(monkeypatch, seance, trace, **attendu["options"], **attendu.get("kw", {}))
     proposition = _proposition(commande, resultat, trace)
     assert proposition.blocs_bien_places == attendu["n_blocs_bien_places"], (
         f"{cas} : {proposition.blocs_bien_places} blocs bien placés annoncés pour "
         f"{attendu['n_blocs_bien_places']} réels — le compteur ratisse les non-blocs"
     )
     assert proposition.demi_tours == attendu["n_demi_tours"], (
-        f"{cas} : {proposition.demi_tours} demi-tours annoncés pour "
-        f"{attendu['n_demi_tours']} réels"
+        f"{cas} : {proposition.demi_tours} demi-tours annoncés pour {attendu['n_demi_tours']} réels"
     )
 
 
@@ -1014,13 +1006,11 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
         portantes = [ligne for ligne in lignes if debut in ligne and fin in ligne]
         assert portantes, (
             f"étape {e.etape_idx} ({seance.etapes[e.etape_idx].type}) : aucune ligne ne "
-            f"porte « km {debut} » et « km {fin} ». Lignes rendues :\n"
-            + "\n".join(lignes)
+            f"porte « km {debut} » et « km {fin} ». Lignes rendues :\n" + "\n".join(lignes)
         )
         vues.append(portantes[0])
     assert len(set(vues)) == len(seance.etapes), (
-        "chaque étape doit avoir sa propre ligne ; deux étapes se partagent la même :\n"
-        + "\n".join(lignes)
+        "chaque étape doit avoir sa propre ligne ; deux étapes se partagent la même :\n" + "\n".join(lignes)
     )
 
 
@@ -1044,17 +1034,14 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
     for e in resultat.emplacements:
         debut = nombre_fr(e.debut_m / 1000.0, 1)
         fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
-        lignes_etapes.append(
-            (e, next(ligne for ligne in lignes if debut in ligne and fin in ligne))
-        )
+        lignes_etapes.append((e, next(ligne for ligne in lignes if debut in ligne and fin in ligne)))
 
     for e, ligne in lignes_etapes:
         if seance.etapes[e.etape_idx].type == "bloc":
             assert "10,00" in ligne, f"le bloc {e.etape_idx} doit garder sa note : {ligne!r}"
         else:
             assert "note" not in ligne.casefold(), (
-                f"l'étape {e.etape_idx} n'est pas un bloc et sa ligne annonce une "
-                f"note : {ligne!r}"
+                f"l'étape {e.etape_idx} n'est pas un bloc et sa ligne annonce une note : {ligne!r}"
             )
             assert "0,00" not in ligne, (
                 f"l'étape {e.etape_idx} porte « 0,00 » : la valeur neutre a été "
@@ -1099,9 +1086,7 @@ def test_l_affichage_supporte_deux_etapes_au_meme_kilometre(monkeypatch):
     trace = fab.trace_droite(50_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     lignes = _lignes_seance(commande, _proposition(commande, resultat, trace), seance)
-    assert len(lignes) >= len(seance.etapes), (
-        f"{len(lignes)} lignes pour {len(seance.etapes)} étapes"
-    )
+    assert len(lignes) >= len(seance.etapes), f"{len(lignes)} lignes pour {len(seance.etapes)} étapes"
     assert all(isinstance(ligne, str) for ligne in lignes)
 
 
@@ -1190,10 +1175,7 @@ def _distance_min(points: list[tuple[float, float]], cible: Any) -> float:
     from ourouler.noyau.trace import PointTrace, distance_m
 
     return min(
-        (
-            distance_m(PointTrace(lat=lat, lon=lon, alt_m=None, dist_m=0.0), cible)
-            for lat, lon in points
-        ),
+        (distance_m(PointTrace(lat=lat, lon=lon, alt_m=None, dist_m=0.0), cible) for lat, lon in points),
         default=math.inf,
     )
 
@@ -1244,10 +1226,7 @@ def test_la_carte_distingue_ce_qui_est_roule_de_ce_qui_ne_l_est_pas(monkeypatch)
     )
 
 
-HOSTILE = (
-    "</script><img src=x onerror=alert(1)> & \"guillemets\" 'simples' "
-    "<b>gras</b>   sentinelle-l52"
-)
+HOSTILE = "</script><img src=x onerror=alert(1)> & \"guillemets\" 'simples' <b>gras</b>   sentinelle-l52"
 
 
 def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
@@ -1301,13 +1280,9 @@ def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
     inerte = "etape inerte"
     seance_inerte = _seance_libellee(inerte)
     temoin_placement, _ = placer(monkeypatch, seance_inerte, trace)
-    temoin = carte.construire(
-        trace, seance_inerte, temoin_placement, sous_titre=inerte, notes=[inerte]
-    )
+    temoin = carte.construire(trace, seance_inerte, temoin_placement, sous_titre=inerte, notes=[inerte])
     balises = sorted(nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", page))
-    balises_temoin = sorted(
-        nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", temoin)
-    )
+    balises_temoin = sorted(nom.casefold() for nom in re.findall(r"<\s*([A-Za-z][\w-]*)", temoin))
     assert balises == balises_temoin, (
         "un libellé hostile a ajouté ou retiré des balises à la page : "
         f"{sorted(set(balises) ^ set(balises_temoin))}"

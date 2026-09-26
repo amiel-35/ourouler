@@ -105,9 +105,7 @@ def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, monkeypatch, 
     assert temps[0] > temps[1]
 
 
-def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(tmp_path: Path, monkeypatch, capsys):
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
@@ -121,9 +119,7 @@ def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
     assert all(c["temps_source"] == "modele" for c in charge["candidates"])
 
 
-def test_sans_modele_du_tout_la_colonne_revient_a_la_vitesse_moyenne(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sans_modele_du_tout_la_colonne_revient_a_la_vitesse_moyenne(tmp_path: Path, monkeypatch, capsys):
     """Un usage hors des catégories connues garde le chemin « aucun modèle ».
 
     `config.USAGES_VELO` n'en accepte que deux aujourd'hui, tous deux dans la
@@ -185,9 +181,7 @@ def test_sans_ftp_ni_puissance_la_colonne_temps_retombe_sur_la_vitesse_de_config
     assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
 
 
-def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(tmp_path: Path, monkeypatch, capsys):
     """Le défaut que ce lot corrige, énoncé comme le mainteneur l'a trouvé.
 
     « Faire varier sa FTP de 150 à 300 W ne déplace ni les heures de passage
@@ -200,17 +194,13 @@ def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(
         config = config_avec_velo_calibrable(tmp_path)
         config = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp))
         monkeypatch.chdir(tmp_path)
-        executer(
-            args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo()
-        )
+        executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
         charge = json.loads(capsys.readouterr().out)
         vitesses.append(charge["candidates"][0]["vitesse_meteo_kmh"])
     assert vitesses[0] < vitesses[1]
 
 
-def test_avec_calibration_les_heures_de_passage_suivent_le_modele(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_avec_calibration_les_heures_de_passage_suivent_le_modele(tmp_path: Path, monkeypatch, capsys):
     """La vitesse qui date la prévision vient du modèle, pas des 27 km/h de la config.
 
     Deux puissances très différentes doivent donner deux vitesses de passage
@@ -241,9 +231,7 @@ def test_avec_calibration_les_heures_de_passage_suivent_le_modele(
     assert vitesses[0] != pytest.approx(config.boucle.vitesse_moyenne_kmh)
 
 
-def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(tmp_path: Path, monkeypatch, capsys):
     from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
@@ -287,9 +275,7 @@ def test_compteur_et_temps_ecoule_sont_nuls_sans_velo(tmp_path: Path):
     config = dataclasses.replace(config_avec_facteur_mesure(tmp_path), velos=())
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
-    charge = rendre_json(
-        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
-    )
+    charge = rendre_json([evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info)
     assert charge["compteur"] is None
     candidate = charge["candidates"][0]
     assert candidate["temps_ecoule_s"] is None
@@ -304,9 +290,7 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
-    charge = rendre_json(
-        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
-    )
+    charge = rendre_json([evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info)
     compteur = charge["compteur"]
     assert compteur["velo"] == "RCR"
     assert compteur["facteur_compteur"] == pytest.approx(0.85)
@@ -362,9 +346,7 @@ def test_ecran_ftp_valeurs_liees_sans_puissance_ne_bouge_pas(tmp_path: Path):
     avant = {
         "velo": "RCR",
         "position_zone": round(config.seance.position_zone, 6),
-        "puissance_endurance_pct": pytest.approx(
-            config.seance.puissance_endurance_pct, abs=1e-6
-        ),
+        "puissance_endurance_pct": pytest.approx(config.seance.puissance_endurance_pct, abs=1e-6),
     }
     apres = valeurs_liees(config)
     assert apres["velo"] == avant["velo"]
@@ -429,20 +411,14 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
-    charge = rendre_json(
-        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
-    )
+    charge = rendre_json([evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info)
     candidate = charge["candidates"][0]
     bas, mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
     assert candidate["temps_ecoule_s"] == round(5_000.0 * mediane)
     assert candidate["temps_ecoule_bas_s"] == round(5_000.0 * bas)
     assert candidate["temps_ecoule_haut_s"] == round(5_000.0 * haut)
     assert candidate["temps_ecoule_source"] == "defaut"
-    assert (
-        candidate["temps_ecoule_bas_s"]
-        <= candidate["temps_ecoule_s"]
-        <= candidate["temps_ecoule_haut_s"]
-    )
+    assert candidate["temps_ecoule_bas_s"] <= candidate["temps_ecoule_s"] <= candidate["temps_ecoule_haut_s"]
 
 
 def test_temps_ecoule_json_prend_la_fourchette_mesuree_du_velo(tmp_path: Path):
@@ -482,9 +458,7 @@ def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
-    texte = rendre_texte(
-        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
-    )
+    texte = rendre_texte([evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info)
     bas, _mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
 
     def hm(secondes: float) -> str:
@@ -509,16 +483,12 @@ def test_texte_boucle_dit_la_fourchette_de_la_retenue_en_toutes_lettres():
 def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
     config = dataclasses.replace(config_avec_facteur_mesure(tmp_path), velos=())
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
-    texte = rendre_texte(
-        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=None
-    )
+    texte = rendre_texte([evaluation], _demande_de_test(), config, chemin=None, compteur_info=None)
     assert "écoulé porte à porte" not in texte
     assert " / " not in texte.splitlines()[3]  # la ligne de la candidate n° 1
 
 
-def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(tmp_path: Path, monkeypatch, capsys):
     """Décision du 25/09 : la calibration est gardée, mais l'écran dit qu'elle
     ne suit plus le pneu déclaré — en texte comme en JSON."""
     from ourouler.physique.commande import chemin_calibration, ecrire_calibration
@@ -531,8 +501,13 @@ def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(
     ecrire_calibration(
         chemin_calibration(config),
         "RCR",
-        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 89.0, "crr_source": "pneu",
-         "pneu": "course_rapide"},
+        {
+            "cda_m2": 0.33,
+            "crr": 0.005,
+            "masse_totale_kg": 89.0,
+            "crr_source": "pneu",
+            "pneu": "course_rapide",
+        },
     )
     monkeypatch.chdir(tmp_path)
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())

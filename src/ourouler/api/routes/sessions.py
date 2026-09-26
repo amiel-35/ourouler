@@ -137,9 +137,7 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
             acces = depot.activer(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
             # Le motif est perdu **exprès** : voir MESSAGE_LIEN_INVALIDE.
-            raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
-            ) from e
+            raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400) from e
         except Exception as e:
             raise classer(e) from e
         jeton_session = depot.ouvrir_session(acces.compte.identifiant)
@@ -167,9 +165,7 @@ def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -
         try:
             acces = depot.changer_mot_de_passe_par_jeton(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
-            raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
-            ) from e
+            raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400) from e
         except Exception as e:
             raise classer(e) from e
         jeton_session = depot.ouvrir_session(acces.compte.identifiant)

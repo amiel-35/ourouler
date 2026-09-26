@@ -84,9 +84,7 @@ def _trace(km: float = 12.0, *, cap_deg: float = 0.0, pas_m: float = 50.0):
     sur le point du tracé le plus proche. Avec des points tous les 50 m, les
     deux lectures tiennent dans la même tolérance.
     """
-    return fabriques.trace_fictive(
-        fabriques.ligne(int(km * 1000 / pas_m) + 1, pas_m=pas_m, cap_deg=cap_deg)
-    )
+    return fabriques.trace_fictive(fabriques.ligne(int(km * 1000 / pas_m) + 1, pas_m=pas_m, cap_deg=cap_deg))
 
 
 def _evaluer(module, trace, client, **surcharges):
@@ -201,8 +199,7 @@ def test_l_heure_de_passage_suit_la_vitesse():
     for e in meteo.echantillons:
         attendu = DEPART_T + timedelta(hours=e.dist_m / 1000.0 / 20.0)
         assert abs((e.t - attendu).total_seconds()) <= 60.0, (
-            f"échantillon à {e.dist_m:.0f} m daté {e.t}, attendu {attendu} "
-            "(depart + dist / vitesse)"
+            f"échantillon à {e.dist_m:.0f} m daté {e.t}, attendu {attendu} (depart + dist / vitesse)"
         )
 
 
@@ -295,9 +292,7 @@ def test_un_desaccord_entre_modeles_est_signale():
     client, espion = _client_par_modele({MODELE: {"pluie": 1.0}, SECOND_AVIS: {"pluie": 0.0}})
     meteo = _evaluer(module, _trace(12.0), client, second_avis=SECOND_AVIS)
     _verifier(meteo, "second avis")
-    assert len(espion.requetes) == 2, (
-        f"{len(espion.requetes)} appels : un par modèle, pas un par point"
-    )
+    assert len(espion.requetes) == 2, f"{len(espion.requetes)} appels : un par modèle, pas un par point"
     modeles = {dict(r.url.params).get("models") for r in espion.requetes}
     assert modeles == {MODELE, SECOND_AVIS}, f"modèles interrogés : {modeles}"
     assert meteo.confiance == rapport.CONFIANCE_DESACCORD, (

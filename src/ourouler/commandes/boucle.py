@@ -56,8 +56,13 @@ def executer_depuis_namespace(
     else:
         print(
             rendre_texte(
-                r.evaluations, r.demande, r.profil, r.chemin, r.modele,
-                poids=r.poids, compteur_info=r.compteur_info,
+                r.evaluations,
+                r.demande,
+                r.profil,
+                r.chemin,
+                r.modele,
+                poids=r.poids,
+                compteur_info=r.compteur_info,
             )
         )
     return 0

@@ -93,9 +93,7 @@ def test_export_dun_proprietaire_ne_contient_rien_dun_autre(tmp_path: Path):
     assert "LISEZ-MOI.txt" in noms, "un export que personne ne sait ouvrir ne remplit pas son office"
     assert "profil.json" in noms
 
-    contenu = "\n".join(
-        archive.read(nom).decode("utf-8", errors="replace") for nom in noms
-    )
+    contenu = "\n".join(archive.read(nom).decode("utf-8", errors="replace") for nom in noms)
     assert MARQUE_A in contenu, (
         "l'export de A ne montre même pas ses propres données : le test ne prouve rien"
     )
@@ -136,9 +134,7 @@ def test_la_suppression_efface_le_profil_et_les_fichiers_de_ce_proprietaire(tmp_
 
     avant_profil = client.requete("GET", f"{PREFIXE_API}/profil", headers=entetes)
     assert MARQUE_A in avant_profil.text, "le semis n'a pas pris : le test ne prouverait rien"
-    avant_fichier = client.requete(
-        "GET", f"{PREFIXE_API}/fichiers/{ids['fichier']}", headers=entetes
-    )
+    avant_fichier = client.requete("GET", f"{PREFIXE_API}/fichiers/{ids['fichier']}", headers=entetes)
     assert avant_fichier.status_code == 200, "le fichier de A n'est pas servi avant suppression"
 
     suppression = client.requete("DELETE", f"{PREFIXE_API}/moi", headers=entetes)
@@ -151,9 +147,7 @@ def test_la_suppression_efface_le_profil_et_les_fichiers_de_ce_proprietaire(tmp_
 
     apres_profil = client.requete("GET", f"{PREFIXE_API}/profil", headers=entetes)
     assert MARQUE_A not in apres_profil.text, "le profil de A survit à sa propre suppression"
-    apres_fichier = client.requete(
-        "GET", f"{PREFIXE_API}/fichiers/{ids['fichier']}", headers=entetes
-    )
+    apres_fichier = client.requete("GET", f"{PREFIXE_API}/fichiers/{ids['fichier']}", headers=entetes)
     assert apres_fichier.status_code == 404, (
         "le fichier de A est encore servi après suppression : la route ne répond pas "
         "comme si la personne n'avait jamais existé"
@@ -182,16 +176,13 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
     _planter(client, PROPRIETAIRE_A, MARQUE_A)
     client.requete("DELETE", f"{PREFIXE_API}/moi", headers={"x-essai-proprietaire": PROPRIETAIRE_A})
 
-    apres_a = client.requete(
-        "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_A}
-    )
+    apres_a = client.requete("GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_A})
     jamais_vu = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_JAMAIS_VU}
     )
     assert apres_a.status_code == jamais_vu.status_code == 200
     assert apres_a.json()["donnees"] == jamais_vu.json()["donnees"], (
-        "le profil de A, après suppression, diffère encore de celui de quelqu'un qui n'a "
-        "jamais existé"
+        "le profil de A, après suppression, diffère encore de celui de quelqu'un qui n'a jamais existé"
     )
 
 
@@ -209,9 +200,7 @@ def test_la_suppression_dun_proprietaire_ne_touche_pas_l_autre(tmp_path: Path):
 
     apres = client.requete("GET", f"{PREFIXE_API}/profil", headers=entetes_b)
     assert MARQUE_B in apres.text, "la suppression de A a emporté le profil de B"
-    fichier_b = client.requete(
-        "GET", f"{PREFIXE_API}/fichiers/{ids_b['fichier']}", headers=entetes_b
-    )
+    fichier_b = client.requete("GET", f"{PREFIXE_API}/fichiers/{ids_b['fichier']}", headers=entetes_b)
     assert fichier_b.status_code == 200, "la suppression de A a emporté le fichier de B"
 
 
@@ -239,9 +228,7 @@ def test_la_suppression_nomme_ce_qui_reste(tmp_path: Path):
     """Ce qui n'est pas effacé n'est jamais tu : `donnees.conserve` le dit."""
     client = _service_pour_deux(tmp_path)
     _planter(client, PROPRIETAIRE_A, MARQUE_A)
-    reponse = client.requete(
-        "DELETE", f"{PREFIXE_API}/moi", headers={"x-essai-proprietaire": PROPRIETAIRE_A}
-    )
+    reponse = client.requete("DELETE", f"{PREFIXE_API}/moi", headers={"x-essai-proprietaire": PROPRIETAIRE_A})
     conserve = reponse.json()["donnees"]["conserve"]
     assert "routes_apprises" in conserve
     assert "collectiv" in conserve["routes_apprises"]
@@ -265,9 +252,7 @@ def test_suppression_du_cache_d_activites_efface_les_entrees_de_ce_proprietaire(
     a = Proprietaire(PROPRIETAIRE_A)
     cache_a = Cache(tmp_path / "cache", proprietaire=str(a))
     contenu = (activites / "boucle.gpx").read_bytes()
-    identifiant = cache_a.ajouter(
-        contenu, source="fichier", id_externe="essai-a", extension="gpx", meta={}
-    )
+    identifiant = cache_a.ajouter(contenu, source="fichier", id_externe="essai-a", extension="gpx", meta={})
 
     assert cache_a.contient_identifiant(identifiant), "l'entrée n'a pas été écrite : rien à prouver"
     assert cache_a.chemin(identifiant).is_file()
@@ -281,9 +266,7 @@ def test_suppression_du_cache_d_activites_efface_les_entrees_de_ce_proprietaire(
         cache_a.chemin(identifiant)
 
 
-def test_suppression_du_cache_epargne_le_fichier_brut_encore_reference(
-    tmp_path: Path, activites: Path
-):
+def test_suppression_du_cache_epargne_le_fichier_brut_encore_reference(tmp_path: Path, activites: Path):
     """Deux propriétaires aux octets identiques : effacer l'un ne prive pas l'autre.
 
     Depuis la contre-lecture Fable du 25/09/2026, chacun a **son** fichier

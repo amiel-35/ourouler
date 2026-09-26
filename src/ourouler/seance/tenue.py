@@ -142,9 +142,7 @@ def conseiller(meteo: MeteoTrace, p: ParametresTenue) -> Tenue:
         motifs.append("ressenti inconnu au départ : aucune tenue de base conseillée")
     else:
         base = list(tenues.get(categorie_temp, ()))
-        motifs.append(
-            f"au départ : {depart.ressenti_c:.0f} °C ressentis, catégorie « {categorie_temp} »"
-        )
+        motifs.append(f"au départ : {depart.ressenti_c:.0f} °C ressentis, catégorie « {categorie_temp} »")
         if not base:
             motifs.append(f"aucune tenue n'est définie pour la catégorie « {categorie_temp} »")
 
@@ -262,9 +260,7 @@ def _variation(
             f"{froid.dist_m / 1000:.0f} (« {categorie} ») : emporter {_liste(manquants)}"
         )
     elif a_enlever and connus[-1][0] <= rang_base:
-        motifs.append(
-            f"le ressenti redescend en fin de parcours : garder {_liste(list(a_enlever))}"
-        )
+        motifs.append(f"le ressenti redescend en fin de parcours : garder {_liste(list(a_enlever))}")
 
 
 # --- outils ------------------------------------------------------------------

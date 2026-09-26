@@ -111,9 +111,7 @@ def _verifier_candidates(candidates, *, cible_km: float, quoi: str) -> None:
     for i, c in enumerate(candidates):
         fabriques.verifier_trace(c.trace, quoi=f"{quoi} candidates[{i}].trace")
         assert math.isfinite(c.ecart_relatif), f"{quoi} : candidates[{i}].ecart_relatif non fini"
-        assert math.isfinite(c.rayon_m) and c.rayon_m > 0, (
-            f"{quoi} : candidates[{i}].rayon_m = {c.rayon_m!r}"
-        )
+        assert math.isfinite(c.rayon_m) and c.rayon_m > 0, f"{quoi} : candidates[{i}].rayon_m = {c.rayon_m!r}"
         assert math.isfinite(c.azimut_deg), f"{quoi} : candidates[{i}].azimut_deg non fini"
         attendu = (c.trace.distance_m - cible_km * 1000.0) / (cible_km * 1000.0)
         assert c.ecart_relatif == pytest.approx(attendu, abs=1e-6), (
@@ -275,9 +273,7 @@ def test_le_plafond_d_appels_est_respecte_a_la_lettre():
         moteur = MoteurFactice(30_000.0)
         with pytest.raises(ErreurDistanceInatteignable):
             _generer(module, moteur, appels_max=plafond, nb=5)
-        assert len(moteur.appels) <= plafond, (
-            f"appels_max={plafond} : {len(moteur.appels)} appels effectués"
-        )
+        assert len(moteur.appels) <= plafond, f"appels_max={plafond} : {len(moteur.appels)} appels effectués"
 
 
 def test_un_plafond_nul_n_appelle_pas_le_moteur():

@@ -236,9 +236,7 @@ def test_une_consigne_de_puissance_vide_ne_masque_pas_une_frequence_cardiaque_va
     mod = module_intervals
     etape = {"duration": 600.0, "power": {}, "hr": {"units": "hr_zone", "value": 4}}
     document = fabriques_seance.doc([groupe([etape])])
-    seance, erreur = _robuste(
-        lambda: appeler_depuis_workout(mod, document), quoi="power vide + hr valide"
-    )
+    seance, erreur = _robuste(lambda: appeler_depuis_workout(mod, document), quoi="power vide + hr valide")
     if erreur is not None:
         return
     _verifier(seance)
@@ -249,14 +247,10 @@ def test_une_consigne_de_puissance_vide_ne_masque_pas_une_frequence_cardiaque_va
     assert 0.0 < lue.puissance_min_w <= lue.puissance_max_w <= 5 * FTP_TEST_W
 
 
-@pytest.mark.parametrize(
-    "duree", [None, "abc"], ids=["absente", "chaine"]
-)
+@pytest.mark.parametrize("duree", [None, "abc"], ids=["absente", "chaine"])
 def test_une_duree_absurde_ne_fabrique_pas_de_seance_incoherente(duree):
     mod = module_intervals
-    document = fabriques_seance.doc(
-        [groupe([etape_doc(duree, ftp_pct=0.6), etape_doc(600.0, ftp_pct=1.0)])]
-    )
+    document = fabriques_seance.doc([groupe([etape_doc(duree, ftp_pct=0.6), etape_doc(600.0, ftp_pct=1.0)])])
     seance, erreur = _robuste(lambda: appeler_depuis_workout(mod, document), quoi=f"duration={duree!r}")
     if erreur is None:
         _verifier(seance)
@@ -308,9 +302,7 @@ def test_un_pourcentage_de_ftp_sans_ftp_ne_devient_pas_zero_watt():
     """FTP inconnu : la puissance reste inconnue. Zéro watt serait un mensonge."""
     mod = module_intervals
     document = fabriques_seance.doc([groupe([etape_doc(480.0, ftp_pct=1.05)])])
-    seance, erreur = _robuste(
-        lambda: appeler_depuis_workout(mod, document, ftp_w=None), quoi="%ftp sans FTP"
-    )
+    seance, erreur = _robuste(lambda: appeler_depuis_workout(mod, document, ftp_w=None), quoi="%ftp sans FTP")
     if erreur is not None:
         return
     _verifier(seance)
@@ -336,9 +328,7 @@ def test_le_pourcentage_de_ftp_reste_dans_un_ordre_de_grandeur_de_cycliste(valeu
 
 def test_deux_pourcentages_de_ftp_restent_proportionnels():
     mod = module_intervals
-    document = fabriques_seance.doc(
-        [groupe([etape_doc(600.0, ftp_pct=0.5), etape_doc(600.0, ftp_pct=1.0)])]
-    )
+    document = fabriques_seance.doc([groupe([etape_doc(600.0, ftp_pct=0.5), etape_doc(600.0, ftp_pct=1.0)])])
     seance = appeler_depuis_workout(mod, document)
     faible, forte = (e.puissance_cible_w for e in seance.etapes[:2])
     assert faible and forte
@@ -513,7 +503,7 @@ def test_aucune_seance_ce_jour_la_rend_none():
     "evenements",
     [
         [{"id": 1, "category": "WORKOUT", "name": "sans doc"}],
-        [{"id": 1, "category": "WORKOUT", "workout_doc": "{\"steps\": []}"}],
+        [{"id": 1, "category": "WORKOUT", "workout_doc": '{"steps": []}'}],
         {"erreur": "pas une liste"},
     ],
     ids=["sans_doc", "doc_en_chaine", "objet"],

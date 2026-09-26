@@ -149,8 +149,12 @@ def test_meteo_interroge_la_couronne_autour_du_depart_recu():
     config = config_de_test()
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=False,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=False,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -176,8 +180,12 @@ def test_meteo_sans_depart_recu_reste_sur_celui_de_la_configuration():
     """Le paramètre est optionnel : sans lui, rien ne change pour l'usage existant."""
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=False,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=False,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -190,8 +198,12 @@ def test_le_rapport_meteo_nomme_le_depart_recu():
     """Le lieu retenu se lit dans le rendu, pas seulement dans le message d'annonce."""
     vus: list[tuple[float, float]] = []
     args = argparse.Namespace(
-        depart="2026-09-13T08:00", horizon=None, distance=None, modele=None,
-        second_avis=None, json=True,
+        depart="2026-09-13T08:00",
+        horizon=None,
+        distance=None,
+        modele=None,
+        second_avis=None,
+        json=True,
     )
 
     from ourouler.commandes.meteo import executer_depuis_namespace as executer
@@ -219,8 +231,16 @@ def test_boucle_demande_ses_candidates_depuis_le_depart_recu(tmp_path: Path):
     # tout, et le sujet du test (le départ transmis au moteur) ne serait plus
     # atteignable. La distance n'a jamais été son sujet.
     args = argparse.Namespace(
-        distance=7.5, direction="NE", depart="2026-09-13T09:00", candidates=1,
-        profil=None, sortie=None, ecraser=False, gpx=None, json=False, velo=None,
+        distance=7.5,
+        direction="NE",
+        depart="2026-09-13T09:00",
+        candidates=1,
+        profil=None,
+        sortie=None,
+        ecraser=False,
+        gpx=None,
+        json=False,
+        velo=None,
         puissance=None,
     )
 
@@ -387,9 +407,13 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
     )
     code = cli.main(
         [
-            "--config", str(config), "boucle",
-            "--gpx", str(tmp_path / "importe.gpx"),
-            "--adresse-depart", "Place du Test",
+            "--config",
+            str(config),
+            "boucle",
+            "--gpx",
+            str(tmp_path / "importe.gpx"),
+            "--adresse-depart",
+            "Place du Test",
         ]
     )
     assert code == 2
@@ -411,9 +435,7 @@ def test_l_adresse_introuvable_sort_en_code_2_sans_trace_python(tmp_path, monkey
         "[cycliste]\nmasse_kg = 80.0\nftp_w = 250\n",
         encoding="utf-8",
     )
-    code = cli.main(
-        ["--config", str(config), "meteo", "--adresse-depart", "adresse totalement introuvable"]
-    )
+    code = cli.main(["--config", str(config), "meteo", "--adresse-depart", "adresse totalement introuvable"])
     assert code == 2
     capture = capsys.readouterr()
     assert "Traceback" not in capture.err

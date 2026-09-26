@@ -68,10 +68,7 @@ def droite(longueur_m: float, *, lat: float = 0.0, depart_m: float = 0.0) -> Tra
         )
         for i in range(nombre)
     ]
-    segments = [
-        Segment(i, i + 1, PAS_M, {"highway": "tertiary"}, node_tags={})
-        for i in range(nombre - 1)
-    ]
+    segments = [Segment(i, i + 1, PAS_M, {"highway": "tertiary"}, node_tags={}) for i in range(nombre - 1)]
     return Trace(
         nom="essai",
         points=points,
@@ -205,9 +202,7 @@ def test_un_ecart_de_duree_au_pas_distingue_si_l_autre_gagne_un_axe():
 )
 def test_chaque_axe_numerique_a_sa_marge(champ, pas, axe):
     """Juste sous le pas, personne ne gagne l'axe ; au pas, il est gagné."""
-    haut = {"densite_marqueurs_km": 3.0, "part_trafic": 0.5, "pluie_mm": 2.0, "note_terrain": 4.0}[
-        champ
-    ]
+    haut = {"densite_marqueurs_km": 3.0, "part_trafic": 0.5, "pluie_mm": 2.0, "note_terrain": 4.0}[champ]
     trop_peu, _ = selection_de(
         [profil(**{champ: haut - pas + pas / 100}), profil(**{champ: haut}, duree_s=7200.0)]
     )
@@ -264,9 +259,7 @@ def test_deux_candidates_ne_peuvent_pas_gagner_le_meme_axe():
     C'est ce qui rend l'attribution des axes possible sans arbitrage — voir
     `contraste._attribuer`. La dominée reste servie, mais sans la phrase.
     """
-    selection, _ = selection_de(
-        [profil(duree_s=7200.0), profil(duree_s=7200.0 + 3 * PAS_DUREE_S)]
-    )
+    selection, _ = selection_de([profil(duree_s=7200.0), profil(duree_s=7200.0 + 3 * PAS_DUREE_S)])
     assert [r.axe_distinctif for r in selection.retenues] == [AXE_DUREE, ""]
 
 
@@ -570,9 +563,7 @@ def test_une_seance_amputee_ne_gagne_jamais_l_axe_de_la_duree():
 
 
 def test_la_phrase_d_une_seance_amputee_ne_vante_jamais_sa_brieveté():
-    selection, _ = selection_de(
-        [profil(duree_s=7151.0, seance_amputee=False), profil(duree_s=2905.0)]
-    )
+    selection, _ = selection_de([profil(duree_s=7151.0, seance_amputee=False), profil(duree_s=2905.0)])
     phrases = [r.distinction for r in selection.retenues]
     assert "71 minutes de moins" not in phrases, phrases
     assert not any("minutes de moins" in p for p in phrases if p), phrases

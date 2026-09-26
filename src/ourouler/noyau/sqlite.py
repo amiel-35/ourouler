@@ -12,9 +12,7 @@ import sqlite3
 def table_existe(cx: sqlite3.Connection, nom: str) -> bool:
     """Vrai si la table `nom` existe dans la base."""
     return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
-        ).fetchone()
+        cx.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)).fetchone()
         is not None
     )
 

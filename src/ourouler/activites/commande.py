@@ -71,9 +71,7 @@ def executer(
 
     if demande.synchroniser:
         journal.extend(
-            _synchroniser(
-                cache, contexte.profil, demande.depuis, rafraichir_meta=demande.rafraichir_meta
-            )
+            _synchroniser(cache, contexte.profil, demande.depuis, rafraichir_meta=demande.rafraichir_meta)
         )
 
     return ResultatInventaire(
@@ -91,9 +89,7 @@ def date_depuis(brut: str | None, defaut: date) -> date:
         raise ErreurUtilisateur(f"--depuis : date AAAA-MM-JJ attendue, reçu « {brut} »") from e
 
 
-def _synchroniser(
-    cache: Cache, profil: Profil, depuis: date, *, rafraichir_meta: bool = True
-) -> list[str]:
+def _synchroniser(cache: Cache, profil: Profil, depuis: date, *, rafraichir_meta: bool = True) -> list[str]:
     """Rapatrie les activités Intervals.icu manquantes. Import paresseux : le
     connecteur n'est chargé que si on s'en sert."""
     if not profil.intervals.renseigne:

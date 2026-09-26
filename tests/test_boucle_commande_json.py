@@ -84,9 +84,7 @@ def test_l_entete_annonce_le_total_des_pauses_et_l_arrivee(tmp_path: Path, monke
     assert "par-dessus le temps écoulé porte à porte" in ligne
 
 
-def test_le_json_porte_les_pauses_declarees_et_l_heure_d_arrivee(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_json_porte_les_pauses_declarees_et_l_heure_d_arrivee(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     executer(
         args(json=True, pause=["10:0h45"]),

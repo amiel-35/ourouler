@@ -163,8 +163,7 @@ class ClientArchive:
         aujourd_hui = aujourd_hui if aujourd_hui is not None else datetime.now(UTC).date()
         if jour > aujourd_hui:
             raise ErreurUtilisateur(
-                f"archive : le {jour.isoformat()} est dans le futur — "
-                "l'archive météo ne connaît que le passé"
+                f"archive : le {jour.isoformat()} est dans le futur — l'archive météo ne connaît que le passé"
             )
         lat_a, lon_a = arrondir(lat), arrondir(lon)
         cle = (lat_a, lon_a, jour.isoformat())
@@ -288,9 +287,7 @@ class ClientArchive:
         try:
             cx = sqlite3.connect(self.chemin_cache)
         except sqlite3.Error as e:
-            raise ErreurUtilisateur(
-                f"archive : cache {self.chemin_cache} inutilisable ({e})"
-            ) from e
+            raise ErreurUtilisateur(f"archive : cache {self.chemin_cache} inutilisable ({e})") from e
         try:
             yield cx
             cx.commit()
@@ -303,8 +300,7 @@ class ClientArchive:
         try:
             with self._connexion() as cx:
                 ligne = cx.execute(
-                    "SELECT heures FROM archive "
-                    "WHERE proprietaire = ? AND lat = ? AND lon = ? AND jour = ?",
+                    "SELECT heures FROM archive WHERE proprietaire = ? AND lat = ? AND lon = ? AND jour = ?",
                     (self.proprietaire, lat, lon, jour.isoformat()),
                 ).fetchone()
         except sqlite3.Error:
@@ -364,9 +360,7 @@ def _heures(charge: Any, url: str) -> list[HeureArchive]:
         motif = charge.get("reason") or "sans motif"
         raise ErreurConnecteur(f"archive Open-Meteo a refusé la requête sur {url} : {motif}")
     if not isinstance(charge, dict):
-        raise ErreurConnecteur(
-            f"archive Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}"
-        )
+        raise ErreurConnecteur(f"archive Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}")
     horaire = charge.get("hourly")
     if horaire is None:
         return []

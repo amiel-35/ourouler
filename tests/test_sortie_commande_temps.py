@@ -153,9 +153,7 @@ def test_sortie_dit_qu_une_autre_seance_du_jour_a_ete_ignoree(tmp_path: Path):
     """
     seance = _seance_fabriquee()
     seance.meta["seances_ignorees"] = ["Vélo B", "Vélo C"]
-    texte = rendre_texte(
-        [_proposition_avec_demi_tour()], _contexte_minimal(tmp_path, seance)
-    )
+    texte = rendre_texte([_proposition_avec_demi_tour()], _contexte_minimal(tmp_path, seance))
     assert "ignorée(s) au profit de la plus longue" in texte
     assert "Vélo B, Vélo C" in texte
 
@@ -201,11 +199,7 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
     l'aide reviendrait à ne rien avoir tranché.
     """
     parseur = construire_parseur()
-    sous = next(
-        action
-        for action in parseur._actions
-        if isinstance(action, argparse._SubParsersAction)
-    )
+    sous = next(action for action in parseur._actions if isinstance(action, argparse._SubParsersAction))
     for commande in COMMANDES_A_HEURE_DEPART:
         aide = sous.choices[commande].format_help()
         assert "--heure-depart" in aide, f"{commande} : le nom canonique manque dans l'aide"
@@ -214,9 +208,7 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
         # réciproquement, précisément pour qu'on ne les confonde pas.
         sans_noms_canoniques = aide.replace("--heure-depart", "").replace("--adresse-depart", "")
         for ancien in ("--depart", "--heure"):
-            assert ancien not in sans_noms_canoniques, (
-                f"{commande} : l'aide documente encore {ancien}"
-            )
+            assert ancien not in sans_noms_canoniques, f"{commande} : l'aide documente encore {ancien}"
 
 
 def test_le_lieu_de_depart_s_appelle_adresse_depart_et_rien_d_autre():
@@ -231,22 +223,15 @@ def test_le_lieu_de_depart_s_appelle_adresse_depart_et_rien_d_autre():
     point.
     """
     parseur = construire_parseur()
-    sous = next(
-        action
-        for action in parseur._actions
-        if isinstance(action, argparse._SubParsersAction)
-    )
+    sous = next(action for action in parseur._actions if isinstance(action, argparse._SubParsersAction))
     for commande in COMMANDES_A_HEURE_DEPART:
         aide = sous.choices[commande].format_help()
         attendu = commande in COMMANDES_A_ADRESSE_DEPART
         assert ("--adresse-depart" in aide) is attendu, (
-            f"{commande} : --adresse-depart devrait "
-            f"{'figurer' if attendu else 'être absent'} de l'aide"
+            f"{commande} : --adresse-depart devrait {'figurer' if attendu else 'être absent'} de l'aide"
         )
         for ecarte in ("--depuis", "--lieu-depart", "--depart-adresse"):
-            assert ecarte not in aide, (
-                f"{commande} : {ecarte} a été livré à la place du nom retenu"
-            )
+            assert ecarte not in aide, f"{commande} : {ecarte} a été livré à la place du nom retenu"
 
 
 def test_l_adresse_de_depart_et_l_heure_de_depart_ne_se_confondent_pas():
@@ -306,9 +291,7 @@ def test_sortie_part_du_lieu_recu_et_pas_de_celui_de_la_configuration(tmp_path: 
         debut = datetime.fromisoformat(p["start_hour"])
         fin = datetime.fromisoformat(p["end_hour"])
         n = int((fin - debut).total_seconds() // 3600) + 1
-        return httpx.Response(
-            200, json=[bloc_meteo(a, o, n, 0.0) for a, o in zip(lats, lons, strict=True)]
-        )
+        return httpx.Response(200, json=[bloc_meteo(a, o, n, 0.0) for a, o in zip(lats, lons, strict=True)])
 
     brouter = ClientBrouter(
         depuis_dict(CONFIG_BRUTE).brouter,
@@ -332,9 +315,9 @@ def test_sortie_part_du_lieu_recu_et_pas_de_celui_de_la_configuration(tmp_path: 
 
     # Le tout premier appel météo est la question du vent, posée sur le départ.
     # `abs=1e-3` : le client arrondit les coordonnées qu'il envoie.
-    assert points_meteo[0] == pytest.approx(
-        (AILLEURS.latitude, AILLEURS.longitude), abs=1e-3
-    ), "la question du vent est restée sur le départ configuré"
+    assert points_meteo[0] == pytest.approx((AILLEURS.latitude, AILLEURS.longitude), abs=1e-3), (
+        "la question du vent est restée sur le départ configuré"
+    )
 
 
 def test_le_json_de_sortie_dit_de_quel_lieu_la_boucle_part(tmp_path: Path, monkeypatch, capsys):
@@ -424,9 +407,7 @@ def test_les_deux_denivelés_sont_montrés_cote_a_cote(tmp_path: Path):
     assert "moteur" in ligne and "parcours placé" in ligne
 
 
-def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(
-    tmp_path: Path, monkeypatch
-):
+def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(tmp_path: Path, monkeypatch):
     """Un placement qui fait demi-tour au km 12 et rentre au km 6 : 18 km de fichier.
 
     Le placement est fabriqué ici, parce que l'anneau des autres tests porte la

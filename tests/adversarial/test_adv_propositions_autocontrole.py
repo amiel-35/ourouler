@@ -107,8 +107,7 @@ def test_la_reference_n_en_rend_que_deux_sur_deux_familles():
 def test_la_reference_sur_des_clones_ne_pretend_pas_au_contraste():
     choix = f53.choisir_reference(f53.vivier_clones(5))
     assert len(choix.retenues) == 1, (
-        f"cinq candidates indiscernables : une seule proposition honnête, "
-        f"{len(choix.retenues)} rendues"
+        f"cinq candidates indiscernables : une seule proposition honnête, {len(choix.retenues)} rendues"
     )
 
 
@@ -125,9 +124,7 @@ def test_la_reference_de_question_vent_passe_ses_gardes(seuil):
     45 km/h, borne haute du balayage. Un seuil de 1 km/h fait légitimement
     échouer le vérificateur : il contredirait le contrat.
     """
-    f53.verifier_gardes_vent(
-        lambda **kw: f53.question_vent_reference(seuil_kmh=seuil, **kw)
-    )
+    f53.verifier_gardes_vent(lambda **kw: f53.question_vent_reference(seuil_kmh=seuil, **kw))
 
 
 # =============================================================================
@@ -170,9 +167,7 @@ def m04_distance_sur_la_note(pool) -> f53.VueChoix:
     retenues = [classees[0]]
     restantes = list(classees[1:])
     while len(retenues) < 3 and restantes:
-        meilleure = max(
-            restantes, key=lambda c: min(abs(c.note_totale - r.note_totale) for r in retenues)
-        )
+        meilleure = max(restantes, key=lambda c: min(abs(c.note_totale - r.note_totale) for r in retenues))
         retenues.append(meilleure)
         restantes = [p for p in restantes if p.cle != meilleure.cle]
     return f53.VueChoix(retenues=_phrases(retenues, pool), contraste_affirme=True, pool=list(pool))
@@ -221,35 +216,80 @@ def m09_deux_clones_annonces_contrastes(pool) -> f53.VueChoix:
 
 def m10_vivier_ignore(pool) -> f53.VueChoix:
     """Le lot fabrique ses propositions au lieu de choisir parmi les candidates."""
-    inventees = [f53.vue(f"inventée {i}", phrase=p) for i, p in enumerate(
-        ("la plus sèche", "aucun demi-tour", "elle évite les villages")
-    )]
+    inventees = [
+        f53.vue(f"inventée {i}", phrase=p)
+        for i, p in enumerate(("la plus sèche", "aucun demi-tour", "elle évite les villages"))
+    ]
     return f53.VueChoix(retenues=inventees, contraste_affirme=True, pool=list(pool))
 
 
 MUTATIONS_CHOIX: tuple[tuple[str, Callable, Any, Callable], ...] = (
-    ("m01 : les trois premières du tri", m01_trois_premieres,
-     f53.vivier_contrastable(), f53.verifier_plus_etale_que_le_tri),
-    ("m01bis : les trois premières du tri (ce sont des clones)", m01_trois_premieres,
-     f53.vivier_contrastable(), f53.verifier_pas_de_trio_de_clones),
-    ("m02 : trois quoi qu'il arrive", m02_toujours_trois,
-     f53.vivier_clones(5), f53.verifier_pas_de_trio_de_clones),
-    ("m03 : min-max sans garde d'étendue nulle", m03_normalisation_sans_garde,
-     f53.vivier_clones(5, notes_distinctes=False), f53.verifier_pas_de_trio_de_clones),
-    ("m04 : contraste mesuré sur la note", m04_distance_sur_la_note,
-     f53.vivier_clones(5), f53.verifier_pas_de_trio_de_clones),
-    ("m05 : la même candidate deux fois", m05_doublon,
-     f53.vivier_contrastable(), f53.verifier_retenues_bien_formees),
-    ("m06 : une proposition hors du vivier", m06_hors_vivier,
-     f53.vivier_contrastable(), f53.verifier_retenues_bien_formees),
-    ("m07 : quatre propositions", m07_quatre_propositions,
-     f53.vivier_contrastable(), f53.verifier_retenues_bien_formees),
-    ("m08 : troncature silencieuse", m08_silence_sur_la_troncature,
-     f53.vivier_clones(5), f53.verifier_pas_de_trio_de_clones),
-    ("m09 : deux clones annoncés contrastés", m09_deux_clones_annonces_contrastes,
-     f53.vivier_clones(5), f53.verifier_pas_de_trio_de_clones),
-    ("m10 : propositions inventées hors vivier", m10_vivier_ignore,
-     f53.vivier_contrastable(), f53.verifier_retenues_bien_formees),
+    (
+        "m01 : les trois premières du tri",
+        m01_trois_premieres,
+        f53.vivier_contrastable(),
+        f53.verifier_plus_etale_que_le_tri,
+    ),
+    (
+        "m01bis : les trois premières du tri (ce sont des clones)",
+        m01_trois_premieres,
+        f53.vivier_contrastable(),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m02 : trois quoi qu'il arrive",
+        m02_toujours_trois,
+        f53.vivier_clones(5),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m03 : min-max sans garde d'étendue nulle",
+        m03_normalisation_sans_garde,
+        f53.vivier_clones(5, notes_distinctes=False),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m04 : contraste mesuré sur la note",
+        m04_distance_sur_la_note,
+        f53.vivier_clones(5),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m05 : la même candidate deux fois",
+        m05_doublon,
+        f53.vivier_contrastable(),
+        f53.verifier_retenues_bien_formees,
+    ),
+    (
+        "m06 : une proposition hors du vivier",
+        m06_hors_vivier,
+        f53.vivier_contrastable(),
+        f53.verifier_retenues_bien_formees,
+    ),
+    (
+        "m07 : quatre propositions",
+        m07_quatre_propositions,
+        f53.vivier_contrastable(),
+        f53.verifier_retenues_bien_formees,
+    ),
+    (
+        "m08 : troncature silencieuse",
+        m08_silence_sur_la_troncature,
+        f53.vivier_clones(5),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m09 : deux clones annoncés contrastés",
+        m09_deux_clones_annonces_contrastes,
+        f53.vivier_clones(5),
+        f53.verifier_pas_de_trio_de_clones,
+    ),
+    (
+        "m10 : propositions inventées hors vivier",
+        m10_vivier_ignore,
+        f53.vivier_contrastable(),
+        f53.verifier_retenues_bien_formees,
+    ),
 )
 
 
@@ -305,10 +345,7 @@ def m14_phrase_sur_le_mauvais_axe(pool) -> f53.VueChoix:
     arrosee = max(choix.retenues, key=lambda p: p.axe("pluie_mm"))
     return replace(
         choix,
-        retenues=[
-            replace(p, phrase="la plus sèche") if p.cle == arrosee.cle else p
-            for p in choix.retenues
-        ],
+        retenues=[replace(p, phrase="la plus sèche") if p.cle == arrosee.cle else p for p in choix.retenues],
     )
 
 
@@ -320,8 +357,7 @@ def m15_aucun_demi_tour_faux(pool) -> f53.VueChoix:
     return replace(
         choix,
         retenues=[
-            replace(avec, phrase="aucun demi-tour") if p.cle == avec.cle else p
-            for p in choix.retenues
+            replace(avec, phrase="aucun demi-tour") if p.cle == avec.cle else p for p in choix.retenues
         ],
     )
 
@@ -332,23 +368,42 @@ def m16_phrases_generiques(pool) -> f53.VueChoix:
     return replace(
         choix,
         retenues=[
-            replace(p, phrase=f"une belle sortie, option {i + 1}")
-            for i, p in enumerate(choix.retenues)
+            replace(p, phrase=f"une belle sortie, option {i + 1}") for i, p in enumerate(choix.retenues)
         ],
     )
 
 
 MUTATIONS_PHRASES: tuple[tuple[str, Callable, Any, Callable], ...] = (
-    ("m11 : toutes muettes, sans dire qu'elles se valent", m11_toutes_muettes_sans_le_dire,
-     f53.vivier_contrastable(), f53.verifier_phrases),
-    ("m12 : la même phrase pour toutes", m12_phrases_identiques,
-     f53.vivier_contrastable(), f53.verifier_phrases),
-    ("m13 : « note 1,93 » au lieu du langage de cycliste", m13_phrase_en_langage_de_note,
-     f53.vivier_contrastable(), f53.verifier_phrases),
-    ("m14 : « la plus sèche » sur la plus arrosée", m14_phrase_sur_le_mauvais_axe,
-     f53.vivier_contrastable(), f53.verifier_phrases_vraies),
-    ("m15 : « aucun demi-tour » avec deux demi-tours", m15_aucun_demi_tour_faux,
-     f53.vivier_contrastable(), f53.verifier_phrases_vraies),
+    (
+        "m11 : toutes muettes, sans dire qu'elles se valent",
+        m11_toutes_muettes_sans_le_dire,
+        f53.vivier_contrastable(),
+        f53.verifier_phrases,
+    ),
+    (
+        "m12 : la même phrase pour toutes",
+        m12_phrases_identiques,
+        f53.vivier_contrastable(),
+        f53.verifier_phrases,
+    ),
+    (
+        "m13 : « note 1,93 » au lieu du langage de cycliste",
+        m13_phrase_en_langage_de_note,
+        f53.vivier_contrastable(),
+        f53.verifier_phrases,
+    ),
+    (
+        "m14 : « la plus sèche » sur la plus arrosée",
+        m14_phrase_sur_le_mauvais_axe,
+        f53.vivier_contrastable(),
+        f53.verifier_phrases_vraies,
+    ),
+    (
+        "m15 : « aucun demi-tour » avec deux demi-tours",
+        m15_aucun_demi_tour_faux,
+        f53.vivier_contrastable(),
+        f53.verifier_phrases_vraies,
+    ),
 )
 
 
@@ -379,13 +434,16 @@ def test_mutation_phrase_generique_attrapee():
     )
 
 
-@pytest.mark.parametrize("axe,extreme", [
-    ("pluie_mm", "min"),
-    ("demi_tours", "min"),
-    ("depassement_s", "min"),
-    ("densite_marqueurs_km", "min"),
-    ("vent_dos_retour", "max"),
-])
+@pytest.mark.parametrize(
+    "axe,extreme",
+    [
+        ("pluie_mm", "min"),
+        ("demi_tours", "min"),
+        ("depassement_s", "min"),
+        ("densite_marqueurs_km", "min"),
+        ("vent_dos_retour", "max"),
+    ],
+)
 def test_la_reference_nomme_le_bon_axe(axe, extreme):
     """Contrôle positif de `verifier_phrase_parle_du_bon_axe`, axe par axe.
 
@@ -529,9 +587,7 @@ def m22_sans_horizon(**kw) -> bool:
 def m23_horizon_strict(**kw) -> bool:
     """`< 3` au lieu de `<= 3` : trois jours pile devient muet."""
     kw.pop("seuil_kmh", None)
-    if kw.get("jours_a_l_avance") is not None and not (
-        kw["jours_a_l_avance"] < f53.HORIZON_JOURS
-    ):
+    if kw.get("jours_a_l_avance") is not None and not (kw["jours_a_l_avance"] < f53.HORIZON_JOURS):
         return False
     return f53.question_vent_reference(seuil_kmh=8.0, **kw)
 
@@ -592,9 +648,7 @@ def test_mutation_direction_non_finie_attrapee():
 
 def test_la_reference_refuse_une_direction_non_finie():
     """Contrôle positif du même vérificateur."""
-    f53.verifier_direction_non_finie(
-        lambda **kw: f53.question_vent_reference(seuil_kmh=8.0, **kw)
-    )
+    f53.verifier_direction_non_finie(lambda **kw: f53.question_vent_reference(seuil_kmh=8.0, **kw))
 
 
 # =============================================================================
@@ -650,14 +704,34 @@ def test_trois_propositions_franchement_distinctes_passent_les_verrous():
     avec la phrase qu'elle mérite : la plus sèche, la plus courte, celle sans
     demi-tour. Leurs tracés ne se recouvrent pas.
     """
-    choix = _choix([
-        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2,
-                     recouvrement=0.05, phrase="la plus sèche"),
-        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=2,
-                     recouvrement=0.05, phrase="20 minutes de moins"),
-        _vue_mesuree("directe", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0,
-                     recouvrement=0.05, phrase="aucun demi-tour"),
-    ])
+    choix = _choix(
+        [
+            _vue_mesuree(
+                "seche",
+                pluie_mm=0.0,
+                depassement_s=3000.0,
+                demi_tours=2,
+                recouvrement=0.05,
+                phrase="la plus sèche",
+            ),
+            _vue_mesuree(
+                "courte",
+                pluie_mm=6.0,
+                depassement_s=0.0,
+                demi_tours=2,
+                recouvrement=0.05,
+                phrase="20 minutes de moins",
+            ),
+            _vue_mesuree(
+                "directe",
+                pluie_mm=6.0,
+                depassement_s=3000.0,
+                demi_tours=0,
+                recouvrement=0.05,
+                phrase="aucun demi-tour",
+            ),
+        ]
+    )
     f53.verifier_verrou_de_recouvrement(choix, seuil_recouvrement=0.25)
     f53.verifier_phrases_meritees(choix)
     f53.verifier_phrases(choix)
@@ -670,24 +744,40 @@ def m28_phrase_gagnee_a_un_pourcent(_pool=None) -> f53.VueChoix:
     La mutation d'avant ne portait aucune phrase et testait l'appartenance au
     trio ; celle-ci teste le droit d'écrire, qui est ce que les marges gardent.
     """
-    return _choix([
-        _vue_mesuree("a", pluie_mm=5.00, depassement_s=3000.0, recouvrement=0.05,
-                     phrase="la plus sèche"),
-        _vue_mesuree("b", pluie_mm=5.05, depassement_s=3030.0, recouvrement=0.05, phrase=""),
-        _vue_mesuree("c", pluie_mm=5.10, depassement_s=3060.0, recouvrement=0.05, phrase=""),
-    ])
+    return _choix(
+        [
+            _vue_mesuree("a", pluie_mm=5.00, depassement_s=3000.0, recouvrement=0.05, phrase="la plus sèche"),
+            _vue_mesuree("b", pluie_mm=5.05, depassement_s=3030.0, recouvrement=0.05, phrase=""),
+            _vue_mesuree("c", pluie_mm=5.10, depassement_s=3060.0, recouvrement=0.05, phrase=""),
+        ]
+    )
 
 
 def m29_deux_fois_la_phrase_de_la_pluie(_pool=None) -> f53.VueChoix:
     """Deux propositions se disent la plus sèche : au moins une des deux ment."""
-    return _choix([
-        _vue_mesuree("arrosee", pluie_mm=9.0, depassement_s=3000.0, demi_tours=1,
-                     recouvrement=0.05, phrase=""),
-        _vue_mesuree("seche1", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1,
-                     recouvrement=0.05, phrase="la plus sèche"),
-        _vue_mesuree("seche2", pluie_mm=0.1, depassement_s=3000.0, demi_tours=1,
-                     recouvrement=0.05, phrase="la plus sèche, elle aussi"),
-    ])
+    return _choix(
+        [
+            _vue_mesuree(
+                "arrosee", pluie_mm=9.0, depassement_s=3000.0, demi_tours=1, recouvrement=0.05, phrase=""
+            ),
+            _vue_mesuree(
+                "seche1",
+                pluie_mm=0.0,
+                depassement_s=3000.0,
+                demi_tours=1,
+                recouvrement=0.05,
+                phrase="la plus sèche",
+            ),
+            _vue_mesuree(
+                "seche2",
+                pluie_mm=0.1,
+                depassement_s=3000.0,
+                demi_tours=1,
+                recouvrement=0.05,
+                phrase="la plus sèche, elle aussi",
+            ),
+        ]
+    )
 
 
 def m30_des_clones_annonces_contrastes(_pool=None) -> f53.VueChoix:
@@ -698,11 +788,13 @@ def m30_des_clones_annonces_contrastes(_pool=None) -> f53.VueChoix:
     publier **sans dire qu'elles se valent** laisse chercher une différence que
     le produit sait inexistante.
     """
-    return _choix([
-        _vue_mesuree("a", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
-        _vue_mesuree("b", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
-        _vue_mesuree("c", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
-    ])
+    return _choix(
+        [
+            _vue_mesuree("a", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
+            _vue_mesuree("b", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
+            _vue_mesuree("c", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
+        ]
+    )
 
 
 def m31_recouvrement_au_dessus_du_seuil(_pool=None) -> f53.VueChoix:
@@ -711,11 +803,13 @@ def m31_recouvrement_au_dessus_du_seuil(_pool=None) -> f53.VueChoix:
     Inchangée depuis le 16/09/2026, et c'est la seule des cinq dans ce cas :
     depuis Q43 elle garde le **seul** verrou du lot.
     """
-    return _choix([
-        _vue_mesuree("a", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2, recouvrement=0.90),
-        _vue_mesuree("b", pluie_mm=6.0, depassement_s=0.0, demi_tours=2, recouvrement=0.90),
-        _vue_mesuree("c", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0, recouvrement=0.85),
-    ])
+    return _choix(
+        [
+            _vue_mesuree("a", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2, recouvrement=0.90),
+            _vue_mesuree("b", pluie_mm=6.0, depassement_s=0.0, demi_tours=2, recouvrement=0.90),
+            _vue_mesuree("c", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0, recouvrement=0.85),
+        ]
+    )
 
 
 def m32_vent_de_la_meme_categorie(_pool=None) -> f53.VueChoix:
@@ -725,12 +819,26 @@ def m32_vent_de_la_meme_categorie(_pool=None) -> f53.VueChoix:
     jolies : celle qui l'écrit affirme que le vent la sépare de l'autre, et
     c'est faux.
     """
-    return _choix([
-        _vue_mesuree("a", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0,
-                     recouvrement=0.05, phrase="vous rentrez avec le vent dans le dos"),
-        _vue_mesuree("b", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0,
-                     recouvrement=0.05, phrase=""),
-    ])
+    return _choix(
+        [
+            _vue_mesuree(
+                "a",
+                orientation="retour-dos",
+                pluie_mm=3.0,
+                depassement_s=1500.0,
+                recouvrement=0.05,
+                phrase="vous rentrez avec le vent dans le dos",
+            ),
+            _vue_mesuree(
+                "b",
+                orientation="retour-dos",
+                pluie_mm=3.0,
+                depassement_s=1500.0,
+                recouvrement=0.05,
+                phrase="",
+            ),
+        ]
+    )
 
 
 #: Le seuil de recouvrement se passe explicitement : ces vues sont fabriquées,
@@ -744,16 +852,27 @@ def _recouvrement(choix):
 
 
 MUTATIONS_MARGES = (
-    ("m28 : « la plus sèche » pour 0,05 mm d'avance", m28_phrase_gagnee_a_un_pourcent,
-     f53.verifier_phrases_meritees),
-    ("m29 : deux propositions se disent la plus sèche", m29_deux_fois_la_phrase_de_la_pluie,
-     f53.verifier_phrases_meritees),
-    ("m30 : des clones annoncés contrastés sans dire qu'ils se valent",
-     m30_des_clones_annonces_contrastes, _clones),
-    ("m31 : recouvrement de routes au-dessus du seuil", m31_recouvrement_au_dessus_du_seuil,
-     _recouvrement),
-    ("m32 : une phrase de vent sur deux propositions de même orientation",
-     m32_vent_de_la_meme_categorie, f53.verifier_phrases_meritees),
+    (
+        "m28 : « la plus sèche » pour 0,05 mm d'avance",
+        m28_phrase_gagnee_a_un_pourcent,
+        f53.verifier_phrases_meritees,
+    ),
+    (
+        "m29 : deux propositions se disent la plus sèche",
+        m29_deux_fois_la_phrase_de_la_pluie,
+        f53.verifier_phrases_meritees,
+    ),
+    (
+        "m30 : des clones annoncés contrastés sans dire qu'ils se valent",
+        m30_des_clones_annonces_contrastes,
+        _clones,
+    ),
+    ("m31 : recouvrement de routes au-dessus du seuil", m31_recouvrement_au_dessus_du_seuil, _recouvrement),
+    (
+        "m32 : une phrase de vent sur deux propositions de même orientation",
+        m32_vent_de_la_meme_categorie,
+        f53.verifier_phrases_meritees,
+    ),
 )
 
 
@@ -781,9 +900,7 @@ def test_des_clones_qui_partagent_leurs_routes_ne_passent_pas_meme_en_le_disant(
     valent » resterait vrai, mais servir trois fois la même boucle n'est pas ce
     que le mainteneur a accepté.
     """
-    clones = [
-        replace(p, recouvrement_max=0.90) for p in m30_des_clones_annonces_contrastes().retenues
-    ]
+    clones = [replace(p, recouvrement_max=0.90) for p in m30_des_clones_annonces_contrastes().retenues]
     _attrape(
         lambda: f53.verifier_pas_de_trio_de_clones(
             _choix(clones, equivalence_dite=True), seuil_recouvrement=0.25
@@ -844,10 +961,12 @@ def test_les_marges_de_contraste_sont_figees():
 
 def m33_phrase_sur_les_routes_connues(_pool=None) -> f53.VueChoix:
     """Une phrase qui distingue par les routes déjà roulées — ce que la doctrine refuse."""
-    return _choix([
-        replace(_vue_mesuree("a"), phrase="des routes que vous connaissez déjà"),
-        replace(_vue_mesuree("b"), phrase="la plus sèche"),
-    ])
+    return _choix(
+        [
+            replace(_vue_mesuree("a"), phrase="des routes que vous connaissez déjà"),
+            replace(_vue_mesuree("b"), phrase="la plus sèche"),
+        ]
+    )
 
 
 def test_mutation_phrase_sur_les_routes_connues_attrapee():
@@ -860,10 +979,12 @@ def test_mutation_phrase_sur_les_routes_connues_attrapee():
 def test_une_phrase_ordinaire_passe_la_garde_des_routes_connues():
     """Contrôle négatif : la garde ne doit pas crier sur une phrase quelconque."""
     f53.verifier_part_connue_hors_selection(
-        _choix([
-            replace(_vue_mesuree("a"), phrase="la plus sèche"),
-            replace(_vue_mesuree("b"), phrase="aucun demi-tour"),
-        ])
+        _choix(
+            [
+                replace(_vue_mesuree("a"), phrase="la plus sèche"),
+                replace(_vue_mesuree("b"), phrase="aucun demi-tour"),
+            ]
+        )
     )
 
 
@@ -953,8 +1074,16 @@ def test_le_lexique_reconnait_les_tournures_de_la_regle(phrase, axes_attendus):
 # prouve ici, sur des documents fabriqués à la forme du vrai.
 
 
-def _candidate_json(numero: int, *, phrase: str, pluie: float, demi_tours: int,
-                    duree_s: float, part_connue: float, note: float = 1.0) -> dict:
+def _candidate_json(
+    numero: int,
+    *,
+    phrase: str,
+    pluie: float,
+    demi_tours: int,
+    duree_s: float,
+    part_connue: float,
+    note: float = 1.0,
+) -> dict:
     """Une candidate à la forme exacte de `commande._candidate_json`, plus la phrase."""
     return {
         "numero": numero,
@@ -1002,19 +1131,38 @@ def _doc_json(candidates: list[dict], **extra) -> dict:
 
 def test_l_adaptateur_json_lit_trois_propositions_contrastees():
     """Le chemin nominal : trois propositions distinctes, chacune avec sa phrase."""
-    doc = _doc_json([
-        _candidate_json(1, phrase="la plus sèche", pluie=0.0, demi_tours=2,
-                        duree_s=7800.0, part_connue=0.4),
-        _candidate_json(2, phrase="aucun demi-tour", pluie=6.0, demi_tours=0,
-                        duree_s=9000.0, part_connue=0.5, note=1.4),
-        _candidate_json(3, phrase="20 minutes de moins, la plus courte", pluie=4.0,
-                        demi_tours=1, duree_s=7210.0, part_connue=0.9, note=1.8),
-    ])
+    doc = _doc_json(
+        [
+            _candidate_json(
+                1, phrase="la plus sèche", pluie=0.0, demi_tours=2, duree_s=7800.0, part_connue=0.4
+            ),
+            _candidate_json(
+                2,
+                phrase="aucun demi-tour",
+                pluie=6.0,
+                demi_tours=0,
+                duree_s=9000.0,
+                part_connue=0.5,
+                note=1.4,
+            ),
+            _candidate_json(
+                3,
+                phrase="20 minutes de moins, la plus courte",
+                pluie=4.0,
+                demi_tours=1,
+                duree_s=7210.0,
+                part_connue=0.9,
+                note=1.8,
+            ),
+        ]
+    )
     proposees = f53.propositions_du_json(doc)
     assert len(proposees) == 3, f"{len(proposees)} propositions lues, 3 publiées"
     choix = f53.choix_depuis_json(doc)
     assert [p.phrase for p in choix.retenues] == [
-        "la plus sèche", "aucun demi-tour", "20 minutes de moins, la plus courte"
+        "la plus sèche",
+        "aucun demi-tour",
+        "20 minutes de moins, la plus courte",
     ]
     f53.verifier_retenues_bien_formees(choix)
     f53.verifier_pas_de_trio_de_clones(choix)
@@ -1031,11 +1179,13 @@ def test_l_adaptateur_json_attrape_trois_clones_publies():
     lecture du JSON puis vérification — doit la refuser.
     """
     jumelle = dict(phrase="", pluie=1.0, demi_tours=1, duree_s=7800.0, part_connue=0.5)
-    doc = _doc_json([
-        _candidate_json(1, **{**jumelle, "phrase": "la plus sèche"}),
-        _candidate_json(2, **{**jumelle, "phrase": "aucun demi-tour"}),
-        _candidate_json(3, **{**jumelle, "phrase": "elle évite les villages"}),
-    ])
+    doc = _doc_json(
+        [
+            _candidate_json(1, **{**jumelle, "phrase": "la plus sèche"}),
+            _candidate_json(2, **{**jumelle, "phrase": "aucun demi-tour"}),
+            _candidate_json(3, **{**jumelle, "phrase": "elle évite les villages"}),
+        ]
+    )
     choix = f53.choix_depuis_json(doc)
     assert len(choix.retenues) == 3, "les trois clones sont bien lus"
     _attrape(
@@ -1061,24 +1211,24 @@ def test_l_adaptateur_json_accepte_l_aveu_de_ressemblance():
         contraste="deux boucles seulement : les autres se ressemblent trop pour être proposées",
     )
     choix = f53.choix_depuis_json(doc)
-    assert not choix.contraste_affirme, (
-        f"l'aveu n'a pas été reconnu dans {choix.motif!r}"
-    )
+    assert not choix.contraste_affirme, f"l'aveu n'a pas été reconnu dans {choix.motif!r}"
     f53.verifier_pas_de_trio_de_clones(choix)
 
 
 def test_l_adaptateur_json_attrape_une_phrase_fausse():
     """« la plus sèche » sur la plus arrosée, à travers le JSON."""
-    doc = _doc_json([
-        _candidate_json(1, phrase="la plus sèche", pluie=9.0, demi_tours=2,
-                        duree_s=7800.0, part_connue=0.4),
-        _candidate_json(2, phrase="aucun demi-tour", pluie=0.0, demi_tours=0,
-                        duree_s=9000.0, part_connue=0.5),
-    ])
-    choix = f53.choix_depuis_json(doc)
-    _attrape(
-        lambda: f53.verifier_phrases_vraies(choix), quoi="phrase fausse publiée en JSON"
+    doc = _doc_json(
+        [
+            _candidate_json(
+                1, phrase="la plus sèche", pluie=9.0, demi_tours=2, duree_s=7800.0, part_connue=0.4
+            ),
+            _candidate_json(
+                2, phrase="aucun demi-tour", pluie=0.0, demi_tours=0, duree_s=9000.0, part_connue=0.5
+            ),
+        ]
     )
+    choix = f53.choix_depuis_json(doc)
+    _attrape(lambda: f53.verifier_phrases_vraies(choix), quoi="phrase fausse publiée en JSON")
 
 
 def test_l_adaptateur_json_ne_lit_aucune_phrase_sans_cle_phrase():
@@ -1088,11 +1238,17 @@ def test_l_adaptateur_json_ne_lit_aucune_phrase_sans_cle_phrase():
     partir d'une clé quelconque (« nom », « motif »…), les dix-sept tests en
     skip s'exécuteraient sur du vide et passeraient pour de mauvaises raisons.
     """
-    doc = _doc_json([
-        {k: v for k, v in _candidate_json(
-            1, phrase="", pluie=0.0, demi_tours=0, duree_s=7200.0, part_connue=0.5
-        ).items() if k != "phrase"},
-    ])
+    doc = _doc_json(
+        [
+            {
+                k: v
+                for k, v in _candidate_json(
+                    1, phrase="", pluie=0.0, demi_tours=0, duree_s=7200.0, part_connue=0.5
+                ).items()
+                if k != "phrase"
+            },
+        ]
+    )
     assert f53.propositions_du_json(doc) == [], (
         "une candidate sans phrase ne doit pas être lue comme une proposition"
     )
@@ -1101,8 +1257,9 @@ def test_l_adaptateur_json_ne_lit_aucune_phrase_sans_cle_phrase():
 
 def test_l_adaptateur_json_trouve_la_densite_ou_qu_elle_soit():
     """La densité publiée sous n'importe quelle clé évoquant « densité » ou « marqueur »."""
-    base = _candidate_json(1, phrase="elle évite les villages", pluie=0.0, demi_tours=0,
-                           duree_s=7200.0, part_connue=0.5)
+    base = _candidate_json(
+        1, phrase="elle évite les villages", pluie=0.0, demi_tours=0, duree_s=7200.0, part_connue=0.5
+    )
     for cle, ou in (
         ("densite_marqueurs_km", "racine"),
         ("marqueurs_par_km", "racine"),

@@ -65,9 +65,7 @@ def test_inviter_applique_les_migrations_sur_une_base_vierge(
     """
     monkeypatch.setenv(VARIABLE_DATABASE_URL, url_base_vierge)
 
-    code = main(
-        ["--config", str(config_toml), "inviter", "vierge@exemple.invalid", "--sans-courriel"]
-    )
+    code = main(["--config", str(config_toml), "inviter", "vierge@exemple.invalid", "--sans-courriel"])
 
     capture = capsys.readouterr()
     assert code == 0, capture.err
@@ -92,9 +90,7 @@ def test_une_base_injoignable_donne_une_phrase_pas_une_pile(
     """
     monkeypatch.setenv(VARIABLE_DATABASE_URL, "postgres://absent:absent@127.0.0.1:1/absente")
 
-    code = main(
-        ["--config", str(config_toml), "inviter", "injoignable@exemple.invalid", "--sans-courriel"]
-    )
+    code = main(["--config", str(config_toml), "inviter", "injoignable@exemple.invalid", "--sans-courriel"])
 
     capture = capsys.readouterr()
     assert code != 0
@@ -104,9 +100,7 @@ def test_une_base_injoignable_donne_une_phrase_pas_une_pile(
 
 
 def test_inviter_affiche_le_lien_et_l_echeance_meme_sans_courriel(config_toml: Path, capsys):
-    code = main(
-        ["--config", str(config_toml), "inviter", "cycliste@exemple.invalid", "--sans-courriel"]
-    )
+    code = main(["--config", str(config_toml), "inviter", "cycliste@exemple.invalid", "--sans-courriel"])
     assert code == 0
     sortie = capsys.readouterr().out
     assert f"{URL_PUBLIQUE}/entrer?jeton=" in sortie
@@ -134,9 +128,7 @@ def test_inviter_un_compte_deja_actif_echoue_avec_code_2_et_sans_trace(
         emise = depot.inviter("active@exemple.invalid")
         depot.activer(emise.jeton, MOT_DE_PASSE)
 
-    code = main(
-        ["--config", str(config_toml), "inviter", "active@exemple.invalid", "--sans-courriel"]
-    )
+    code = main(["--config", str(config_toml), "inviter", "active@exemple.invalid", "--sans-courriel"])
     assert code == 2
     erreur = capsys.readouterr().err
     assert "a déjà un compte" in erreur
@@ -222,7 +214,7 @@ def test_le_jeton_n_apparait_dans_aucun_journal(config_toml: Path, capsys, caplo
 def config_toml_hebergement(tmp_path: Path) -> Path:
     """Le TOML réellement servi en prod après Q66a : ni [depart] ni [cycliste]."""
     fichier = tmp_path / "hebergement.toml"
-    fichier.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+    fichier.write_text("[meteo]\ndirections=8\n", encoding="utf-8")
     return fichier
 
 

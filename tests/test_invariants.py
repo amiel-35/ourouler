@@ -41,6 +41,7 @@ def _generateur():
     spec.loader.exec_module(module)
     return module
 
+
 #: Modules autorisés à lire l'environnement d'exécution.
 AUTORISES = {"cli.py", "config.py"}
 
@@ -116,9 +117,7 @@ def chaines_de_code(chemin: Path) -> list[str]:
     return [
         noeud.value
         for noeud in ast.walk(arbre)
-        if isinstance(noeud, ast.Constant)
-        and isinstance(noeud.value, str)
-        and id(noeud) not in docstrings
+        if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str) and id(noeud) not in docstrings
     ]
 
 
@@ -146,13 +145,10 @@ def test_les_variables_d_environnement_de_l_api_ne_se_nomment_qu_au_seul_endroit
             continue
         for chaine in chaines_de_code(module):
             coupables += [
-                f"{module.relative_to(SOURCES)} porte {nom} dans son code"
-                for nom in noms
-                if nom in chaine
+                f"{module.relative_to(SOURCES)} porte {nom} dans son code" for nom in noms if nom in chaine
             ]
     assert not coupables, (
-        "règle absolue 2 : seul api/exploitation.py nomme les variables de l'API — "
-        + " ; ".join(coupables)
+        "règle absolue 2 : seul api/exploitation.py nomme les variables de l'API — " + " ; ".join(coupables)
     )
 
 
@@ -176,15 +172,11 @@ CLASSES_DEPOT = ("DepotProfils", "DepotFichiers", "DepotGenerations")
 
 def test_aucun_acces_aux_donnees_sans_clause_de_proprietaire():
     arbre = ast.parse((SOURCES / "api" / "depots.py").read_text(encoding="utf-8"))
-    classes = {
-        noeud.name: noeud for noeud in ast.walk(arbre) if isinstance(noeud, ast.ClassDef)
-    }
+    classes = {noeud.name: noeud for noeud in ast.walk(arbre) if isinstance(noeud, ast.ClassDef)}
     for nom in CLASSES_DEPOT:
         assert nom in classes, f"{nom} a disparu de api/depots.py"
         methodes = [
-            m
-            for m in classes[nom].body
-            if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")
+            m for m in classes[nom].body if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")
         ]
         assert methodes, f"{nom} n'a plus aucune méthode publique"
         for methode in methodes:
@@ -235,9 +227,7 @@ def test_les_routes_ne_chargent_jamais_la_configuration_elles_memes():
     for module in modules:
         arbre = ast.parse(module.read_text(encoding="utf-8"))
         for noeud in ast.walk(arbre):
-            if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith(
-                "ourouler.config"
-            ):
+            if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith("ourouler.config"):
                 importes = {alias.name for alias in noeud.names}
                 assert "charger" not in importes, (
                     f"api/routes/{module.name} importe config.charger : la Config vient "
@@ -264,7 +254,7 @@ def test_les_prefixes_qui_classent_les_pannes_existent_vraiment():
     }
     for prefixe, _service, _code in PREFIXES_SERVICE:
         texte = sources[prefixe].read_text(encoding="utf-8")
-        assert f'"{prefixe} ' in texte or f"f\"{prefixe} " in texte, (
+        assert f'"{prefixe} ' in texte or f'f"{prefixe} ' in texte, (
             f"aucun message ne commence par « {prefixe} » dans {sources[prefixe].name} : "
             "le classement des pannes de l'API ne reconnaîtra plus ce service"
         )
@@ -316,8 +306,7 @@ def test_le_coeur_ne_lit_pas_son_environnement(module: Path):
     source = module.read_text(encoding="utf-8")
     for interdit in INTERDITS:
         assert interdit not in source, (
-            f"{module.relative_to(SOURCES)} touche « {interdit} » : "
-            "seuls cli.py et config.py en ont le droit"
+            f"{module.relative_to(SOURCES)} touche « {interdit} » : seuls cli.py et config.py en ont le droit"
         )
 
 
@@ -392,9 +381,7 @@ def test_les_lecteurs_zwo_et_mrc_sont_appeles_par_le_coeur():
                     depuis = " ".join(alias.name for alias in noeud.names)
                 if depuis and cible in depuis:
                     appelants.append(module.relative_to(SOURCES))
-        assert appelants, (
-            f"ourouler.{cible} n'a plus aucun appelant dans src/ — régression de C1"
-        )
+        assert appelants, f"ourouler.{cible} n'a plus aucun appelant dans src/ — régression de C1"
 
 
 def test_aucun_client_http_reel_n_est_cree_a_l_import():
@@ -416,9 +403,7 @@ _PERIMETRE_CLIENT_HTTP = sorted(
 )
 
 
-@pytest.mark.parametrize(
-    "fichier", _PERIMETRE_CLIENT_HTTP, ids=lambda p: p.relative_to(TESTS).as_posix()
-)
+@pytest.mark.parametrize("fichier", _PERIMETRE_CLIENT_HTTP, ids=lambda p: p.relative_to(TESTS).as_posix())
 def test_aucun_test_ne_cree_un_client_http_sans_transport_bouchonne(fichier: Path):
     """`httpx.Client(...)` n'est permis dans les tests qu'avec un MockTransport.
 
@@ -549,11 +534,7 @@ def coordonnees_fit(octets: bytes) -> list[tuple[float, float]]:
         activite = lire_fit(octets)
     except ErreurLecture:
         return []
-    return [
-        (float(p.lat), float(p.lon))
-        for p in activite.points
-        if p.lat is not None and p.lon is not None
-    ]
+    return [(float(p.lat), float(p.lon)) for p in activite.points if p.lat is not None and p.lon is not None]
 
 
 def coordonnees_toml(chemin: Path) -> list[tuple[float, float]]:
@@ -580,8 +561,7 @@ def coordonnees_de(fixture: Path) -> list[tuple[float, float]]:
 def ville_trop_proche(lat: float, lon: float) -> tuple[str, float] | None:
     """La ville réelle la plus proche si elle est à moins de `RAYON_INTERDIT_KM`."""
     plus_proche = min(
-        (distance_haversine_km(lat, lon, v_lat, v_lon), nom)
-        for nom, (v_lat, v_lon) in VILLES_REELLES.items()
+        (distance_haversine_km(lat, lon, v_lat, v_lon), nom) for nom, (v_lat, v_lon) in VILLES_REELLES.items()
     )
     km, nom = plus_proche
     return (nom, km) if km < RAYON_INTERDIT_KM else None
@@ -644,8 +624,7 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
     for lat, lon in points:
         proche = ville_trop_proche(lat, lon)
         assert proche is None, (
-            f"{config.name} : le point de départ ({lat}, {lon}) est à "
-            f"{proche[1]:.1f} km de {proche[0]}"
+            f"{config.name} : le point de départ ({lat}, {lon}) est à {proche[1]:.1f} km de {proche[0]}"
         )
 
 
@@ -679,9 +658,7 @@ def documents_a_verifier() -> list[Path]:
     23 et 40 km de Saint-Malo). On cherche ici ce qu'un humain a écrit, pas ce
     qu'un outil a engendré ; les sources, elles, ont déjà leurs invariants.
     """
-    markdown = [
-        p for p in RACINE.rglob("*.md") if not DOSSIERS_IGNORES & set(p.relative_to(RACINE).parts)
-    ]
+    markdown = [p for p in RACINE.rglob("*.md") if not DOSSIERS_IGNORES & set(p.relative_to(RACINE).parts)]
     return sorted(markdown) + sorted(CONFIGS_A_VERIFIER)
 
 
@@ -718,9 +695,7 @@ def test_le_detecteur_de_texte_voit_une_coordonnee_plantee():
     assert not couples_de_coordonnees("un texte sans le moindre nombre")
 
 
-@pytest.mark.parametrize(
-    "document", documents_a_verifier(), ids=lambda p: str(p.relative_to(RACINE))
-)
+@pytest.mark.parametrize("document", documents_a_verifier(), ids=lambda p: str(p.relative_to(RACINE)))
 def test_aucun_document_ne_porte_de_coordonnee_reelle(document: Path):
     """`docs/` comprise : c'est là que le point du mainteneur a dormi le plus longtemps."""
     for numero, lat, lon in couples_de_coordonnees(document.read_text(encoding="utf-8")):
@@ -801,9 +776,7 @@ def test_le_generateur_de_fixtures_est_reproductible(generateur, tmp_path: Path)
 PAQUET_NUMPY = "physique"
 
 
-@pytest.mark.parametrize(
-    "module", sorted(SOURCES.rglob("*.py")), ids=lambda p: str(p.relative_to(SOURCES))
-)
+@pytest.mark.parametrize("module", sorted(SOURCES.rglob("*.py")), ids=lambda p: str(p.relative_to(SOURCES)))
 def test_numpy_reste_dans_le_paquet_physique(module: Path):
     arbre = ast.parse(module.read_text(encoding="utf-8"))
     importes = set()
@@ -1014,9 +987,7 @@ def _texte_sql(noeud: ast.AST, connues: dict[str, str]) -> str | None:
             elif isinstance(partie, ast.FormattedValue):
                 # La valeur interpolée quand on sait la résoudre ; sinon son
                 # code source, qui porte au moins le nom de ce qui y entre.
-                morceaux.append(
-                    _texte_sql(partie.value, connues) or f"{{{ast.unparse(partie.value)}}}"
-                )
+                morceaux.append(_texte_sql(partie.value, connues) or f"{{{ast.unparse(partie.value)}}}")
         return "".join(morceaux)
     return None
 
@@ -1079,9 +1050,7 @@ def requetes_du_module(chemin: Path) -> list[tuple[str, str]]:
             continue
         nom = englobante.get(id(noeud), "<module>")
         trouvees.extend(
-            (nom, instruction)
-            for instruction in _instructions(sql)
-            if _touche_des_donnees(instruction)
+            (nom, instruction) for instruction in _instructions(sql) if _touche_des_donnees(instruction)
         )
     return trouvees
 
@@ -1100,8 +1069,7 @@ def test_aucune_requete_sql_ne_lit_ni_n_ecrit_sans_clause_de_proprietaire(module
     nues = [
         f"{fonction}() : {' '.join(instruction.split())[:110]}…"
         for fonction, instruction in requetes_du_module(module)
-        if not MOTIF_CLAUSE.search(instruction.lower())
-        and not fonction.startswith(PREFIXE_EXEMPT)
+        if not MOTIF_CLAUSE.search(instruction.lower()) and not fonction.startswith(PREFIXE_EXEMPT)
     ]
     assert not nues, (
         f"{module.relative_to(SOURCES)} — requêtes sans clause de propriétaire :\n  "
@@ -1120,8 +1088,7 @@ def test_l_invariant_de_proprietaire_mesure_bien_quelque_chose():
     qu'une lecture naïve du texte source raterait.
     """
     par_module = {
-        str(module.relative_to(SOURCES)): requetes_du_module(module)
-        for module in modules_avec_sql()
+        str(module.relative_to(SOURCES)): requetes_du_module(module) for module in modules_avec_sql()
     }
     total = sum(len(v) for v in par_module.values())
     assert total >= 15, f"seulement {total} requêtes analysées : {list(par_module)}"
@@ -1159,8 +1126,7 @@ def test_l_invariant_de_proprietaire_attrape_bien_une_requete_nue(tmp_path: Path
     fautives = {
         fonction
         for fonction, instruction in requetes_du_module(faute)
-        if not MOTIF_CLAUSE.search(instruction.lower())
-        and not fonction.startswith(PREFIXE_EXEMPT)
+        if not MOTIF_CLAUSE.search(instruction.lower()) and not fonction.startswith(PREFIXE_EXEMPT)
     }
     assert fautives == {"lister", "lister_en_morceaux", "lister_par_constante"}
 
@@ -1213,8 +1179,7 @@ def test_l_exemption_d_identite_ne_couvre_pas_la_table_de_correspondance(tmp_pat
     fautives = {
         fonction
         for fonction, instruction in requetes_du_module(faute)
-        if not MOTIF_CLAUSE.search(instruction.lower())
-        and not fonction.startswith(PREFIXE_EXEMPT)
+        if not MOTIF_CLAUSE.search(instruction.lower()) and not fonction.startswith(PREFIXE_EXEMPT)
     }
     assert fautives == {"lien_nu", "jointure", "sous_requete", "commentaire"}
 
@@ -1275,8 +1240,7 @@ def test_le_front_ne_porte_aucune_coordonnee_reelle():
             proche = ville_trop_proche(lat, lon)
             if proche is not None:
                 fautes.append(
-                    f"{source.relative_to(RACINE)} : ({lat}, {lon}) est à "
-                    f"{proche[1]:.1f} km de {proche[0]}"
+                    f"{source.relative_to(RACINE)} : ({lat}, {lon}) est à {proche[1]:.1f} km de {proche[0]}"
                 )
     assert not fautes, "coordonnées réelles dans le front :\n" + "\n".join(fautes)
 

@@ -73,7 +73,6 @@ PUISSANCE_CALME = 150.0
 DEG_PAR_M = 1.0 / 111_194.9
 
 
-
 def parametres() -> Any:
     from ourouler.physique.modele import Parametres
 
@@ -83,9 +82,7 @@ def parametres() -> Any:
 # --- géométries --------------------------------------------------------------
 
 
-def trace_droite(
-    longueur_m: float = 78_000.0, *, pas_m: float = 500.0, pente: float = 0.0
-) -> Trace:
+def trace_droite(longueur_m: float = 78_000.0, *, pas_m: float = 500.0, pente: float = 0.0) -> Trace:
     """Une ligne droite vers l'est, plate (ou de pente constante).
 
     Le départ n'est pas (0, 0) mais `fabriques.LAT0/LON0` : un tracé dont le

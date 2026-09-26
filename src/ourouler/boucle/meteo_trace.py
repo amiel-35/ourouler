@@ -208,9 +208,7 @@ def evaluer(
     if not trace.points:
         raise ErreurUtilisateur("tracé sans point : il n'y a rien à évaluer le long du parcours")
     if not strictement_positif(pas_m):
-        raise ErreurUtilisateur(
-            f"pas_m = {pas_m} : un pas d'échantillonnage strictement positif est attendu"
-        )
+        raise ErreurUtilisateur(f"pas_m = {pas_m} : un pas d'échantillonnage strictement positif est attendu")
 
     depart_tz = horaire(0.0)
     distances = _distances_cumulees(trace.points)
@@ -272,9 +270,7 @@ def evaluer(
                 # Sans cap local (tracé réduit à un point), il n'y a pas de
                 # « à l'aller » : la valeur est absente plutôt que fausse —
                 # même raison que pour le point « ici » d'une couronne.
-                vent_relatif=(
-                    vent_relatif(cap, valeurs.vent_depuis_deg) if cap is not None else None
-                ),
+                vent_relatif=(vent_relatif(cap, valeurs.vent_depuis_deg) if cap is not None else None),
                 ressenti_c=valeurs.ressenti_c,
                 vent_depuis_deg=valeurs.vent_depuis_deg,
                 rafales_kmh=valeurs.rafales_kmh,
@@ -321,9 +317,7 @@ def _previsions_avec_repli(
     cause.
     """
     try:
-        previsions = client.previsions(
-            coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h
-        )
+        previsions = client.previsions(coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h)
         return previsions, modele, False
     except ErreurHorsDomaine:
         if not modele_repli or modele_repli == modele:
@@ -350,9 +344,7 @@ def _tenter_repli_partiel(
     les échantillons qui en avaient besoin, pas toute l'évaluation.
     """
     try:
-        return client.previsions(
-            coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h
-        )
+        return client.previsions(coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h)
     except ErreurConnecteur:
         return None
 
@@ -597,9 +589,7 @@ def _second_avis(
     if not modele:
         return None
     try:
-        previsions = client.previsions(
-            coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h
-        )
+        previsions = client.previsions(coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h)
     except ErreurConnecteur:
         return None
     # Au-delà de la prévision, le second avis se tait aussi : il ne doit pas
@@ -667,8 +657,7 @@ def _durees_h(echantillons: Sequence[Echantillon]) -> list[float]:
         bornes.append(avant + (apres - avant) / 2)
     bornes.append(instants[-1])
     return [
-        (fin - debut).total_seconds() / 3600.0
-        for debut, fin in zip(bornes[:-1], bornes[1:], strict=True)
+        (fin - debut).total_seconds() / 3600.0 for debut, fin in zip(bornes[:-1], bornes[1:], strict=True)
     ]
 
 
@@ -679,8 +668,7 @@ def _confiance_globale(
     if pluies_second_avis is None:
         return CONFIANCE_INCONNUE
     niveaux = [
-        confiance(e.pluie_mm, seconde)
-        for e, seconde in zip(echantillons, pluies_second_avis, strict=True)
+        confiance(e.pluie_mm, seconde) for e, seconde in zip(echantillons, pluies_second_avis, strict=True)
     ]
     if CONFIANCE_DESACCORD in niveaux:
         return CONFIANCE_DESACCORD

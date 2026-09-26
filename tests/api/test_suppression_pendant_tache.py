@@ -43,7 +43,7 @@ def _gpx(rang: int) -> bytes:
     heure = 6 + rang // 60
     minute = rang % 60
     return (
-        "<?xml version='1.0'?>\n<gpx version=\"1.1\" creator=\"essai\"><trk><trkseg>"
+        '<?xml version=\'1.0\'?>\n<gpx version="1.1" creator="essai"><trk><trkseg>'
         f'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T{heure:02d}:{minute:02d}:00Z</time></trkpt>'
         f'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T{heure:02d}:{minute:02d}:30Z</time></trkpt>'
         "</trkseg></trk></gpx>\n"
@@ -81,9 +81,7 @@ def test_supprimer_le_compte_a_mi_import_ne_laisse_rien_revenir(tmp_path: Path, 
 
     # Au milieu de l'import : quelques fichiers déjà écrits, pas tous.
     debut = time.monotonic()
-    while client.get(f"/api/v1/activites/import/{id_job}", headers=h).json()["donnees"][
-        "traites"
-    ] < 5:
+    while client.get(f"/api/v1/activites/import/{id_job}", headers=h).json()["donnees"]["traites"] < 5:
         assert time.monotonic() - debut < 5
         time.sleep(0.01)
     cache = Cache(tmp_path / "cache", proprietaire=A)

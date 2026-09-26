@@ -118,9 +118,7 @@ class ClientOpenMeteo:
                 f"Open-Meteo : {len(blocs)} bloc(s) reçu(s) pour {len(points)} point(s) demandé(s) "
                 f"sur {self.url_prevision}"
             )
-        return [
-            self._point(bloc, demande, modele) for bloc, demande in zip(blocs, points, strict=True)
-        ]
+        return [self._point(bloc, demande, modele) for bloc, demande in zip(blocs, points, strict=True)]
 
     def _point(self, bloc: Any, demande: tuple[float, float], modele: str) -> PrevisionPoint:
         if not isinstance(bloc, dict):
@@ -227,8 +225,7 @@ class ClientOpenMeteo:
 def _heure_vide(h: PrevisionHeure) -> bool:
     """Aucune valeur du tout à cette heure-là (tout `null` côté API)."""
     return all(
-        v is None
-        for v in (h.pluie_mm, h.vent_kmh, h.rafales_kmh, h.vent_depuis_deg, h.ressenti_c, h.temp_c)
+        v is None for v in (h.pluie_mm, h.vent_kmh, h.rafales_kmh, h.vent_depuis_deg, h.ressenti_c, h.temp_c)
     )
 
 

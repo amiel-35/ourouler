@@ -43,9 +43,7 @@ from ourouler.noyau.trace import Trace
 #: `highway` d'un **nœud** qui impose un arrêt ou un ralentissement. Ils
 #: arrivent par `Segment.node_tags`, alimenté par la colonne `NodeTags` des
 #: messages BRouter.
-NOEUDS_CARREFOUR = frozenset(
-    {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
-)
+NOEUDS_CARREFOUR = frozenset({"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"})
 
 #: Ceux qui **arrêtent** vraiment, par opposition à ceux qui font lever le
 #: pied. Mesuré sur une boucle réelle de 55 km : 457 marqueurs,

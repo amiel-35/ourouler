@@ -326,9 +326,7 @@ def test_le_cout_par_km_suit_la_colonne_de_l_entete_pas_sa_position():
     proprietes = charge["features"][0]["properties"]
     entete, *lignes = proprietes["messages"]
     ordre = [entete.index(nom) for nom in ("CostPerKm", *[n for n in entete if n != "CostPerKm"])]
-    proprietes["messages"] = [
-        [ligne[i] for i in ordre] for ligne in ([entete] + lignes)
-    ]
+    proprietes["messages"] = [[ligne[i] for i in ordre] for ligne in ([entete] + lignes)]
     client, _ = client_repondant(charge)
     trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
     assert [s.cout_km for s in trace.segments] == [1200.0] * 6

@@ -59,9 +59,7 @@ def module(nom: str, *, motif: str) -> Any:
         try:
             return importlib.import_module(f"{paquet}.{nom}")
         except ModuleNotFoundError as e:
-            if e.name is not None and not (
-                e.name == paquet or e.name == f"{paquet}.{nom}"
-            ):
+            if e.name is not None and not (e.name == paquet or e.name == f"{paquet}.{nom}"):
                 raise  # le paquet est là, c'est un de ses imports qui manque
             continue
     # Tous les lots du contrat existent désormais : un module introuvable est
@@ -217,8 +215,12 @@ def seance_deux_blocs(
         mod,
         [
             etape(
-                mod, "echauffement", echauffement_s,
-                pmin=puissance_z2_w, pmax=puissance_z2_w, elastique=True,
+                mod,
+                "echauffement",
+                echauffement_s,
+                pmin=puissance_z2_w,
+                pmax=puissance_z2_w,
+                elastique=True,
             ),
             etape(mod, "bloc", bloc_s, pmin=puissance_bloc_w, pmax=puissance_bloc_w, libelle="bloc 1"),
             etape(mod, "recuperation", recup_s, pmin=puissance_z2_w, pmax=puissance_z2_w, libelle="recup"),
@@ -352,11 +354,7 @@ def boucle_plate(
 
 def troncon_de(trace: Trace, debut_m: float, fin_m: float) -> list[int]:
     """Indices des tronçons dont le départ tombe dans `[debut_m, fin_m)`."""
-    return [
-        i
-        for i in range(max(len(trace.points) - 1, 0))
-        if debut_m <= trace.points[i].dist_m < fin_m
-    ]
+    return [i for i in range(max(len(trace.points) - 1, 0)) if debut_m <= trace.points[i].dist_m < fin_m]
 
 
 def salir(

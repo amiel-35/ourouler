@@ -132,9 +132,7 @@ def _trace_droite(longueur_m: float = 10_000.0) -> Trace:
     """Une droite fictive, avec de l'altitude : `_profil_svg` dessine alors un `<svg>`."""
     n = 11
     pas = longueur_m / (n - 1)
-    points = [
-        PointTrace(lat=0.0, lon=i * pas / 111_194.9, alt_m=10.0 + i, dist_m=i * pas) for i in range(n)
-    ]
+    points = [PointTrace(lat=0.0, lon=i * pas / 111_194.9, alt_m=10.0 + i, dist_m=i * pas) for i in range(n)]
     return Trace(
         nom="droite", points=points, segments=[], distance_m=longueur_m, denivele_m=None, temps_moteur_s=None
     )
