@@ -135,12 +135,23 @@ def rattachement_explicite(entree: EntreeCache, config: PorteVelos) -> str | Non
     qui dépose des fichiers sans équipement ne doit pas voir toutes ses
     sorties créditées au premier vélo sans qu'on le lui dise.
     """
+    for signal in (_velo_du_capteur, _velo_de_l_equipement, _velo_de_la_periode):
+        velo = signal(entree, config)
+        if velo is not None:
+            return velo
+    return None
+
+
+def _velo_du_capteur(entree: EntreeCache, config: PorteVelos) -> str | None:
     capteur = _sans_blancs(entree.meta.get("power_meter"))
     if capteur:
         for velo in config.velos:
             if velo.capteur_puissance and _sans_blancs(velo.capteur_puissance) == capteur:
                 return velo.nom
+    return None
 
+
+def _velo_de_l_equipement(entree: EntreeCache, config: PorteVelos) -> str | None:
     gear_id = str(entree.meta.get("gear_id") or "").strip()
     if gear_id:
         for velo in config.velos:
@@ -151,7 +162,10 @@ def rattachement_explicite(entree: EntreeCache, config: PorteVelos) -> str | Non
         for velo in config.velos:
             if velo.intervals_gear and velo.intervals_gear.strip().casefold() == equipement:
                 return velo.nom
+    return None
 
+
+def _velo_de_la_periode(entree: EntreeCache, config: PorteVelos) -> str | None:
     jour = entree.jour
     if jour is not None:
         for velo in config.velos:

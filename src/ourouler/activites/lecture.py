@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -95,56 +96,72 @@ def lecteur_pour(extension: str) -> Callable[[Entree], Activite]:
 # --- FIT ----------------------------------------------------------------------
 
 
-def lire_fit(source: Entree) -> Activite:
-    contenu, fichier = _octets(source)
-    points: list[Point] = []
-    avertissements: list[str] = []
+@dataclass
+class _TramesFit:
+    """Ce que les trames d'un FIT apportent, accumulé trame par trame.
+
+    Un FIT peut porter plusieurs trames `session` : sortie coupée en deux,
+    fichier multisport. Les valeurs étaient réaffectées à chaque session, si
+    bien que la distance rapportée était celle du **dernier tronçon
+    seulement**, en silence. On les cumule, et on le dit.
+    """
+
+    points: list[Point] = field(default_factory=list)
     sport: str | None = None
     appareil: str | None = None
+    sessions: int = 0
+    distances_sessions: list[float] = field(default_factory=list)
+    durees_sessions: list[float] = field(default_factory=list)
+
+    def consommer(self, trame) -> None:
+        if trame.name == "record":
+            point = _point_fit(trame)
+            if point is not None:
+                self.points.append(point)
+        elif trame.name == "session":
+            self._session(trame)
+        elif trame.name == "sport":
+            self.sport = self.sport or _sport_fit(trame)
+        elif trame.name == "file_id":
+            self.appareil = _appareil_fit(trame)
+        elif trame.name == "device_info" and self.appareil is None:
+            self.appareil = _texte(_champ(trame, "product_name"))
+
+    def _session(self, trame) -> None:
+        self.sessions += 1
+        self.sport = self.sport or _sport_fit(trame)
+        duree = _flottant(_champ(trame, "total_timer_time"))
+        if duree is not None:
+            self.durees_sessions.append(duree)
+        distance = _flottant(_champ(trame, "total_distance"))
+        if distance is not None:
+            self.distances_sessions.append(distance)
+
+
+def lire_fit(source: Entree) -> Activite:
+    contenu, fichier = _octets(source)
+    avertissements: list[str] = []
     meta: dict = {}
-    # Un FIT peut porter plusieurs trames `session` : sortie coupée en deux,
-    # fichier multisport. Les valeurs étaient réaffectées à chaque session, si
-    # bien que la distance rapportée était celle du **dernier tronçon
-    # seulement**, en silence. On les cumule, et on le dit.
-    sessions = 0
-    distances_sessions: list[float] = []
-    durees_sessions: list[float] = []
+    lu = _TramesFit()
 
     try:
         with fitdecode.FitReader(io.BytesIO(contenu)) as fit:
             for trame in fit:
                 if trame.frame_type != fitdecode.FIT_FRAME_DATA:
                     continue
-                if trame.name == "record":
-                    point = _point_fit(trame)
-                    if point is not None:
-                        points.append(point)
-                elif trame.name == "session":
-                    sessions += 1
-                    sport = sport or _sport_fit(trame)
-                    duree = _flottant(_champ(trame, "total_timer_time"))
-                    if duree is not None:
-                        durees_sessions.append(duree)
-                    distance = _flottant(_champ(trame, "total_distance"))
-                    if distance is not None:
-                        distances_sessions.append(distance)
-                elif trame.name == "sport":
-                    sport = sport or _sport_fit(trame)
-                elif trame.name == "file_id":
-                    appareil = _appareil_fit(trame)
-                elif trame.name == "device_info" and appareil is None:
-                    appareil = _texte(_champ(trame, "product_name"))
+                lu.consommer(trame)
     except fitdecode.FitError as e:
         raise ErreurLecture(f"{fichier or '<octets>'} : FIT illisible ({e})") from e
 
+    points = lu.points
     if not points:
         raise ErreurLecture(f"{fichier or '<octets>'} : FIT sans enregistrement exploitable")
-    duree_mouvement_s = sum(durees_sessions) if durees_sessions else None
-    distance_m = sum(distances_sessions) if distances_sessions else None
-    if sessions > 1:
-        meta["sessions"] = sessions
+    duree_mouvement_s = sum(lu.durees_sessions) if lu.durees_sessions else None
+    distance_m = sum(lu.distances_sessions) if lu.distances_sessions else None
+    if lu.sessions > 1:
+        meta["sessions"] = lu.sessions
         avertissements.append(
-            f"{sessions} sessions dans le fichier : distance et durée de mouvement "
+            f"{lu.sessions} sessions dans le fichier : distance et durée de mouvement "
             "sont la somme des sessions"
         )
     if distance_m is None:
@@ -154,8 +171,8 @@ def lire_fit(source: Entree) -> Activite:
         fichier,
         points,
         avertissements=avertissements,
-        sport=sport,
-        appareil=appareil,
+        sport=lu.sport,
+        appareil=lu.appareil,
         duree_mouvement_s=duree_mouvement_s,
         distance_m=distance_m,
         meta=meta,

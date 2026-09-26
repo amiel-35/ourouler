@@ -310,45 +310,10 @@ def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
     if sens not in SENS_BOUCLE:
         raise ErreurConfig(f"[boucle] sens = {sens!r}, attendu un de {SENS_BOUCLE}")
     return Config(
-        depart=Depart(
-            nom=str(depart.get("nom", "Départ")),
-            latitude=_nombre(
-                depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0
-            ),
-            longitude=_nombre(
-                depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0
-            ),
-        ),
-        cycliste=Cycliste(
-            masse_kg=_nombre(
-                cycliste, "masse_kg", "cycliste", 20, 300, requis=requiert_profil, defaut=0.0
-            ),
-            ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
-            # Absents dans toute configuration écrite avant ce lot : une
-            # chaîne vide, jamais un refus de chargement (voir la docstring
-            # de `Cycliste.prenom`).
-            prenom=str(cycliste.get("prenom", "") or ""),
-            nom=str(cycliste.get("nom", "") or ""),
-        ),
+        depart=_depart_depuis(depart, requiert_profil=requiert_profil),
+        cycliste=_cycliste_depuis(cycliste, requiert_profil=requiert_profil),
         velos=velos,
-        meteo=ParametresMeteo(
-            directions=_entier(
-                meteo.get("directions", 8), "directions", "meteo", parmi=DIRECTIONS_ACCEPTEES
-            ),
-            distances_km=_distances(meteo.get("distances_km", (15, 25, 40))),
-            modele=str(meteo.get("modele", ParametresMeteo.modele)),
-            second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
-            horizon_h=_entier(
-                meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
-            ),
-            horizon_jours=_entier(
-                meteo.get("horizon_jours", HORIZON_JOURS_DEFAUT),
-                "horizon_jours",
-                "meteo",
-                mini=0,
-                maxi=HORIZON_JOURS_MAX,
-            ),
-        ),
+        meteo=_meteo_depuis(meteo),
         intervals=ParametresIntervals(
             athlete_id=str(intervals.get("athlete_id", "") or ""),
             api_key=str(intervals.get("api_key", "") or ""),
@@ -356,112 +321,181 @@ def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
         # `.expanduser()` : un TOML écrit à la main porte presque toujours un
         # `~`, et le cœur qui reçoit ce chemin n'a pas le droit de le résoudre.
         cache=ParametresCache(dossier=dossier_cache_depuis(d)),
-        brouter=ParametresBrouter(
-            url=str(brouter.get("url", "") or "").rstrip("/"),
-            utilisateur=str(brouter.get("utilisateur", "") or ""),
-            mot_de_passe=str(brouter.get("mot_de_passe", "") or ""),
-            profil=str(brouter.get("profil", "fastbike") or "fastbike"),
-            timeout_s=_flottant(brouter.get("timeout_s", 120.0), "timeout_s", "brouter", mini=1, maxi=600),
-        ),
-        boucle=ParametresBoucle(
-            vitesse_moyenne_kmh=_flottant(
-                boucle.get("vitesse_moyenne_kmh", 27.0), "vitesse_moyenne_kmh", "boucle", mini=5, maxi=60
-            ),
-            sens=sens,
-            candidates=_entier(boucle.get("candidates", 5), "candidates", "boucle", mini=1, maxi=20),
-            tolerance_distance=_flottant(
-                boucle.get("tolerance_distance", 0.10), "tolerance_distance", "boucle", mini=0.01, maxi=0.5
-            ),
-        ),
-        calibration=ParametresCalibration(
-            mots_groupe=_mots(
-                calibration.get("mots_groupe", ParametresCalibration().mots_groupe)
-            ),
-            part_validation=_flottant(
-                calibration.get("part_validation", 0.25),
-                "part_validation",
-                "calibration",
-                mini=0.05,
-                maxi=0.5,
-            ),
-            vitesse_min_kmh=_flottant(
-                calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
-            ),
-            part_groupe_max=_flottant(
-                calibration.get("part_groupe_max", 0.30),
-                "part_groupe_max",
-                "calibration",
-                mini=0.05,
-                maxi=0.5,
-            ),
-        ),
-        seance=ParametresSeance(
-            elasticite_z2_max=_flottant(
-                seance_brut.get("elasticite_z2_max", 0.20),
-                "elasticite_z2_max",
-                "seance",
-                mini=0.0,
-                maxi=1.0,
-            ),
-            elasticite_z2_min=_flottant(
-                seance_brut.get("elasticite_z2_min", -0.05),
-                "elasticite_z2_min",
-                "seance",
-                mini=-0.5,
-                maxi=0.0,
-            ),
-            elasticite_calme_max=_flottant(
-                seance_brut.get("elasticite_calme_max", 1.5),
-                "elasticite_calme_max",
-                "seance",
-                mini=0.0,
-                maxi=5.0,
-            ),
-            elasticite_calme_min=_flottant(
-                seance_brut.get("elasticite_calme_min", -0.05),
-                "elasticite_calme_min",
-                "seance",
-                mini=-0.5,
-                maxi=0.0,
-            ),
-            demi_tour_penalite=_flottant(
-                seance_brut.get("demi_tour_penalite", 1.0),
-                "demi_tour_penalite",
-                "seance",
-                mini=0.0,
-                maxi=20.0,
-            ),
-            zones_pct=zones_pct,
-            position_zone=_position_zone(seance_brut, zones_pct),
-            seuil_recuperation_pct=_flottant(
-                seance_brut.get("seuil_recuperation_pct", 0.75),
-                "seuil_recuperation_pct",
-                "seance",
-                mini=0.50,
-                maxi=0.90,
-            ),
-            tolerance_egalite=_flottant(
-                seance_brut.get("tolerance_egalite", 0.15),
-                "tolerance_egalite",
-                "seance",
-                mini=0.0,
-                maxi=0.5,
-            ),
-        ),
-        tenue=ParametresTenue(
-            bornes_c=_bornes(
-                tenue_brut.get("bornes_c", (3.0, 9.0, 15.0, 22.0, 30.0)), "bornes_c", "tenue"
-            ),
-            bornes_pluie_mmh=_bornes(
-                tenue_brut.get("bornes_pluie_mmh", (0.2, 0.5, 1.0)), "bornes_pluie_mmh", "tenue"
-            ),
-            vent_veste_kmh=_flottant(
-                tenue_brut.get("vent_veste_kmh", 30.0), "vent_veste_kmh", "tenue", mini=0.0, maxi=100.0
-            ),
-            tenues=_tenues(tenue_brut.get("tenues", {})),
-        ),
+        brouter=_brouter_depuis(brouter),
+        boucle=_boucle_depuis(boucle, sens),
+        calibration=_calibration_depuis(calibration),
+        seance=_seance_depuis(seance_brut, zones_pct),
+        tenue=_tenue_depuis(tenue_brut),
         evitements=evitements,
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
+    )
+
+
+def _depart_depuis(depart: dict[str, Any], *, requiert_profil: bool) -> Depart:
+    return Depart(
+        nom=str(depart.get("nom", "Départ")),
+        latitude=_nombre(
+            depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0
+        ),
+        longitude=_nombre(
+            depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0
+        ),
+    )
+
+
+def _cycliste_depuis(cycliste: dict[str, Any], *, requiert_profil: bool) -> Cycliste:
+    return Cycliste(
+        masse_kg=_nombre(
+            cycliste, "masse_kg", "cycliste", 20, 300, requis=requiert_profil, defaut=0.0
+        ),
+        ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
+        # Absents dans toute configuration écrite avant ce lot : une
+        # chaîne vide, jamais un refus de chargement (voir la docstring
+        # de `Cycliste.prenom`).
+        prenom=str(cycliste.get("prenom", "") or ""),
+        nom=str(cycliste.get("nom", "") or ""),
+    )
+
+
+def _meteo_depuis(meteo: dict[str, Any]) -> ParametresMeteo:
+    return ParametresMeteo(
+        directions=_entier(
+            meteo.get("directions", 8), "directions", "meteo", parmi=DIRECTIONS_ACCEPTEES
+        ),
+        distances_km=_distances(meteo.get("distances_km", (15, 25, 40))),
+        modele=str(meteo.get("modele", ParametresMeteo.modele)),
+        second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
+        horizon_h=_entier(
+            meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
+        ),
+        horizon_jours=_entier(
+            meteo.get("horizon_jours", HORIZON_JOURS_DEFAUT),
+            "horizon_jours",
+            "meteo",
+            mini=0,
+            maxi=HORIZON_JOURS_MAX,
+        ),
+    )
+
+
+def _brouter_depuis(brouter: dict[str, Any]) -> ParametresBrouter:
+    return ParametresBrouter(
+        url=str(brouter.get("url", "") or "").rstrip("/"),
+        utilisateur=str(brouter.get("utilisateur", "") or ""),
+        mot_de_passe=str(brouter.get("mot_de_passe", "") or ""),
+        profil=str(brouter.get("profil", "fastbike") or "fastbike"),
+        timeout_s=_flottant(brouter.get("timeout_s", 120.0), "timeout_s", "brouter", mini=1, maxi=600),
+    )
+
+
+def _boucle_depuis(boucle: dict[str, Any], sens: str) -> ParametresBoucle:
+    return ParametresBoucle(
+        vitesse_moyenne_kmh=_flottant(
+            boucle.get("vitesse_moyenne_kmh", 27.0), "vitesse_moyenne_kmh", "boucle", mini=5, maxi=60
+        ),
+        sens=sens,
+        candidates=_entier(boucle.get("candidates", 5), "candidates", "boucle", mini=1, maxi=20),
+        tolerance_distance=_flottant(
+            boucle.get("tolerance_distance", 0.10), "tolerance_distance", "boucle", mini=0.01, maxi=0.5
+        ),
+    )
+
+
+def _calibration_depuis(calibration: dict[str, Any]) -> ParametresCalibration:
+    return ParametresCalibration(
+        mots_groupe=_mots(
+            calibration.get("mots_groupe", ParametresCalibration().mots_groupe)
+        ),
+        part_validation=_flottant(
+            calibration.get("part_validation", 0.25),
+            "part_validation",
+            "calibration",
+            mini=0.05,
+            maxi=0.5,
+        ),
+        vitesse_min_kmh=_flottant(
+            calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
+        ),
+        part_groupe_max=_flottant(
+            calibration.get("part_groupe_max", 0.30),
+            "part_groupe_max",
+            "calibration",
+            mini=0.05,
+            maxi=0.5,
+        ),
+    )
+
+
+def _seance_depuis(
+    seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, float], ...]
+) -> ParametresSeance:
+    return ParametresSeance(
+        elasticite_z2_max=_flottant(
+            seance_brut.get("elasticite_z2_max", 0.20),
+            "elasticite_z2_max",
+            "seance",
+            mini=0.0,
+            maxi=1.0,
+        ),
+        elasticite_z2_min=_flottant(
+            seance_brut.get("elasticite_z2_min", -0.05),
+            "elasticite_z2_min",
+            "seance",
+            mini=-0.5,
+            maxi=0.0,
+        ),
+        elasticite_calme_max=_flottant(
+            seance_brut.get("elasticite_calme_max", 1.5),
+            "elasticite_calme_max",
+            "seance",
+            mini=0.0,
+            maxi=5.0,
+        ),
+        elasticite_calme_min=_flottant(
+            seance_brut.get("elasticite_calme_min", -0.05),
+            "elasticite_calme_min",
+            "seance",
+            mini=-0.5,
+            maxi=0.0,
+        ),
+        demi_tour_penalite=_flottant(
+            seance_brut.get("demi_tour_penalite", 1.0),
+            "demi_tour_penalite",
+            "seance",
+            mini=0.0,
+            maxi=20.0,
+        ),
+        zones_pct=zones_pct,
+        position_zone=_position_zone(seance_brut, zones_pct),
+        seuil_recuperation_pct=_flottant(
+            seance_brut.get("seuil_recuperation_pct", 0.75),
+            "seuil_recuperation_pct",
+            "seance",
+            mini=0.50,
+            maxi=0.90,
+        ),
+        tolerance_egalite=_flottant(
+            seance_brut.get("tolerance_egalite", 0.15),
+            "tolerance_egalite",
+            "seance",
+            mini=0.0,
+            maxi=0.5,
+        ),
+    )
+
+
+def _tenue_depuis(tenue_brut: dict[str, Any]) -> ParametresTenue:
+    return ParametresTenue(
+        bornes_c=_bornes(
+            tenue_brut.get("bornes_c", (3.0, 9.0, 15.0, 22.0, 30.0)), "bornes_c", "tenue"
+        ),
+        bornes_pluie_mmh=_bornes(
+            tenue_brut.get("bornes_pluie_mmh", (0.2, 0.5, 1.0)), "bornes_pluie_mmh", "tenue"
+        ),
+        vent_veste_kmh=_flottant(
+            tenue_brut.get("vent_veste_kmh", 30.0), "vent_veste_kmh", "tenue", mini=0.0, maxi=100.0
+        ),
+        tenues=_tenues(tenue_brut.get("tenues", {})),
     )
 
 

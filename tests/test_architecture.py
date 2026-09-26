@@ -233,6 +233,9 @@ MODULES: dict[str, str] = {
     "ourouler.physique.modele": "physique",
     "ourouler.physique.litterature": "physique",
     "ourouler.physique.calibration": "physique",
+    "ourouler.physique.echantillonnage": "physique",
+    "ourouler.physique.groupe": "physique",
+    "ourouler.physique.validation": "physique",
     "ourouler.physique.parametres_velo": "physique",
     "ourouler.meteo": "meteo",
     "ourouler.meteo.couronne": "meteo",
@@ -254,6 +257,9 @@ MODULES: dict[str, str] = {
     "ourouler.seance.intervals": "seance",
     "ourouler.seance.mrc": "seance",
     "ourouler.seance.placement": "seance",
+    "ourouler.seance.pas_trace": "seance",
+    "ourouler.seance.placement_resultat": "seance",
+    "ourouler.seance.placement_note": "seance",
     "ourouler.seance.tenue": "seance",
     "ourouler.seance.terrain": "seance",
     "ourouler.seance.vent": "seance",
@@ -302,12 +308,17 @@ MODULES: dict[str, str] = {
     # 4. rendu
     "ourouler.rendu": "rendu",
     "ourouler.rendu.boucle": "rendu",
+    "ourouler.rendu.boucle_json": "rendu",
     "ourouler.rendu.carte": "rendu",
+    "ourouler.rendu.carte_dessin": "rendu",
+    "ourouler.rendu.carte_jour": "rendu",
+    "ourouler.rendu.comparaison": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.physique": "rendu",
     "ourouler.rendu.profil": "rendu",
     "ourouler.rendu.routes": "rendu",
     "ourouler.rendu.sortie": "rendu",
+    "ourouler.rendu.sortie_json": "rendu",
     # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
@@ -406,6 +417,7 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
     ("ourouler.rendu.profil", "ourouler.config"),
     ("ourouler.rendu.boucle", "ourouler.config"),
+    ("ourouler.rendu.boucle_json", "ourouler.config"),  # lot 12, le JSON de boucle
     ("ourouler.rendu.sortie", "ourouler.config"),
 }
 

@@ -151,7 +151,16 @@ def conseiller(meteo: MeteoTrace, p: ParametresTenue) -> Tenue:
     categorie_humidite = _humidite(echantillons, p, base, a_emporter, motifs)
     _vent(echantillons, p, base, a_emporter, motifs)
     if rang_base is not None:
-        _variation(echantillons, p, rang_base, tenues, base, a_emporter, a_enlever, motifs)
+        _variation(
+            echantillons,
+            p,
+            rang_base,
+            tenues,
+            base,
+            a_emporter=a_emporter,
+            a_enlever=a_enlever,
+            motifs=motifs,
+        )
 
     return Tenue(
         categorie_temp=categorie_temp,
@@ -221,6 +230,7 @@ def _variation(
     rang_base: int,
     tenues: dict[str, tuple[str, ...]],
     base: Sequence[str],
+    *,
     a_emporter: list[str],
     a_enlever: list[str],
     motifs: list[str],

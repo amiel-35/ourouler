@@ -296,9 +296,9 @@ def evaluer(
         coordonnees,
         [t for _, t, _, _ in bases],
         [e.au_dela_prevision for e in echantillons],
-        debut_heure,
-        horizon_h,
-        avis_pour_comparaison,
+        debut_heure=debut_heure,
+        horizon_h=horizon_h,
+        modele=avis_pour_comparaison,
     )
     resultat = _resumer(echantillons, pluies_second_avis)
     resultat.modele_utilise = modele_principal
@@ -613,6 +613,7 @@ def _second_avis(
     coordonnees: Sequence[tuple[float, float]],
     instants: Sequence[datetime],
     au_dela: Sequence[bool],
+    *,
     debut_heure: datetime,
     horizon_h: int,
     modele: str | None,

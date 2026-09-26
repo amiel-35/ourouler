@@ -49,7 +49,7 @@ REGENERER = "`uv run pytest tests/caracterisation --regenerer-golden`"
 
 #: La ligne de la carte HTML qui porte l'heure de génération, **retirée**
 #: avant l'empreinte : `<p class="horodatage">Page générée le 08/09/2026 à
-#: 09:00.</p>` (`rendu/carte.py`, `_page_jour` et `construire_page_sans_seance`).
+#: 09:00.</p>` (`rendu/carte_jour.py`, `_page_jour` et `construire_page_sans_seance`).
 #: L'horloge est figée, la ligne serait stable ; on la retire quand même pour
 #: qu'un lot qui déplace la lecture de l'horloge de la carte (et la fige
 #: autrement) ne casse pas l'empreinte de toute la page. C'est la **seule**
