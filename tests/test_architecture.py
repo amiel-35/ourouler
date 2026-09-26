@@ -256,6 +256,7 @@ MODULES: dict[str, str] = {
     "ourouler.seance.placement": "seance",
     "ourouler.seance.pas_trace": "seance",
     "ourouler.seance.placement_resultat": "seance",
+    "ourouler.seance.placement_note": "seance",
     "ourouler.seance.tenue": "seance",
     "ourouler.seance.terrain": "seance",
     "ourouler.seance.vent": "seance",
