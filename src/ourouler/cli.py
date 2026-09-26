@@ -481,7 +481,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
+    from ourouler.commandes.boucle import executer_depuis_namespace  # import paresseux (lot L2.6)
 
     # Avec `--gpx`, la boucle n'est pas générée : elle est lue dans le fichier,
     # qui porte son propre départ. Géocoder une adresse pour l'annoncer ensuite
@@ -496,7 +496,9 @@ def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     # `avertir_routes` : `boucle` affiche une part de kilomètres déjà connus,
     # mesurée autour du départ configuré — partir d'ailleurs la fait tomber à
     # zéro pour une raison qui n'a rien à voir avec le tracé proposé.
-    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
+    return executer_depuis_namespace(
+        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
+    )
 
 
 def ajouter_routes(sous: argparse._SubParsersAction) -> None:

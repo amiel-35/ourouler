@@ -29,13 +29,13 @@ from ourouler.boucle.commande import (
     Evaluation,
     _info_compteur,
     direction_en_azimut,
-    executer,
-    lire_options,
 )
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
 from ourouler.cli import construire_parseur, main
+from ourouler.commandes.boucle import executer_depuis_namespace as executer
+from ourouler.commandes.boucle import lire_options
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.meteo.openmeteo import ClientOpenMeteo

@@ -35,15 +35,15 @@ from test_boucle_commande import (
 )
 from test_physique_commande import args_simuler, config_de_test, gpx_plat
 
-from ourouler.boucle.commande import executer
 from ourouler.boucle.gpx import lire_gpx_trace
+from ourouler.commandes.boucle import executer_depuis_namespace as executer
+from ourouler.commandes.physique import simuler_depuis_namespace as executer_simuler
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
     VITESSE_A_PLAT_MAXI_KMH,
     chemin_calibration,
     ecrire_calibration,
-    executer_simuler,
     puissance_voulue,
 )
 from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
@@ -228,7 +228,9 @@ def test_la_vitesse_a_plat_depend_du_velo(tmp_path: Path):
     route = Parametres(100.0, litterature.ROUTE_AMATEUR_HAUT.cda_m2, litterature.ROUTE_AMATEUR_HAUT.crr)
     clm = Parametres(100.0, litterature.ROUTE_AMATEUR.cda_m2, litterature.ROUTE_AMATEUR.crr)
     demande = argparse.Namespace(puissance=None, vitesse_a_plat=30.0)
-    assert puissance_voulue(demande, route) > puissance_voulue(demande, clm)
+    assert puissance_voulue(demande.puissance, demande.vitesse_a_plat, route) > puissance_voulue(
+        demande.puissance, demande.vitesse_a_plat, clm
+    )
 
 
 def test_les_deux_options_ensemble_sont_refusees_et_le_disent(tmp_path: Path):
@@ -247,7 +249,7 @@ def test_boucle_refuse_les_deux_options_avant_tout_appel(tmp_path: Path, monkeyp
     tenterait une vraie connexion — et le test échouerait au lieu de lever
     l'erreur attendue.
     """
-    from ourouler.boucle.commande import lire_options
+    from ourouler.commandes.boucle import lire_options
 
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)
