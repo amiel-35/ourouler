@@ -26,9 +26,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import fabriques4
+import fabriques_seance
 import pytest
-from fabriques4 import droite, trace_taguee
+from fabriques_seance import droite, trace_taguee
 from outils import robuste
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC
@@ -51,11 +51,11 @@ HIGHWAY_PASSANTE = sorted(HIGHWAY_TRAFIC)[0]
 
 
 def _terrain() -> Any:
-    return fabriques4.module("terrain", motif=MOTIF_ABSENT)
+    return fabriques_seance.module("terrain", motif=MOTIF_ABSENT)
 
 
 def _exiger_node_tags() -> None:
-    if not fabriques4.segments_disponibles_avec_node_tags():
+    if not fabriques_seance.segments_disponibles_avec_node_tags():
         pytest.skip(MOTIF_NODE_TAGS)
 
 
@@ -77,7 +77,7 @@ def _trace(
 
 def _note(trace: Any, debut: float = DEBUT_M, longueur: float = LONGUEUR_M) -> Any:
     note = _terrain().evaluer_couloir(trace, debut, longueur)
-    fabriques4.verifier_note(note, quoi=f"evaluer_couloir({debut}, {longueur})")
+    fabriques_seance.verifier_note(note, quoi=f"evaluer_couloir({debut}, {longueur})")
     return note
 
 
@@ -121,7 +121,7 @@ def test_un_couloir_hors_bornes_ne_rend_ni_nan_ni_trace(debut, longueur):
         erreurs_acceptees=ERREURS,
     )
     if erreur is None:
-        fabriques4.verifier_note(note, quoi="NoteBloc hors bornes")
+        fabriques_seance.verifier_note(note, quoi="NoteBloc hors bornes")
 
 
 @pytest.mark.parametrize("n", [1], ids=["un_seul_troncon"])
@@ -134,7 +134,7 @@ def test_un_trace_minuscule_ne_casse_pas(n):
         erreurs_acceptees=ERREURS,
     )
     if erreur is None:
-        fabriques4.verifier_note(note, quoi="NoteBloc sur tracé minuscule")
+        fabriques_seance.verifier_note(note, quoi="NoteBloc sur tracé minuscule")
 
 
 def test_un_trace_sans_segments_reste_evaluable():
@@ -147,7 +147,7 @@ def test_un_trace_sans_segments_reste_evaluable():
         erreurs_acceptees=ERREURS,
     )
     if erreur is None:
-        fabriques4.verifier_note(note, quoi="NoteBloc sans segments")
+        fabriques_seance.verifier_note(note, quoi="NoteBloc sans segments")
         assert note.km_batis == pytest.approx(0.0), "sans tags, aucun kilomètre ne peut être dit bâti"
 
 
@@ -160,7 +160,7 @@ def test_un_trace_sans_altitude_ne_fabrique_pas_de_pente():
         erreurs_acceptees=ERREURS,
     )
     if erreur is None:
-        fabriques4.verifier_note(note, quoi="NoteBloc sans altitude")
+        fabriques_seance.verifier_note(note, quoi="NoteBloc sans altitude")
         assert note.descente_m == pytest.approx(0.0) and note.montee_m == pytest.approx(0.0), (
             "sans altitude, le dénivelé est inconnu, pas nul-puis-inventé"
         )
@@ -168,9 +168,9 @@ def test_un_trace_sans_altitude_ne_fabrique_pas_de_pente():
 
 def test_evaluer_ne_modifie_pas_le_trace():
     trace = _trace()
-    avant = fabriques4.instantane_trace(trace)
+    avant = fabriques_seance.instantane_trace(trace)
     _note(trace)
-    assert fabriques4.instantane_trace(trace) == avant, "evaluer_couloir a modifié le tracé reçu"
+    assert fabriques_seance.instantane_trace(trace) == avant, "evaluer_couloir a modifié le tracé reçu"
 
 
 # --- carrefours ---------------------------------------------------------------
@@ -217,7 +217,7 @@ def test_seuls_les_noeuds_de_la_liste_font_un_carrefour(tags_noeud, attendu):
 @pytest.mark.parametrize(("angle", "attendu"), [(90.0, True), (20.0, False)], ids=["angle_droit", "leger"])
 def test_un_virage_serre_compte_comme_un_carrefour(angle, attendu):
     """Contrat §2 : « virage de plus de 60° détecté géométriquement »."""
-    coords = fabriques4.virage(65, 135, angle_deg=angle, pas_m=PAS_M)
+    coords = fabriques_seance.virage(65, 135, angle_deg=angle, pas_m=PAS_M)
     note = _note(trace_taguee(coords))
     assert (note.carrefours >= 1) is attendu, (
         f"virage de {angle}° au km 6,5 : {note.carrefours} carrefour(s) comptés"
@@ -265,7 +265,7 @@ def test_un_maxspeed_non_numerique_ne_leve_pas(maxspeed):
         erreurs_acceptees=ERREURS,
     )
     if erreur is None:
-        fabriques4.verifier_note(note, quoi=f"NoteBloc maxspeed={maxspeed!r}")
+        fabriques_seance.verifier_note(note, quoi=f"NoteBloc maxspeed={maxspeed!r}")
 
 
 # --- pentes -------------------------------------------------------------------
@@ -352,7 +352,7 @@ def test_un_bloc_a_cheval_sur_la_fermeture_continue_sur_la_boucle():
     """Contrat §2 (`route_au_dela`) : sur une boucle fermée, « on continue sur la boucle »."""
     _exiger_node_tags()
     mod = _terrain()
-    boucle = fabriques4.boucle_plate(node_tags={2: {"highway": "traffic_signals"}})
+    boucle = fabriques_seance.boucle_plate(node_tags={2: {"highway": "traffic_signals"}})
     debut = boucle.distance_m - 500.0
     note, erreur = robuste(
         lambda: mod.evaluer_couloir(boucle, debut, 1500.0),
@@ -361,7 +361,7 @@ def test_un_bloc_a_cheval_sur_la_fermeture_continue_sur_la_boucle():
     )
     if erreur is not None:
         return
-    fabriques4.verifier_note(note, quoi="NoteBloc à cheval")
+    fabriques_seance.verifier_note(note, quoi="NoteBloc à cheval")
     assert note.carrefours >= 1, (
         "le feu placé juste après la fermeture n'a pas été vu : le couloir a été tronqué "
         "au lieu de continuer sur la boucle"
@@ -384,7 +384,7 @@ def test_route_au_dela_sur_un_trace_ouvert(position, besoin, attendu):
 def test_route_au_dela_est_toujours_vrai_sur_une_boucle_fermee():
     """« ou si le tracé est une boucle fermée (on continue sur la boucle) »."""
     mod = _terrain()
-    boucle = fabriques4.boucle_plate()
+    boucle = fabriques_seance.boucle_plate()
     assert mod.route_au_dela(boucle, boucle.distance_m - 10.0, 100_000.0) is True
 
 

@@ -31,7 +31,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import outils
 import pytest
 from outils import robuste, sans_accents
@@ -107,7 +107,7 @@ def _nombre_nomme(objet: Any, jeton: str, quoi: str) -> float:
 
 
 def _verifier_ajustement(ajustement: Any, quoi: str) -> tuple[float, float]:
-    fabriques3.tout_fini(ajustement, quoi)
+    fabriques_physique.tout_fini(ajustement, quoi)
     cda = _nombre_nomme(ajustement, "cda", quoi)
     crr = _nombre_nomme(ajustement, "crr", quoi)
     assert CDA_MIN <= cda <= CDA_MAX, (
@@ -179,7 +179,7 @@ def _vent_constant(module_archive, *, vent_kmh: float = 0.0, depuis_deg: float =
     outils.exiger_champs(
         module_archive.HeureArchive, {"t", "vent_kmh", "vent_depuis_deg", "temp_c", "pression_hpa"}
     )
-    base = fabriques3.DEBUT_ACTIVITE.replace(hour=0, minute=0)
+    base = fabriques_physique.DEBUT_ACTIVITE.replace(hour=0, minute=0)
     return [
         outils.fabriquer(
             module_archive.HeureArchive,
@@ -229,7 +229,7 @@ def test_calibrer_retrouve_les_parametres_qui_ont_servi_a_fabriquer_les_echantil
     """La seule vérification qui distingue un ajustement d'une recopie des valeurs initiales."""
     module = _module()
     modele = _modele()
-    vrais = fabriques3.parametres(modele, cda_m2=0.28, crr=0.0042)
+    vrais = fabriques_physique.parametres(modele, cda_m2=0.28, crr=0.0042)
     echantillons = _echantillons_coherents(module, modele, vrais)
     with fabriques.limite_temps(60.0, "calibrer(échantillons cohérents)"):
         ajustement = module.calibrer(
@@ -249,7 +249,7 @@ def test_calibrer_ignore_les_echantillons_non_retenus():
     """`Echantillon.retenu` existe pour être lu : un échantillon écarté ne doit rien peser."""
     module = _module()
     modele = _modele()
-    vrais = fabriques3.parametres(modele, cda_m2=0.28, crr=0.0042)
+    vrais = fabriques_physique.parametres(modele, cda_m2=0.28, crr=0.0042)
     bons = _echantillons_coherents(module, modele, vrais)
     pollues = bons + [
         _echantillon(
@@ -283,7 +283,7 @@ def test_une_borne_atteinte_se_dit():
     """
     module = _module()
     modele = _modele()
-    enorme = fabriques3.parametres(modele, cda_m2=0.95, crr=0.02)
+    enorme = fabriques_physique.parametres(modele, cda_m2=0.95, crr=0.02)
     echantillons = _echantillons_coherents(module, modele, enorme)
     with fabriques.limite_temps(60.0, "calibrer(borne atteinte)"):
         ajustement = module.calibrer(echantillons, masse_totale_kg=MASSE_TOTALE_KG)
@@ -316,7 +316,7 @@ def test_calibrer_avec_des_echantillons_pollues_de_nan():
     """Un point de FIT sans capteur donne un `nan` : il ne doit pas contaminer la somme."""
     module = _module()
     modele = _modele()
-    vrais = fabriques3.parametres(modele)
+    vrais = fabriques_physique.parametres(modele)
     echantillons = _echantillons_coherents(module, modele, vrais)
     echantillons.append(_echantillon(module, v_ms=float("nan"), puissance_w=float("nan")))
     with fabriques.limite_temps(60.0, "calibrer(NaN)"):
@@ -363,7 +363,7 @@ def test_echantillonner_ecarte_les_deux_premiers_kilometres():
     """Contrat §3 : « pas dans les 2 premiers km » (échauffement, GPS qui se cale)."""
     module = _module()
     archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=8.0)
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=8.0)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(plat)"
     )
@@ -382,7 +382,7 @@ def test_echantillonner_ecarte_les_pentes_hors_bornes():
     """Contrat §3 : « pente entre −3 % et +8 % » — au-delà, la mesure ne dit plus rien du CdA."""
     module = _module()
     archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=5.0, pente=0.14)
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, vitesses_ms=5.0, pente=0.14)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(14 %)"
     )
@@ -396,7 +396,7 @@ def test_echantillonner_sur_une_sortie_sans_puissance():
     """Sans capteur, il n'y a rien à calibrer : une liste vide ou des motifs, pas une trace."""
     module = _module()
     archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0, puissance_w=None)
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0, puissance_w=None)
     echantillons = _verifier_echantillons(
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(sans puissance)"
     )
@@ -407,7 +407,7 @@ def test_echantillonner_sur_une_sortie_sans_puissance():
 def test_echantillonner_sans_archive_de_vent():
     """Contrat §4 : « archive météo vide ». Le vent inconnu n'est pas un vent nul mesuré."""
     module = _module()
-    activite = fabriques3.activite_fictive(n_points=120, pas_m=200.0)
+    activite = fabriques_physique.activite_fictive(n_points=120, pas_m=200.0)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, []),
         quoi="echantillonner(vent=[])",
@@ -421,7 +421,7 @@ def test_echantillonner_sur_une_sortie_sans_gps():
     """Sans coordonnées, pas de cap, donc pas de vent de face : ni pente ni `TypeError`."""
     module = _module()
     archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=60, pas_m=200.0, avec_gps=False)
+    activite = fabriques_physique.activite_fictive(n_points=60, pas_m=200.0, avec_gps=False)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, _vent_constant(archive)),
         quoi="echantillonner(sans GPS)",
@@ -435,7 +435,7 @@ def test_echantillonner_sur_une_sortie_sans_gps():
 def test_echantillonner_sur_une_sortie_minuscule(nb):
     module = _module()
     archive = _archive()
-    activite = fabriques3.activite_fictive(n_points=nb, pas_m=200.0)
+    activite = fabriques_physique.activite_fictive(n_points=nb, pas_m=200.0)
     resultat, _ = robuste(
         lambda: module.echantillonner(activite, _vent_constant(archive)),
         quoi=f"echantillonner(sortie de {nb} point(s))",
@@ -467,7 +467,7 @@ def _sortie_conforme(modele, p, *, facteur: float = 1.0, n_points: int = 200):
     puissance = 200.0
     v = modele.vitesse_regime(puissance, 0.0, 0.0, p)
     assert v > 1.0, "le montage suppose une vitesse d'équilibre exploitable"
-    return fabriques3.activite_fictive(
+    return fabriques_physique.activite_fictive(
         n_points=n_points, pas_m=200.0, vitesses_ms=v * facteur, puissance_w=puissance
     )
 
@@ -477,7 +477,7 @@ def test_detecter_groupe_sur_une_sortie_parfaitement_conforme():
     module = _module()
     modele = _modele()
     archive = _archive()
-    p = fabriques3.parametres(modele)
+    p = fabriques_physique.parametres(modele)
     activite = _sortie_conforme(modele, p)
     with fabriques.limite_temps(60.0, "detecter_groupe(conforme)"):
         groupe, residu = _verifier_verdict(
@@ -494,7 +494,7 @@ def test_detecter_groupe_sur_une_sortie_vingt_pour_cent_trop_rapide():
     module = _module()
     modele = _modele()
     archive = _archive()
-    p = fabriques3.parametres(modele)
+    p = fabriques_physique.parametres(modele)
     activite = _sortie_conforme(modele, p, facteur=1.20)
     with fabriques.limite_temps(60.0, "detecter_groupe(20 % trop rapide)"):
         groupe, residu = _verifier_verdict(
@@ -511,8 +511,8 @@ def test_detecter_groupe_sur_une_sortie_vide():
     module = _module()
     modele = _modele()
     archive = _archive()
-    p = fabriques3.parametres(modele)
-    activite = fabriques3.activite_fictive(n_points=1)
+    p = fabriques_physique.parametres(modele)
+    activite = fabriques_physique.activite_fictive(n_points=1)
     resultat, _ = robuste(
         lambda: module.detecter_groupe(activite, p, _vent_constant(archive)),
         quoi="detecter_groupe(sortie d'un point)",
@@ -526,8 +526,8 @@ def test_detecter_groupe_sur_une_sortie_vide():
 
 
 def _verifier_validation(validation: Any, quoi: str) -> None:
-    fabriques3.tout_fini(validation, quoi)
-    for nom, valeur in fabriques3.valeurs_numeriques(validation).items():
+    fabriques_physique.tout_fini(validation, quoi)
+    for nom, valeur in fabriques_physique.valeurs_numeriques(validation).items():
         reduit = sans_accents(nom).casefold()
         if "mae" in reduit or "median" in reduit or "erreur" in reduit:
             assert valeur >= 0, f"{quoi} : {nom} = {valeur}, une erreur en valeur absolue est positive"
@@ -549,7 +549,7 @@ def test_valider_sans_aucune_sortie_de_test():
     """Angle obligatoire : zéro sortie de test. MAE sur zéro sortie, c'est `0/0`."""
     module = _module()
     modele = _modele()
-    p = fabriques3.parametres(modele)
+    p = fabriques_physique.parametres(modele)
     resultat, _ = robuste(
         lambda: module.valider([], p), quoi="valider([])", erreurs_acceptees=ERREURS
     )
@@ -562,7 +562,7 @@ def test_valider_sur_une_seule_sortie():
     module = _module()
     modele = _modele()
     archive = _archive()
-    p = fabriques3.parametres(modele)
+    p = fabriques_physique.parametres(modele)
     sortie = (_sortie_conforme(modele, p), _vent_constant(archive))
     with fabriques.limite_temps(60.0, "valider(une sortie)"):
         resultat, _ = robuste(
@@ -573,7 +573,7 @@ def test_valider_sur_une_seule_sortie():
     _verifier_validation(resultat, "valider(une sortie)")
     erreurs = {
         nom: valeur
-        for nom, valeur in fabriques3.valeurs_numeriques(resultat).items()
+        for nom, valeur in fabriques_physique.valeurs_numeriques(resultat).items()
         if "mae" in sans_accents(nom).casefold()
     }
     assert erreurs, f"aucune MAE dans la validation : {[n for n in dir(resultat) if not n.startswith('_')]}"
@@ -590,8 +590,8 @@ def test_valider_sur_une_sortie_immobile():
     module = _module()
     modele = _modele()
     archive = _archive()
-    p = fabriques3.parametres(modele)
-    activite = fabriques3.activite_fictive(n_points=2, pas_m=0.0, vitesses_ms=0.1)
+    p = fabriques_physique.parametres(modele)
+    activite = fabriques_physique.activite_fictive(n_points=2, pas_m=0.0, vitesses_ms=0.1)
     resultat, _ = robuste(
         lambda: module.valider([(activite, _vent_constant(archive))], p),
         quoi="valider(sortie immobile)",

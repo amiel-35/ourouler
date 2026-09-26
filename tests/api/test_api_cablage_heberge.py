@@ -1,6 +1,6 @@
 """Câblage du cache météo mutualisé et des quotas en mode hébergé (lot L9.3).
 
-Deux choses que `tests/test_api_quotas.py` et `tests/test_meteo_cache_previsions.py`
+Deux choses que `tests/api/test_api_quotas.py` et `tests/test_meteo_cache_previsions.py`
 ne peuvent pas prouver, parce qu'ils construisent l'application avec
 `creer_application(...)` et injectent tout à la main : que la fabrique de
 **service**, `application()` (celle que lit vraiment `deploiement/api/entrypoint.py`

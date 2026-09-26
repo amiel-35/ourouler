@@ -23,7 +23,7 @@ import socket
 from datetime import date, datetime
 from pathlib import Path
 
-import fabriques4
+import fabriques_seance
 import httpx
 import outils
 import pytest
@@ -369,7 +369,7 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
 
 
 def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
-    """`fabriques4.module` ne saute plus : il échoue si le module manque.
+    """`fabriques_seance.module` ne saute plus : il échoue si le module manque.
 
     Tous les lots du contrat existent. Un module introuvable est donc une
     régression, et un `ImportError` interne remonte tel quel : dans les deux
@@ -384,15 +384,15 @@ def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
         "from paquet_de_test.inexistant import quoi_que_ce_soit\n", encoding="utf-8"
     )
     monkeypatch.syspath_prepend(str(tmp_path))
-    monkeypatch.setattr(fabriques4, "PAQUETS", ("paquet_de_test",))
+    monkeypatch.setattr(fabriques_seance, "PAQUETS", ("paquet_de_test",))
 
-    assert fabriques4.module("present", motif="absent").VALEUR == 1
+    assert fabriques_seance.module("present", motif="absent").VALEUR == 1
 
     with pytest.raises(ModuleNotFoundError):
-        fabriques4.module("casse", motif="ne doit pas être sauté")
+        fabriques_seance.module("casse", motif="ne doit pas être sauté")
 
     with pytest.raises(pytest.fail.Exception, match="lot jamais écrit"):
-        fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
+        fabriques_seance.module("jamais_ecrit", motif="lot jamais écrit")
 
 
 def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(

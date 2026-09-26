@@ -32,8 +32,8 @@ import importlib
 from typing import Any
 
 import fabriques
-import fabriques3
-import fabriques4
+import fabriques_physique
+import fabriques_seance
 import pytest
 from outils import robuste
 
@@ -63,7 +63,7 @@ N_COTES = 600
 
 
 def _placement() -> Any:
-    return fabriques4.module("placement", motif=MOTIF_ABSENT)
+    return fabriques_seance.module("placement", motif=MOTIF_ABSENT)
 
 
 def _modele() -> Any:
@@ -77,7 +77,7 @@ def _physique() -> Any:
 
 
 def _parametres() -> Any:
-    return fabriques3.parametres(_physique())
+    return fabriques_physique.parametres(_physique())
 
 
 def _vitesse(puissance_w: float) -> float:
@@ -86,7 +86,7 @@ def _vitesse(puissance_w: float) -> float:
 
 
 def _seance(**surcharges: Any) -> Any:
-    return fabriques4.seance_deux_blocs(
+    return fabriques_seance.seance_deux_blocs(
         _modele(),
         echauffement_s=surcharges.get("echauffement_s", ECHAUFFEMENT_S),
         bloc_s=surcharges.get("bloc_s", BLOC_S),
@@ -98,7 +98,7 @@ def _seance(**surcharges: Any) -> Any:
 
 
 def _boucle(**kwargs: Any) -> Any:
-    return fabriques4.boucle_plate(rayon_m=RAYON_BOUCLE_M, n=N_COTES, **kwargs)
+    return fabriques_seance.boucle_plate(rayon_m=RAYON_BOUCLE_M, n=N_COTES, **kwargs)
 
 
 def _appeler(seance: Any, trace: Any, **kwargs: Any):
@@ -120,13 +120,13 @@ def _placer(seance: Any, trace: Any, **kwargs: Any) -> Any:
 
 
 def _verifier(placement: Any, seance: Any, trace: Any) -> None:
-    fabriques4.nombre_fini(placement.decalage_z2_s, "Placement.decalage_z2_s")
-    fabriques4.nombre_fini(placement.note_totale, "Placement.note_totale", positif=True)
-    fabriques4.nombre_fini(placement.note_terrain, "Placement.note_terrain", positif=True)
-    fabriques4.nombre_fini(placement.penalite_seance, "Placement.penalite_seance", positif=True)
-    fabriques4.nombre_fini(placement.duree_totale_s, "Placement.duree_totale_s", positif=True)
-    fabriques4.nombre_fini(placement.distance_totale_m, "Placement.distance_totale_m", positif=True)
-    fabriques4.liste_de_chaines(placement.avertissements, "Placement.avertissements")
+    fabriques_seance.nombre_fini(placement.decalage_z2_s, "Placement.decalage_z2_s")
+    fabriques_seance.nombre_fini(placement.note_totale, "Placement.note_totale", positif=True)
+    fabriques_seance.nombre_fini(placement.note_terrain, "Placement.note_terrain", positif=True)
+    fabriques_seance.nombre_fini(placement.penalite_seance, "Placement.penalite_seance", positif=True)
+    fabriques_seance.nombre_fini(placement.duree_totale_s, "Placement.duree_totale_s", positif=True)
+    fabriques_seance.nombre_fini(placement.distance_totale_m, "Placement.distance_totale_m", positif=True)
+    fabriques_seance.liste_de_chaines(placement.avertissements, "Placement.avertissements")
     assert isinstance(placement.blocs(), list), "Placement.blocs() : liste attendue"
     assert len(placement.blocs()) == len(seance.blocs()), (
         f"{len(placement.blocs())} emplacements pour {len(seance.blocs())} blocs : "
@@ -138,8 +138,8 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
         assert e.etape_idx in indices_blocs, (
             f"emplacements[{n}].etape_idx = {e.etape_idx} ne désigne pas une étape de type bloc"
         )
-        debut = fabriques4.nombre_fini(e.debut_m, f"emplacements[{n}].debut_m", positif=True)
-        longueur = fabriques4.nombre_fini(e.longueur_m, f"emplacements[{n}].longueur_m", positif=True)
+        debut = fabriques_seance.nombre_fini(e.debut_m, f"emplacements[{n}].debut_m", positif=True)
+        longueur = fabriques_seance.nombre_fini(e.longueur_m, f"emplacements[{n}].longueur_m", positif=True)
         assert longueur > 0.0, f"emplacements[{n}] : un bloc de longueur nulle n'existe pas"
         assert debut + longueur <= placement.distance_totale_m + 1.0, (
             f"emplacements[{n}] court de {debut} à {debut + longueur} m alors que la sortie "
@@ -150,7 +150,7 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
                 f"emplacements[{n}] sort du tracé ({trace.distance_m} m), qui n'est pas une boucle"
             )
         assert isinstance(e.demi_tour, bool), f"emplacements[{n}].demi_tour : booléen attendu"
-        fabriques4.verifier_note(e.note, quoi=f"emplacements[{n}].note")
+        fabriques_seance.verifier_note(e.note, quoi=f"emplacements[{n}].note")
         notes.append(float(e.note.note))
     # `note_terrain` est la moyenne des notes de couloir pondérée par la durée
     # des blocs (décision du superviseur du 13/09, Q12) : une activation de
@@ -185,7 +185,7 @@ def _demi_tours(placement: Any) -> list[int]:
 
 
 def _exiger_node_tags() -> None:
-    if not fabriques4.segments_disponibles_avec_node_tags():
+    if not fabriques_seance.segments_disponibles_avec_node_tags():
         pytest.skip(MOTIF_NODE_TAGS)
 
 
@@ -208,13 +208,13 @@ def test_une_seance_tient_sur_une_boucle_propre():
 def test_le_placement_ne_modifie_ni_la_seance_ni_le_trace():
     """Décision du 13/09 : les récupérations font partie de la prescription."""
     seance, trace = _seance(), _boucle()
-    avant_seance = fabriques4.instantane_seance(seance)
-    avant_trace = fabriques4.instantane_trace(trace)
+    avant_seance = fabriques_seance.instantane_seance(seance)
+    avant_trace = fabriques_seance.instantane_trace(trace)
     _placer(seance, trace)
-    assert fabriques4.instantane_seance(seance) == avant_seance, (
+    assert fabriques_seance.instantane_seance(seance) == avant_seance, (
         "placer a modifié la séance reçue — une durée de récupération ne se renégocie pas"
     )
-    assert fabriques4.instantane_trace(trace) == avant_trace, "placer a modifié le tracé reçu"
+    assert fabriques_seance.instantane_trace(trace) == avant_trace, "placer a modifié le tracé reçu"
 
 
 def test_le_placement_est_deterministe():
@@ -231,12 +231,12 @@ def test_le_placement_est_deterministe():
 
 def test_une_seance_sans_bloc_ne_place_rien():
     mod = _modele()
-    seance = fabriques4.seance(
+    seance = fabriques_seance.seance(
         mod,
         [
-            fabriques4.etape(mod, "echauffement", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
+            fabriques_seance.etape(mod, "echauffement", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
                              elastique=True),
-            fabriques4.etape(mod, "calme", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
+            fabriques_seance.etape(mod, "calme", 1800.0, pmin=PUISSANCE_Z2_W, pmax=PUISSANCE_Z2_W,
                              elastique=True),
         ],
     )
@@ -253,9 +253,9 @@ def test_les_entrees_impossibles_ne_levent_pas(cas):
     mod = _modele()
     seance, trace = _seance(), _boucle()
     if cas == "trace_minuscule":
-        trace = fabriques4.trace_taguee(fabriques4.droite(1, pas_m=10.0))
+        trace = fabriques_seance.trace_taguee(fabriques_seance.droite(1, pas_m=10.0))
     elif cas == "seance_vide":
-        seance = fabriques4.seance(mod, [])
+        seance = fabriques_seance.seance(mod, [])
     else:
         seance = _seance(echauffement_s=7200.0, bloc_s=3600.0, calme_s=7200.0)
     placement, erreur = _appeler(seance, trace)
@@ -272,7 +272,7 @@ def test_les_entrees_impossibles_ne_levent_pas(cas):
 def test_une_seance_qui_ne_tient_pas_le_dit():
     """Contrat §3 : « si la séance ne tient pas sur la boucle, None et le motif »."""
     seance = _seance(echauffement_s=10_800.0, bloc_s=3600.0, calme_s=10_800.0)
-    trace = fabriques4.trace_taguee(fabriques4.droite(50, pas_m=100.0))  # 5 km rectilignes
+    trace = fabriques_seance.trace_taguee(fabriques_seance.droite(50, pas_m=100.0))  # 5 km rectilignes
     placement, erreur = _appeler(seance, trace)
     if erreur is not None:
         return
@@ -376,7 +376,7 @@ def test_un_village_et_des_feux_sous_la_recuperation_ne_changent_rien():
     fin_recup = second.debut_m - 20.0
     assert fin_recup > debut_recup, "récupération trop courte pour y loger un obstacle"
 
-    sale = fabriques4.salir(propre, [(debut_recup, fin_recup)])
+    sale = fabriques_seance.salir(propre, [(debut_recup, fin_recup)])
     apres = _placer(seance, sale, elasticite=(0.0, 0.0))
     assert apres is not None, "le tracé sali ne diffère que par des étiquettes hors des blocs"
     assert apres.note_totale == pytest.approx(reference.note_totale), (
@@ -395,7 +395,7 @@ def test_un_village_sous_les_blocs_change_la_note():
     reference = _placer(seance, propre, elasticite=(0.0, 0.0))
     assert reference is not None and reference.blocs()
     zones = [(e.debut_m, e.debut_m + e.longueur_m) for e in reference.blocs()]
-    sale = fabriques4.salir(propre, zones)
+    sale = fabriques_seance.salir(propre, zones)
     apres = _placer(seance, sale, elasticite=(0.0, 0.0))
     assert apres is not None
     assert apres.note_totale > reference.note_totale, (
@@ -427,7 +427,7 @@ def test_ce_qui_suit_le_dernier_bloc_ne_change_pas_le_decalage_d_ouverture():
     if debut_sale >= propre.distance_m - 500.0:
         pytest.skip("pas assez de tracé après le dernier bloc pour y placer des obstacles")
 
-    sale = fabriques4.salir(propre, [(debut_sale, propre.distance_m)])
+    sale = fabriques_seance.salir(propre, [(debut_sale, propre.distance_m)])
     apres = _placer(seance, sale, elasticite=(-0.05, 0.20))
     assert apres is not None
     assert apres.decalage_z2_s == pytest.approx(reference.decalage_z2_s), (
@@ -462,8 +462,8 @@ def _boucle_a_couloir_unique(*, pente_couloir: float = 0.0, highway_couloir: str
         fin_b1 + _vitesse(PUISSANCE_Z2_W) * RECUP_S / 2.0 + 500.0,
     )
     propre = _boucle()
-    sale = fabriques4.salir(propre, [(0.0, couloir[0]), (couloir[1], propre.distance_m)])
-    dans_le_couloir = set(fabriques4.troncon_de(sale, *couloir))
+    sale = fabriques_seance.salir(propre, [(0.0, couloir[0]), (couloir[1], propre.distance_m)])
+    dans_le_couloir = set(fabriques_seance.troncon_de(sale, *couloir))
     tags = [dict(s.tags) for s in sale.segments]
     noeuds = {i: dict(getattr(s, "node_tags", {}) or {}) for i, s in enumerate(sale.segments)}
     for i in dans_le_couloir:
@@ -475,7 +475,7 @@ def _boucle_a_couloir_unique(*, pente_couloir: float = 0.0, highway_couloir: str
         coords.append((point.lat, point.lon, altitude))
         if i in dans_le_couloir and i + 1 < len(sale.points):
             altitude += pente_couloir * (sale.points[i + 1].dist_m - point.dist_m)
-    return fabriques4.trace_taguee(coords, tags=tags, node_tags=noeuds, nom="boucle a couloir unique")
+    return fabriques_seance.trace_taguee(coords, tags=tags, node_tags=noeuds, nom="boucle a couloir unique")
 
 
 def test_un_couloir_unique_et_propre_fait_choisir_le_demi_tour():
@@ -523,8 +523,8 @@ def test_sans_route_au_dela_aucun_demi_tour():
     fin_b1 = debut_b1 + _vitesse(PUISSANCE_BLOC_W) * BLOC_S
     # Tracé ouvert qui s'arrête 100 m après le premier bloc : il n'y a plus de
     # route pour la première moitié de la récupération.
-    n = int((fin_b1 + 100.0) / fabriques4.PAS_M)
-    trace = fabriques4.trace_taguee(fabriques4.droite(n, pas_m=fabriques4.PAS_M))
+    n = int((fin_b1 + 100.0) / fabriques_seance.PAS_M)
+    trace = fabriques_seance.trace_taguee(fabriques_seance.droite(n, pas_m=fabriques_seance.PAS_M))
     placement, erreur = _appeler(seance, trace, elasticite=(0.0, 0.0))
     if erreur is None and placement is not None:
         _verifier(placement, seance, trace)

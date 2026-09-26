@@ -1,6 +1,6 @@
 """Autocontrôle du lot L5.3 : les vérificateurs ont-ils des dents ?
 
-**Ce fichier ne teste pas le lot.** Il teste `fabriques_l53`, c'est-à-dire les
+**Ce fichier ne teste pas le lot.** Il teste `fabriques_propositions`, c'est-à-dire les
 vérificateurs avec lesquels `test_adv_trois_propositions.py` jugera le lot. Il tournait
 vert avant que le lot existe, et il doit le rester après : il ne dépend
 d'aucune interface du lot, seulement de mes propres vérificateurs.
@@ -10,7 +10,7 @@ d'aucune interface du lot, seulement de mes propres vérificateurs.
 Sur le lot L5.2, deux tests adversariaux annonçaient attraper une mutation
 qu'ils n'attrapaient pas ; on ne l'a su qu'en écrivant une implémentation de
 référence et en la mutant quatorze fois. La leçon est reprise ici et durcie :
-`fabriques_l53` porte un cobaye complet (`choisir_reference`,
+`fabriques_propositions` porte un cobaye complet (`choisir_reference`,
 `densite_reference`, `question_vent_reference`), et ce fichier le mute
 **vingt-sept fois**. Chaque mutation est nommée, rattachée au vérificateur qui
 doit la voir, et le test échoue si le vérificateur la laisse passer.
@@ -24,7 +24,7 @@ exigent qu'un appel **échoue**.
 Qu'un vérificateur attrape une mutation de la référence ne prouve pas qu'il
 attrapera *toute* faute de l'implémentation réelle : la référence n'est pas
 l'implémentation, et le contrat ne fixe pas d'interface (voir le docstring de
-`fabriques_l53`). Il prouve seulement que le vérificateur n'est pas creux —
+`fabriques_propositions`). Il prouve seulement que le vérificateur n'est pas creux —
 ce qui est exactement ce qui avait manqué au lot précédent.
 """
 
@@ -35,8 +35,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
-import fabriques4
-import fabriques_l53 as f53
+import fabriques_propositions as f53
+import fabriques_seance
 import pytest
 
 from ourouler.noyau.trace import Trace
@@ -490,8 +490,8 @@ def test_le_compteur_de_marqueurs_voit_feux_et_ralentisseurs():
     pas (commentaire de `CLE_RALENTISSEUR`). Les valeurs sans effet
     (`choker`, `island`, `dip`) ne comptent pas.
     """
-    coords = fabriques4.droite(60, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0)
-    trace = fabriques4.trace_taguee(
+    coords = fabriques_seance.droite(60, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0)
+    trace = fabriques_seance.trace_taguee(
         coords,
         tags={"highway": "tertiary"},
         node_tags={
@@ -926,7 +926,7 @@ def test_le_detecteur_de_langage_de_note(phrase, attendu):
         ("elle évite les villages", {"densite_marqueurs_km"}),
         ("20 minutes de moins, la plus courte", {"depassement_s"}),
         # Les routes déjà roulées ne sont **pas** un axe : la tournure ne doit
-        # donc rien engager. Voir `fabriques_l53.AXE_INTERDIT`.
+        # donc rien engager. Voir `fabriques_propositions.AXE_INTERDIT`.
         ("des routes que vous connaissez", set()),
         ("une belle sortie", set()),
         ("retour au calme confortable", set()),

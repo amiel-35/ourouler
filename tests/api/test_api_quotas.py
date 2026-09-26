@@ -1,6 +1,6 @@
 """Tests des quotas journaliers par compte hébergé (lot L9.3).
 
-Aucun réseau : mêmes bouchons que `tests/test_api.py` (`moteur_brouter`,
+Aucun réseau : mêmes bouchons que `tests/api/test_api.py` (`moteur_brouter`,
 `moteur_meteo`, `client_intervals`, `moteur_muet`). Deux comptes distincts
 sont simulés par un fournisseur de session minimal qui lit un en-tête — pas
 de base de comptes réelle : `api/session.FournisseurSession` est une

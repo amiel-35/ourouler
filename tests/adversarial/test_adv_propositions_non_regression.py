@@ -30,9 +30,9 @@ import math
 from datetime import date
 from pathlib import Path
 
-import fabriques4
-import fabriques_l52
-import fabriques_l53 as f53
+import fabriques_propositions as f53
+import fabriques_seance
+import fabriques_seance_visible
 import pytest
 
 from ourouler.apprentissage.routes import BaseRoutes
@@ -198,8 +198,8 @@ def test_proposition_garde_ses_champs_d_axe():
         assert nom in champs, f"Proposition.{nom} a disparu (champ du sprint 4)"
 
 
-#: Relevés sur sprint-5 avant L5.3, sur `fabriques_l52.boucle_carree(15 km de
-#: côté, pas 250 m)` et `fabriques_l52.seance_2x20()`. Un carré de 60 km, deux
+#: Relevés sur sprint-5 avant L5.3, sur `fabriques_seance_visible.boucle_carree(15 km de
+#: côté, pas 250 m)` et `fabriques_seance_visible.seance_2x20()`. Un carré de 60 km, deux
 #: blocs de 20 min, un demi-tour : ni dégénéré ni particulier.
 GOLDEN_2X20 = {
     "note_totale": 1.0634017128524713,
@@ -229,17 +229,17 @@ GOLDEN_SANS_BLOC = {
 
 def _placement_2x20():
     return placer(
-        fabriques_l52.seance_2x20(),
-        fabriques_l52.boucle_carree(cote_m=15_000.0, pas_m=250.0),
-        fabriques_l52.parametres(),
+        fabriques_seance_visible.seance_2x20(),
+        fabriques_seance_visible.boucle_carree(cote_m=15_000.0, pas_m=250.0),
+        fabriques_seance_visible.parametres(),
     )
 
 
 def _placement_sans_bloc():
     return placer(
-        fabriques_l52.seance_sans_bloc(),
-        fabriques_l52.boucle_carree(cote_m=15_000.0, pas_m=250.0),
-        fabriques_l52.parametres(),
+        fabriques_seance_visible.seance_sans_bloc(),
+        fabriques_seance_visible.boucle_carree(cote_m=15_000.0, pas_m=250.0),
+        fabriques_seance_visible.parametres(),
     )
 
 
@@ -321,8 +321,8 @@ def test_la_seance_sans_bloc_ne_note_aucun_terrain():
 
 
 def _trace_200_troncons(node_tags=None, *, sans_segments=False):
-    coords = fabriques4.droite(200, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0)
-    return fabriques4.trace_taguee(
+    coords = fabriques_seance.droite(200, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0)
+    return fabriques_seance.trace_taguee(
         coords,
         tags={"highway": "tertiary"},
         node_tags=node_tags,
@@ -399,12 +399,12 @@ def test_les_marqueurs_reconnus_ne_bougent_pas():
 
 def _base_et_traces(tmp_path: Path):
     base = BaseRoutes(tmp_path / "routes.sqlite")
-    longue = fabriques4.trace_taguee(
-        fabriques4.droite(200, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0),
+    longue = fabriques_seance.trace_taguee(
+        fabriques_seance.droite(200, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0),
         tags={"highway": "tertiary"},
     )
-    moitie = fabriques4.trace_taguee(
-        fabriques4.droite(100, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0),
+    moitie = fabriques_seance.trace_taguee(
+        fabriques_seance.droite(100, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0),
         tags={"highway": "tertiary"},
     )
     return base, longue, moitie

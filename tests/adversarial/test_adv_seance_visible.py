@@ -12,7 +12,7 @@ Ce que ce fichier surveille, par ordre de gravité décroissante.
    recouvrement, du départ à l'arrivée, et la somme de leurs longueurs vaut
    `distance_totale_m` **au sens du parcours réellement roulé**. C'est
    l'invariant qui prouve qu'on montre toute la séance et pas des morceaux.
-   `fabriques_l52.verifier_continuite` l'applique ; son docstring explique
+   `fabriques_seance_visible.verifier_continuite` l'applique ; son docstring explique
    pourquoi il passe par `jalons_m` et non par `debut_m` seul.
 
 2. **Les demi-tours.** La figure du sprint 4 — « bloc → moitié de récup →
@@ -48,7 +48,7 @@ Ce que ce fichier surveille, par ordre de gravité décroissante.
 
 Discipline appliquée à chaque test : quelle mutation du code l'attrape ? Quand
 ce n'est pas évident, c'est écrit dans le test. Les marges des comparaisons de
-flottants sont motivées (`fabriques_l52.MARGE_M`) : ni comparaison nue, qui
+flottants sont motivées (`fabriques_seance_visible.MARGE_M`) : ni comparaison nue, qui
 verdit sur du bruit à 10⁻¹² m, ni marge large, qui laisse passer une vraie
 faute.
 
@@ -69,7 +69,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import fabriques
-import fabriques_l52 as fab
+import fabriques_seance_visible as fab
 import pytest
 from outils import fabriquer
 
@@ -693,7 +693,7 @@ def test_la_note_d_un_bloc_reste_lisible_sans_passer_par_un_optionnel(monkeypatc
 # =============================================================================
 
 #: Relevé le 16/09/2026 sur `essai-l5.1` (`f4f0cb5`), par `placer` sur les
-#: fixtures de `fabriques_l52`, **avant** que le lot L5.2 soit écrit. Le lot est
+#: fixtures de `fabriques_seance_visible`, **avant** que le lot L5.2 soit écrit. Le lot est
 #: un lot d'affichage : aucune de ces valeurs n'a le droit de bouger.
 #:
 #: La comparaison est **exacte**. Si un jour l'écart constaté est de l'ordre de

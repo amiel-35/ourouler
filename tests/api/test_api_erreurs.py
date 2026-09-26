@@ -1,6 +1,6 @@
 """La forme des pannes, et le verrou qui rend l'adaptateur sûr (lot F1).
 
-`tests/test_api.py` vérifie les pannes de bout en bout, à travers de vraies
+`tests/api/test_api.py` vérifie les pannes de bout en bout, à travers de vraies
 requêtes ; ici, on vérifie la traduction elle-même, cas par cas, avec les
 messages **exacts** que les connecteurs du projet écrivent. Les deux
 ensemble : le classement est juste, et il est branché.
