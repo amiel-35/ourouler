@@ -101,7 +101,7 @@ def verifier(
     en fabrique un générique (« Route », sans poids ni pneu) pour que les
     boucles tournent. Calibrer ce vélo-là n'aurait pas de sens : le résultat
     serait rangé sous un nom que le cycliste n'a jamais choisi. C'est
-    l'appelant qui sait si la liste vient du cycliste (`api/routes.py` : sa
+    l'appelant qui sait si la liste vient du cycliste (`api/routes/calibrations.py` : sa
     surcharge de profil, en mode hébergé).
 
     Le pneu vient en dernier : demander de choisir un pneu à quelqu'un qui n'a
