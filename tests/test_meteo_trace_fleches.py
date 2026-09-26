@@ -8,10 +8,11 @@ client météo.
 
 from __future__ import annotations
 
+import ast
 from datetime import UTC, datetime
+from pathlib import Path
 
 import ourouler.rendu.carte as carte
-import ourouler.seance.vent as seance_vent
 from ourouler.boucle.meteo_trace import (
     SEUIL_VENT_SENSIBLE_KMH,
     Echantillon,
@@ -21,6 +22,7 @@ from ourouler.boucle.meteo_trace import (
 from ourouler.meteo.rapport import CONFIANCE_INCONNUE, VENT_FACE
 
 T0 = datetime(2026, 9, 17, 8, 0, tzinfo=UTC)
+SOURCES = Path(__file__).resolve().parent.parent / "src" / "ourouler"
 
 
 def echantillon(
@@ -161,4 +163,22 @@ def test_sortie_carte_et_boucle_meteo_trace_rendent_le_meme_resultat():
 
 
 def test_une_seule_constante_de_seuil_partagee():
-    assert seance_vent.SEUIL_VENT_SENSIBLE_KMH is SEUIL_VENT_SENSIBLE_KMH
+    """Le seuil du vent sensible n'est **défini** qu'une fois dans `src/`.
+
+    Vérifier que `seance.vent` réexporte le même objet ne disait rien d'un
+    second `SEUIL_VENT_SENSIBLE_KMH = 8.0` écrit ailleurs : c'est l'affectation
+    qu'on cherche, dans tout le paquet.
+    """
+    definitions = []
+    for module in sorted(SOURCES.rglob("*.py")):
+        for noeud in ast.walk(ast.parse(module.read_text(encoding="utf-8"))):
+            cibles = (
+                noeud.targets
+                if isinstance(noeud, ast.Assign)
+                else [noeud.target]
+                if isinstance(noeud, ast.AnnAssign)
+                else []
+            )
+            if any(isinstance(c, ast.Name) and c.id == "SEUIL_VENT_SENSIBLE_KMH" for c in cibles):
+                definitions.append(module.relative_to(SOURCES).as_posix())
+    assert definitions == ["boucle/meteo_trace.py"], definitions
