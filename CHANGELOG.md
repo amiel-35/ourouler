@@ -21,6 +21,8 @@ partir des PR.
 
 ## [Non publié]
 
+## [0.10.0] — 2026-09-26
+
 ### Ajouté
 
 - Analyser un parcours qu'on a déjà (un brevet, la boucle du club) : on
@@ -30,6 +32,10 @@ partir des PR.
 
 ### Modifié
 
+- Le code a été entièrement restructuré, sans changement de comportement :
+  un noyau sans dépendance, des services, un rendu séparé, une physique pure,
+  des règles d'architecture et de taille vérifiées à chaque modification
+  (voir `ARCHITECTURE.md`). Pour qui contribue, c'est le vrai point de départ.
 - Le service peut calculer sans passer par la ligne de commande
   (`OUROULER_API_CHEMIN` : `ancien` par défaut, `nouveau`, ou `double` pour
   comparer les deux avant de basculer) ; les réponses sont identiques, et le
