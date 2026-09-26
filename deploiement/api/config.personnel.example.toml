@@ -1,9 +1,8 @@
 # Fichier TOML du conteneur API+front, mode `OUROULER_MODE=personnel` (un
 # seul cycliste, celui qui héberge). Toutes les valeurs sont inventées.
 #
-# Différence avec config.example.toml (usage local, racine du dépôt), et même
-# raison que deploiement/config.example.toml pour le générateur de la page du
-# jour : **ce fichier ne porte jamais [depart] ni [intervals], et [brouter]
+# Différence avec config.example.toml (usage local, racine du dépôt) :
+# **ce fichier ne porte jamais [depart] ni [intervals], et [brouter]
 # n'y a que `profil`** — ces trois-là viennent des variables d'environnement
 # `OUROULER_DEPART_*`, `OUROULER_INTERVALS_*`, `OUROULER_BROUTER_*`
 # (`config.py:_survoler_environnement`, déjà lu par l'API comme par la ligne

@@ -129,7 +129,7 @@ ourouler/
 │   ├── activites/, apprentissage/, geocodage/
 │   └── noyau/                 ← types partagés, bibliothèque standard seulement
 ├── front/                     ← l'interface web, qui ne parle qu'à l'API
-├── deploiement/               ← images et compose (page du jour, API et front)
+├── deploiement/               ← images et compose (API et front)
 └── tests/
 ```
 

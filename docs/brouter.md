@@ -61,7 +61,7 @@ docker run -d --name brouter \
 ```
 
 Ou, en *deploiement/brouter/docker-compose.yml* (à créer si cette forme est
-préférée — rien de tel n'existe encore ici ; `deploiement/docker-compose.yml`
+préférée — rien de tel n'existe encore ici ; `deploiement/api/docker-compose.yml`
 orchestre `ourouler` lui-même, pas BRouter) :
 
 ```yaml

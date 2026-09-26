@@ -1,34 +1,31 @@
 # Orchestration de l'API+front **sur Coolify**, distincte du
-# `deploiement/api/docker-compose.yml` local. Même différences que celles déjà
-# mesurées pour le générateur de la page du jour (`docker-compose.coolify.yml`,
-# à lire d'abord) et toutes conséquences de l'hébergeur, pas des choix de
-# confort :
+# `deploiement/api/docker-compose.yml` local. Trois différences, et elles sont
+# toutes des conséquences de l'hébergeur, pas des choix de confort :
 #
 # 1. **Aucun port publié.** Le reverse-proxy de Coolify (Traefik) termine le
 #    TLS et parle au conteneur par le réseau interne.
 # 2. **Le fichier TOML arrive par une variable**, `OUROULER_CONFIG_TOML_B64`,
 #    et non par un montage : Coolify déploie depuis le dépôt git, il n'y a
 #    pas de chemin hôte à monter. `deploiement/api/entrypoint.py` l'écrit au
-#    démarrage — le même geste que `deploiement/generateur/entrypoint.py`.
+#    démarrage.
 # 3. **Le domaine vient de `SERVICE_FQDN_API_8000`**, la variable magique de
 #    Coolify : elle lui dit quel service exposer et sur quel port. Le front
 #    et l'API partagent cette même origine (un seul conteneur, voir
 #    `deploiement/api/README.md` pour pourquoi) : il n'y a qu'une seule
 #    variable `SERVICE_FQDN_*` à poser pour les deux.
 #
-# Et une absence, mesurée sur le même piège que le générateur : pas un seul
-# `${VAR:?message}`. Coolify prend le message pour une valeur par défaut et
-# démarre le conteneur avec, au lieu de refuser — `${VAR}` seul laisse la
-# variable vide, et `config.charger` (ou, pour `OUROULER_MODE`, l'API
-# elle-même) échoue franchement, ou refuse franchement, au démarrage.
+# Et une absence : pas un seul `${VAR:?message}`. Coolify prend le message
+# pour une valeur par défaut et démarre le conteneur avec, au lieu de
+# refuser — `${VAR}` seul laisse la variable vide, et `config.charger` (ou,
+# pour `OUROULER_MODE`, l'API elle-même) échoue franchement, ou refuse
+# franchement, au démarrage.
 #
-# Et il vit à la racine, pas dans `deploiement/`, pour la même raison mesurée
-# que `docker-compose.coolify.yml` : avec le fichier dans `deploiement/` et un
-# `context: ..`, le déploiement échoue sur `lstat /artifacts/deploiement: no
-# such file or directory`. Coolify ne résout pas le contexte de construction
-# relativement au fichier compose comme le fait `docker compose`. À la
-# racine, `context: .` désigne la racine du dépôt quelle que soit la façon
-# dont l'outil s'y prend.
+# Et il vit à la racine, pas dans `deploiement/` : avec le fichier dans
+# `deploiement/` et un `context: ..`, le déploiement échoue sur `lstat
+# /artifacts/deploiement: no such file or directory`. Coolify ne résout pas
+# le contexte de construction relativement au fichier compose comme le fait
+# `docker compose`. À la racine, `context: .` désigne la racine du dépôt
+# quelle que soit la façon dont l'outil s'y prend.
 #
 # **`OUROULER_MODE` n'a pas de défaut ici, et c'est voulu.** Le poser à
 # `personnel` (un seul cycliste, sur son propre déploiement) ou `heberge`
@@ -53,9 +50,7 @@ services:
     #    variable ordinaire pour Coolify, qui ne pose alors pas les étiquettes
     #    Traefik du service. Résultat : conteneur `running:healthy`, et 503
     #    « no available server » sur le domaine. La forme reconnue est la
-    #    **déclaration nue**, `- SERVICE_FQDN_API_8000`, sans valeur — c'est
-    #    celle qu'utilise `docker-compose.coolify.yml` (page du jour), qui
-    #    lui est en ligne et répond.
+    #    **déclaration nue**, `- SERVICE_FQDN_API_8000`, sans valeur.
     #
     # Donc : liste partout, et la déclaration nue en premier.
     environment:

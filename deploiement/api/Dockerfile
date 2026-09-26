@@ -13,8 +13,7 @@
 #
 # Aucune donnée personnelle ni clé ici : la configuration réelle (TOML
 # non-secrets en base64 + variables d'environnement pour les secrets) est
-# fournie au lancement du conteneur, jamais au moment du build — même
-# contrainte que `deploiement/Dockerfile`, pour la même raison.
+# fournie au lancement du conteneur, jamais au moment du build.
 
 # --- étage 1 : le front -------------------------------------------------------
 
@@ -34,8 +33,7 @@ RUN npm run build
 
 FROM python:3.12-slim AS api
 
-# `uv` : installateur rapide, déjà la doctrine du projet (pyproject.toml) —
-# même image épinglée que `deploiement/Dockerfile`.
+# `uv` : installateur rapide, déjà la doctrine du projet (pyproject.toml).
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
