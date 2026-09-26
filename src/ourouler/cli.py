@@ -85,10 +85,10 @@ def construire_parseur() -> argparse.ArgumentParser:
 def parent_json() -> argparse.ArgumentParser:
     """Parseur parent qui rend `--json` acceptable **après** la sous-commande.
 
-    Le contrat de sprint écrit `ourouler meteo [...] [--json]`, mais l'option
-    n'existait qu'en global : `ourouler meteo --json` répondait
-    « unrecognized arguments », et la seule forme qui marchait
-    (`ourouler --json meteo`) n'était écrite nulle part.
+    On écrit naturellement `ourouler meteo [...] [--json]` ; avec l'option en
+    global seulement, `ourouler meteo --json` répondrait « unrecognized
+    arguments », et la seule forme qui marche (`ourouler --json meteo`) ne
+    serait écrite nulle part.
 
     Deux précautions :
     - `add_help=False`, sinon le parent redéclare `-h` et argparse refuse ;
@@ -111,13 +111,12 @@ def parent_json() -> argparse.ArgumentParser:
 
 #: Les anciens noms de l'heure de départ, acceptés et **non documentés**.
 #:
-#: Q15, tranchée par le mainteneur le 13/09 : l'heure de départ s'appelle
-#: `--heure-depart` et le lieu de départ s'appelle `--adresse-depart` (livré
-#: par le lot F0.7). `--depart` seul était ambigu dès que le lieu existerait ;
-#: `--heure` avait été ajouté en attendant la décision.
+#: L'heure de départ s'appelle `--heure-depart` et le lieu de départ
+#: `--adresse-depart` (décision Q15, `docs/journal/questions/questions_mainteneur.md`). `--depart`
+#: seul serait ambigu à côté du lieu ; `--heure` est un ancien nom provisoire.
 #:
-#: Les deux restent acceptés pour ne rien casser — le mainteneur a des scripts
-#: et des habitudes — mais ils ne figurent plus dans l'aide : un nom déprécié
+#: Les deux restent acceptés pour ne rien casser — des scripts et des
+#: habitudes s'en servent — mais ils ne figurent plus dans l'aide : un nom déprécié
 #: qu'on documente est un nom qu'on enseigne encore.
 ANCIENS_NOMS_HEURE_DEPART = ("--depart", "--heure")
 
@@ -143,7 +142,7 @@ def ajouter_heure_depart(p: argparse.ArgumentParser, aide: str) -> None:
 def ajouter_adresse_depart(p: argparse.ArgumentParser) -> None:
     """Ajoute `--adresse-depart` : partir d'ailleurs **cette fois**, sans rien réécrire.
 
-    Le nom est celui que Q15 avait réservé, et il est long exprès : `--depart`
+    Le nom est celui de la décision Q15, et il est long exprès : `--depart`
     disait « heure », `--adresse-depart` dit « lieu ». Les deux options
     cohabitent sur la même ligne de commande sans se marcher dessus, elles
     n'écrivent pas dans le même `dest` (`depart` pour l'heure,
@@ -176,23 +175,23 @@ def lieu_depart(
     """Le point de départ de cette exécution : `--adresse-depart` géocodée, ou la configuration.
 
     C'est **ici**, dans `cli.py`, que l'adresse devient un `Depart` : le cœur
-    ne géocode rien et ne connaît aucune adresse (règle absolue 2). Les deux
+    ne géocode rien et ne connaît aucune adresse (le cœur ne lit ni configuration ni environnement). Les deux
     clients sont injectables pour que les tests ne touchent jamais le réseau.
 
     **Une adresse ambiguë est la normale, pas l'exception**, et le connecteur
-    (F0.2) ne tranche jamais : il rend une liste ordonnée. Une ligne de
+    (`connecteurs/geocodage.py`) ne tranche jamais : il rend une liste ordonnée. Une ligne de
     commande, elle, doit bien partir de quelque part — elle ne peut pas rendre
     une liste à qui a tapé `ourouler boucle --adresse-depart "…"`.
 
-    **Décision du mainteneur sur Q34, le 17/09/2026 : « on refuse ».** Une
-    adresse ambiguë n'est plus tranchée au hasard, elle est **refusée**, avec
+    **Dans le doute, on refuse** (décision Q34, `docs/journal/questions/questions_mainteneur.md`). Une
+    adresse ambiguë n'est pas tranchée au hasard, elle est **refusée**, avec
     ses candidats affichés pour que l'utilisateur précise et relance. C'est en
     ligne de commande que ce refus a le plus de sens : personne n'y confirme un
     point sur une carte, et le seul échec qui coûte cher est de rouler depuis
     un point qu'on croyait être un autre.
 
     **Ce qu'« ambigu » veut dire ici, et ce qu'il ne veut pas dire.** Pas un
-    écart de score : la mesure du 17/09/2026 sur la vraie BAN montre que
+    écart de score : la mesure sur la vraie BAN montre que
     l'écart entre les deux premiers candidats vaut 0,0020 quand la réponse est
     juste et 0,0016 à 0,0024 quand elle est arbitraire — aucun seuil ne les
     sépare. C'est `geocodage.ambiguite()` qui décide, sur la **commune** :
@@ -371,7 +370,7 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
             "mesuré"
             if info_vitesse["facteur_mesure"]
             else "SUPPOSÉ, non mesuré — `ourouler calibrer` puis "
-            "tests/validation/facteur_compteur_retrospectif.py"
+            "scripts/validation/facteur_compteur_retrospectif.py"
         )
         print(
             f"Vitesse  : {info_vitesse['puissance_endurance_w']:.0f} W → "
@@ -403,7 +402,7 @@ def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_inventaire(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.inventaire import executer_depuis_namespace  # import paresseux (lot L1.3)
+    from ourouler.commandes.inventaire import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config)
 
@@ -424,7 +423,7 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_meteo(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.meteo import executer_depuis_namespace  # import paresseux (lot L1.5)
+    from ourouler.commandes.meteo import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config, lieu_depart=lieu_depart(args, config))
 
@@ -482,7 +481,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.boucle import executer_depuis_namespace  # import paresseux (lot L2.6)
+    from ourouler.commandes.boucle import executer_depuis_namespace  # import paresseux
 
     # Avec `--gpx`, la boucle n'est pas générée : elle est lue dans le fichier,
     # qui porte son propre départ. Géocoder une adresse pour l'annoncer ensuite
@@ -550,7 +549,7 @@ def ajouter_routes(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_routes(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.routes import executer_depuis_namespace  # import paresseux (lot L3.2)
+    from ourouler.commandes.routes import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config)
 
@@ -576,7 +575,7 @@ def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_calibrer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.physique import calibrer_depuis_namespace  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import calibrer_depuis_namespace  # import paresseux
 
     return calibrer_depuis_namespace(args, config)
 
@@ -613,7 +612,7 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.physique import simuler_depuis_namespace  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import simuler_depuis_namespace  # import paresseux
 
     return simuler_depuis_namespace(args, config)
 
@@ -649,7 +648,7 @@ def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_analyser(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.physique import analyser_depuis_namespace  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import analyser_depuis_namespace  # import paresseux
 
     return analyser_depuis_namespace(args, config)
 
@@ -698,7 +697,7 @@ def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.comparer import executer_depuis_namespace  # import paresseux (lot L3.3)
+    from ourouler.commandes.comparer import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config)
 
@@ -730,7 +729,7 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_seance(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.seance import executer_depuis_namespace  # import paresseux (lot L4.1)
+    from ourouler.commandes.seance import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config)
 
@@ -761,14 +760,14 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         "S'exclut de --vent : on choisit sa direction, ou on la laisse déduire du vent",
     )
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
-    # La question d'orientation au vent, posée **avant** la recherche (lot
-    # L5.3). « peu-importe » est le défaut **et une réponse valable** : elle
+    # La question d'orientation au vent, posée **avant** la recherche.
+    # « peu-importe » est le défaut **et une réponse valable** : elle
     # retombe sur les propositions contrastées. Ce n'est donc pas un réglage
     # de plus qu'il faudrait toucher — c'est un choix qui se fait en
     # regardant, et dont l'absence de réponse est une réponse.
     #
-    # Q44 : `--vent` et `--direction` fixaient tous deux l'azimut de recherche
-    # sans que rien ne dise lequel gagnait. Ils s'excluent désormais, et l'aide
+    # `--vent` et `--direction` fixent tous deux l'azimut de recherche : ils
+    # s'excluent (décision Q44), et l'aide
     # le dit des deux côtés plutôt que de laisser découvrir le refus.
     p.add_argument(
         "--vent",
@@ -801,7 +800,7 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.sortie import executer_depuis_namespace  # import paresseux (lot L4.4)
+    from ourouler.commandes.sortie import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(
         args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
@@ -830,13 +829,13 @@ def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_geocoder(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.commandes.geocoder import executer_depuis_namespace  # import paresseux (lot F0.2)
+    from ourouler.commandes.geocoder import executer_depuis_namespace  # import paresseux
 
     return executer_depuis_namespace(args, config)
 
 
 def ajouter_api(sous: argparse._SubParsersAction) -> None:
-    """`ourouler api` — sert l'API que le front consomme (lot F1).
+    """`ourouler api` — sert l'API que le front consomme.
 
     Le cadre web est un extra (`uv sync --extra api`) : la sous-commande le
     dit en une ligne s'il manque, plutôt que de lever une trace d'import.
@@ -865,7 +864,7 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
     application = creer_application(
         chemin_config=(args.config or CHEMIN_CONFIG_DEFAUT).expanduser(),
         dossier_donnees=config.cache.dossier / NOM_DOSSIER_DONNEES,
-        # **Le mode personnel, dit et non deviné** (lot L7.A). `ourouler api`
+        # **Le mode personnel, dit et non deviné.** `ourouler api`
         # tourne sur la machine de son utilisateur : il n'y a qu'un cycliste,
         # la machine est la frontière, et le propriétaire est toujours le
         # même. C'est un service exposé — `application()`, la fabrique lue par
@@ -881,13 +880,13 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
-# --- inviter (lot L7.2-B) -----------------------------------------------------
+# --- inviter -------------------------------------------------------------------
 #
-# « C'est pas une banque » : cette commande fait tourner le socle des comptes
-# (lot L7.2-A, `api/comptes.py`) depuis la ligne de commande du mainteneur —
-# c'est lui, et lui seul aujourd'hui, qui invite. Elle a besoin de trois
-# choses que seul `cli.py` a le droit de lire (règle absolue 2) : l'URL de la
-# base PostgreSQL de l'hébergé, l'URL publique devant laquelle le lien
+# Cette commande fait tourner le socle des comptes (`api/comptes.py`) depuis
+# la ligne de commande de l'exploitant — c'est lui, et lui seul, qui invite.
+# Elle a besoin de trois choses que seul `cli.py` a le droit de lire (le cœur ne
+# lit ni configuration ni environnement) : l'URL de la base PostgreSQL de
+# l'hébergé, l'URL publique devant laquelle le lien
 # s'ouvre, et — sauf `--sans-courriel` — les secrets du relais SMTP. Le reste
 # (inviter, composer et envoyer le courriel) est délégué à `services/comptes.py`,
 # et l'affichage à `rendu/comptes.py`, qui ne lisent rien eux-mêmes :
@@ -910,7 +909,7 @@ VARIABLE_SERVICE = "OUROULER_SERVICE"
 #: s'ouvre — une donnée de déploiement, au même titre que celles que
 #: `api/exploitation.py` lit pour le processus de l'API (`OUROULER_DATABASE_URL`,
 #: `OUROULER_MODE`…). Celle-ci n'appartient pas au processus serveur : c'est le
-#: mainteneur, depuis sa propre ligne de commande, qui la pose dans son
+#: l'exploitant, depuis sa propre ligne de commande, qui la pose dans son
 #: environnement le temps d'inviter quelqu'un.
 VARIABLE_URL_PUBLIQUE = "OUROULER_URL_PUBLIQUE"
 
@@ -973,7 +972,8 @@ def _nom_complet(config: Config) -> str:
     """« Prénom Nom » du cycliste qui invite (celui qui a lancé la commande), ou une chaîne vide.
 
     Une configuration qui ne porte ni l'un ni l'autre donne un e-mail qui dit
-    « vous êtes invité·e », sans inventer de nom (règle absolue 1).
+    « vous êtes invité·e », sans inventer de nom (aucune donnée personnelle
+    dans le dépôt).
     """
     return " ".join(morceau for morceau in (config.cycliste.prenom, config.cycliste.nom) if morceau)
 
@@ -1025,7 +1025,7 @@ def executer_invitations(
     return 0
 
 
-# --- reinitialiser (lot L9.6) --------------------------------------------------
+# --- reinitialiser -------------------------------------------------------------
 #
 # Le trou que `inviter` laisse volontairement ouvert : un compte **actif** qui a
 # perdu son mot de passe. Même patron que `inviter` — mêmes secrets `service.toml`,
@@ -1033,8 +1033,8 @@ def executer_invitations(
 # `api/comptes.py` (note de module de `reinitialiser`) pour le détail du mécanisme
 # réutilisé (même table `invitations`, même jeton à usage unique).
 #
-# **Aucune route HTTP n'appelle ceci.** Réservée à la ligne de commande du
-# mainteneur — un « mot de passe oublié » en libre-service ouvrirait un relais de
+# **Aucune route HTTP n'appelle ceci.** Réservée à la ligne de commande de
+# l'exploitant — un « mot de passe oublié » en libre-service ouvrirait un relais de
 # spam (poster une adresse au hasard fait partir un courriel) et un oracle
 # d'énumération d'adresses (la réponse dirait si l'adresse a un compte). Voir
 # `deploiement/api/README.md`.
@@ -1100,7 +1100,7 @@ def executer_reinitialiser(
     return 0
 
 
-# --- retirer (lot L9.6) ---------------------------------------------------------
+# --- retirer -------------------------------------------------------------------
 #
 # Ferme un compte, ses sessions, son invitation, et efface ses données
 # personnelles — le même chemin que `DELETE /moi` (`api/routes/`), jamais une
@@ -1110,16 +1110,16 @@ def executer_reinitialiser(
 # cache que le serveur hébergé réellement lancé — `_depots_de_l_hebergement`
 # ci-dessous les reconstruit à l'identique de `api.application.application()`.
 #
-# **À lancer dans le conteneur du serveur, pas depuis le poste du mainteneur**
-# (relecture du 25/09/2026, [[B1]]) : `OUROULER_CONFIG` et le dossier de cache que
+# **À lancer dans le conteneur du serveur, pas depuis un poste personnel** :
+# `OUROULER_CONFIG` et le dossier de cache que
 # `_depots_de_l_hebergement` lit sont ceux de la machine **qui exécute la
-# commande**. Lancée depuis le Mac du mainteneur avec seulement
+# commande**. Lancée depuis un poste personnel avec seulement
 # `OUROULER_DATABASE_URL` pointé sur la base distante, `retirer` fermerait bien le
 # compte dans Postgres (distant, donc correct) mais chercherait profil, fichiers et
 # cache d'activités dans un dossier **local**, presque toujours vide ou absent —
 # laissant le vrai dépôt du propriétaire, sur le serveur, intact et désormais
 # orphelin (`comptes_proprietaires` ne le retrouve plus), tout en annonçant un
-# succès. `_depots_de_l_hebergement` refuse maintenant si le dossier de données
+# succès. `_depots_de_l_hebergement` refuse donc si le dossier de données
 # attendu n'existe pas, plutôt que de continuer en silence sur une base vide — mais
 # ce n'est qu'un filet : la commande doit être lancée `docker exec` (ou équivalent)
 # dans le conteneur `deploiement/api/Dockerfile`, avec les mêmes variables que lui,
@@ -1132,8 +1132,8 @@ def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
     # `VARIABLE_CONFIG` importée plutôt que son nom recopié en dur dans l'aide
     # ci-dessous : `tests/test_invariants.py` interdit qu'un module autre
     # qu'`api/exploitation.py` écrive le nom d'une variable `OUROULER_*` de
-    # l'API dans du code exécuté (règle absolue 2, un pas de plus que « ne pas
-    # la lire ») — même dans un simple texte d'aide.
+    # l'API dans du code exécuté (un pas de plus que « ne pas la lire ») —
+    # même dans un simple texte d'aide.
     from ourouler.api.exploitation import VARIABLE_CONFIG
 
     p = sous.add_parser(
@@ -1171,8 +1171,7 @@ def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
         depot = DepotComptes(connexion)
         # `_depots_de_l_hebergement` passée telle quelle, jamais appelée ici : elle ne
         # doit s'exécuter (et donc pouvoir refuser sur un dossier de données absent)
-        # qu'une fois l'adresse et la confirmation validées — voir `services/comptes.retirer`
-        # ([[B1]] de la relecture).
+        # qu'une fois l'adresse et la confirmation validées — voir `services/comptes.retirer`.
         return executer_retirer(
             args, config, depot=depot, resoudre_depots_heberges=_depots_de_l_hebergement
         )
@@ -1243,12 +1242,12 @@ def _depots_de_l_hebergement() -> DepotsHeberges:
     `proprietaire=None` sur le socle, comme le fait `application()` en mode hébergé : ce
     TOML est la base commune, le profil de personne en particulier.
 
-    **Refuse si le dossier de données attendu n'existe pas** (lot L9.6, [[B1]] de la
-    relecture) — au lieu de rendre des dépôts qui pointent sur un dossier vide ou
-    absent, ce qui laissait `retirer` annoncer un succès sans avoir rien effacé sur le
-    vrai serveur quand la commande tournait depuis le poste du mainteneur plutôt que
-    dans le conteneur. Ce n'est qu'un filet : un dossier qui existe par coïncidence au
-    même chemin sur la machine du mainteneur passerait ce test sans être le bon — la
+    **Refuse si le dossier de données attendu n'existe pas** — au lieu de rendre des
+    dépôts qui pointent sur un dossier vide ou absent, ce qui laisserait `retirer`
+    annoncer un succès sans avoir rien effacé sur le vrai serveur quand la commande
+    tourne depuis un poste personnel plutôt que dans le conteneur. Ce n'est qu'un
+    filet : un dossier qui existe par coïncidence au même chemin sur un poste
+    personnel passerait ce test sans être le bon — la
     commande doit être lancée dans l'environnement du serveur, voir
     `deploiement/api/README.md`.
     """
@@ -1310,20 +1309,20 @@ def _url_des_comptes(commande: str) -> str:
 def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
     """Une connexion à la base des comptes, **déjà migrée**, ou un refus lisible.
 
-    Trois choses qu'aucun test n'avait attrapées, et qu'un premier vrai
-    lancement a trouvées en trois secondes (19/09/2026, règle absolue 4) :
+    Trois choses que les tests n'attrapent pas, et qu'un vrai lancement
+    trouve en trois secondes :
 
-    1. **Personne n'appliquait les migrations.** Les tests partent d'une base
-       que leur `conftest` a migrée ; la vraie vie part d'une base vide, et la
-       commande mourait sur `relation "comptes" does not exist`. Les
+    1. **Les migrations s'appliquent ici.** Les tests partent d'une base que
+       leur `conftest` a migrée ; la vraie vie part d'une base vide, et la
+       commande mourrait sur `relation "comptes" does not exist`. Les
        migrations sont idempotentes (`appliquer_migrations` rend la liste de
        ce qu'elle a fait, vide quand il n'y avait rien à faire) : les poser
        ici coûte quelques millisecondes et supprime une étape à retenir.
-    2. **La trace du pilote remontait jusqu'au mainteneur.** Une base
-       injoignable, un mot de passe faux ou un serveur arrêté donnaient une
-       pile `psycopg`, pas une phrase.
-    3. Et le nom de la commande manquait aux messages, alors qu'il était déjà
-       là dans le refus de la variable d'environnement.
+    2. **La trace du pilote ne remonte pas à l'utilisateur.** Une base
+       injoignable, un mot de passe faux ou un serveur arrêté donneraient
+       sinon une pile `psycopg`, pas une phrase.
+    3. Et le nom de la commande figure dans les messages, comme dans le
+       refus de la variable d'environnement.
 
     Ce qui est appliqué est **dit** : une migration qui passe en silence est
     une migration dont on découvre l'existence le jour où elle a mal tourné.
@@ -1373,11 +1372,12 @@ def _url_publique(environ: Mapping[str, str] | None = None) -> str:
 
 
 def _charger_service(chemin: Path | None = None) -> dict:
-    """Le contenu de `service.toml`, lu ici et nulle part ailleurs (règle absolue 2).
+    """Le contenu de `service.toml`, lu ici et nulle part ailleurs (le cœur ne lit ni configuration ni
+    environnement).
 
     `chemin` est injectable pour les tests — jamais un vrai `service.toml` n'est lu ou
-    montré par ce lot (le brief l'interdit explicitement) : les tests lui passent un
-    fichier à eux, en `.invalid`, jamais celui du mainteneur.
+    montré par les tests : ils lui passent un fichier à eux, en `.invalid`, jamais
+    celui d'un vrai serveur.
     """
     chemin = (chemin or Path(os.environ.get(VARIABLE_SERVICE) or CHEMIN_SERVICE_DEFAUT)).expanduser()
     if not chemin.is_file():
@@ -1404,23 +1404,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         # `chemin_config()` : même résolution que le serveur hébergé
         # (`OUROULER_CONFIG`, sinon le défaut local) — sans elle, un `ourouler
-        # inviter` lancé dans le conteneur du serveur cherchait
+        # inviter` lancé dans le conteneur du serveur chercherait
         # `~/.config/ourouler/config.toml`, qui n'existe pas là-bas, alors que
-        # `OUROULER_CONFIG=/config/config.toml` était déjà posé pour le
-        # processus API (constat du 25/09/2026, en invitant pour de vrai
-        # depuis la prod). `--config` explicite reste toujours prioritaire :
+        # `OUROULER_CONFIG=/config/config.toml` y est déjà posé pour le
+        # processus API. `--config` explicite reste toujours prioritaire :
         # cette fonction n'est consultée que quand il est absent, exactement
-        # comme `config.charger` consultait déjà son propre défaut local.
+        # comme `config.charger` consulte son propre défaut local.
         from ourouler.api.exploitation import chemin_config
 
         chemin = args.config or chemin_config()
         # Les commandes de comptes (`inviter`, `invitations`, `reinitialiser`,
         # `retirer`) ne parlent qu'à la base des comptes et, pour deux
         # d'entre elles, au relais SMTP — jamais au profil du cycliste
-        # (`[depart]`, `[cycliste]`). Un TOML hébergé sans tiers 3 (Q35/Q66)
-        # ne porte plus ces deux sections : les exiger quand même faisait
-        # échouer ces commandes en prod sur « section [depart] manquante »
-        # avant même d'atteindre la base (même constat du 25/09/2026).
+        # (`[depart]`, `[cycliste]`). Un TOML hébergé, sans sections
+        # personnelles (décision Q35), ne porte pas ces deux sections : les
+        # exiger ferait échouer ces commandes sur « section [depart]
+        # manquante » avant même d'atteindre la base.
         requiert_profil = getattr(args, "requiert_profil", True)
         config = charger(chemin, requiert_profil=requiert_profil)
         return int(args.fonction(args, config))
