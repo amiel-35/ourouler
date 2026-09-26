@@ -234,6 +234,7 @@ MODULES: dict[str, str] = {
     "ourouler.physique.litterature": "physique",
     "ourouler.physique.calibration": "physique",
     "ourouler.physique.echantillonnage": "physique",
+    "ourouler.physique.groupe": "physique",
     "ourouler.physique.validation": "physique",
     "ourouler.physique.parametres_velo": "physique",
     "ourouler.meteo": "meteo",
