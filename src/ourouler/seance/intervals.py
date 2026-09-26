@@ -832,7 +832,7 @@ def _bornes(consigne: dict) -> tuple[float, float] | None:
     if debut is None and fin is None:
         return None
     if debut is None:
-        return (fin, fin)  # type: ignore[arg-type]
+        return (fin, fin)
     if fin is None:
         return (debut, debut)
     return (min(debut, fin), max(debut, fin))
@@ -878,7 +878,7 @@ def _nombre(brut: object) -> float | None:
     if isinstance(brut, bool) or brut is None:
         return None
     try:
-        valeur = float(brut)  # type: ignore[arg-type]
+        valeur = float(brut)
     except (TypeError, ValueError):
         return None
     return valeur if math.isfinite(valeur) else None

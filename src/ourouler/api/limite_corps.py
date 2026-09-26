@@ -43,7 +43,7 @@ Receive = Callable[[], Awaitable[dict]]
 Send = Callable[[dict], Awaitable[None]]
 
 
-class _CorpsTropGros(Exception):  # noqa: N818 — un signal interne, jamais montré
+class _CorpsTropGros(Exception):  # un signal interne, jamais montré
     """Levée par le `receive()` enveloppé au premier octet de trop."""
 
     def __init__(self, mesure: int) -> None:

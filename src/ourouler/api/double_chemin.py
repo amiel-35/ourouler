@@ -229,7 +229,7 @@ def _comparer_au_nouveau(
                 if deposes != (deposes_par_le_nouveau or {}).get(nom):
                     ecart = {"nature": "recueil", "recueil": nom}
                     break
-    except Exception as e:  # noqa: BLE001 — voir la docstring
+    except Exception as e:  # voir la docstring
         ecart = {"nature": "exception", "exception": type(e).__name__}
     if ecart is not None:
         journal.warning("ecart_double_chemin %s", json.dumps({"route": route, **ecart}, sort_keys=True))

@@ -48,7 +48,7 @@ def geocoder(
     avertir: Avertir,
     *,
     adresse: str,
-    max: int | None = None,  # noqa: A002 — le nom de l'option `--max`
+    max: int | None = None,  # le nom de l'option `--max`
     ban: object | None = None,
     nominatim: object | None = None,
 ) -> dict:
@@ -259,7 +259,7 @@ def sortie(
         base_routes=base_routes,
     )
     donnees, _ = cmd_sortie.terminer(demande, ctx, resultat, en_json=True)
-    return donnees  # type: ignore[return-value]  # `en_json` : jamais `None`
+    return donnees  # `en_json` : jamais `None`
 
 
 def boucle(

@@ -152,7 +152,7 @@ def construire_export(
     return tampon.getvalue()
 
 
-class TacheNonArretee(Exception):  # noqa: N818 — un état, pas une faute
+class TacheNonArretee(Exception):  # un état, pas une faute
     """Une tâche de fond du compte n'a pas rendu la main à temps : rien n'a été effacé.
 
     Une exception ordinaire, traduite en `ErreurApi` par la route **hors** de

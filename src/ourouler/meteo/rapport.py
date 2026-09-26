@@ -235,9 +235,9 @@ def construire(
             f"{len(prevision_principale)} prévision(s) pour {len(couronne)} point(s) de couronne"
         )
     avec_second = bool(prevision_second_avis)
-    if avec_second and len(prevision_second_avis) != len(couronne):  # type: ignore[arg-type]
+    if avec_second and len(prevision_second_avis) != len(couronne):
         raise ValueError(
-            f"second avis : {len(prevision_second_avis)} prévision(s) pour "  # type: ignore[arg-type]
+            f"second avis : {len(prevision_second_avis)} prévision(s) pour "
             f"{len(couronne)} point(s) de couronne"
         )
 

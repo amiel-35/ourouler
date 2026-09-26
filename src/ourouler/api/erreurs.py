@@ -386,7 +386,7 @@ def _erreur_api_setattr(self: ErreurApi, nom: str, valeur: object) -> None:
     raise FrozenInstanceError(f"cannot assign to field {nom!r}")
 
 
-ErreurApi.__setattr__ = _erreur_api_setattr  # type: ignore[method-assign]
+ErreurApi.__setattr__ = _erreur_api_setattr
 
 
 #: Les services externes, reconnus au préfixe que leurs connecteurs mettent en

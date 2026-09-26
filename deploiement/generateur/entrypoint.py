@@ -96,7 +96,7 @@ def _ecrire_config_depuis_environnement() -> None:
         return
     try:
         contenu = base64.b64decode(CONFIG_TOML_B64, validate=True)
-    except Exception as e:  # noqa: BLE001 - toute erreur de décodage se traite pareil
+    except Exception as e:  # toute erreur de décodage se traite pareil
         raise SystemExit(
             f"OUROULER_CONFIG_TOML_B64 n'est pas du base64 valide ({e}) : "
             "encoder le fichier TOML avec `base64 -i config.toml`"

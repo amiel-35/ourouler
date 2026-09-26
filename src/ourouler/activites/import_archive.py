@@ -275,7 +275,7 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
         return
     try:
         zf = zipfile.ZipFile(source)
-    except Exception as e:  # noqa: BLE001 — entrée hostile : tout échec est « illisible »
+    except Exception as e:  # entrée hostile : tout échec est « illisible »
         etat.rapport.ignorees.append(
             Ignoree(nom=prefixe or nom_archive, motif=f"archive corrompue ({_cause(e)})")
         )
@@ -341,7 +341,7 @@ def _traiter_entree(
 
     try:
         entree = zf.open(info)
-    except Exception as e:  # noqa: BLE001 — chiffrée, méthode inconnue, en-tête faux
+    except Exception as e:  # chiffrée, méthode inconnue, en-tête faux
         etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=f"fichier corrompu ({_cause(e)})"))
         etat.avancer()
         return False
@@ -383,7 +383,7 @@ def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> 
         )
     except sqlite3.Error:
         raise  # l'index du serveur est en panne : ce n'est pas la faute du fichier
-    except Exception as e:  # noqa: BLE001 — les lecteurs FIT/GPX/TCX sur octets hostiles
+    except Exception as e:  # les lecteurs FIT/GPX/TCX sur octets hostiles
         etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
         return
     etat.rapport.importees += 1
@@ -441,7 +441,7 @@ def _lire_entree(
     try:
         with zf.open(info) as source:
             return _lire_borne_compte(etat, nom, source, plafond)
-    except Exception as e:  # noqa: BLE001 — entrée hostile : tout échec est « illisible »
+    except Exception as e:  # entrée hostile : tout échec est « illisible »
         etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
         return None
 
@@ -459,7 +459,7 @@ def _lire_activite(etat: _Etat, nom: str, source: BinaryIO) -> bytes | None:
                 tampon = _lire_borne_compte(etat, nom, degzip, TAILLE_MAX_ACTIVITE)
         else:
             tampon = _lire_borne_compte(etat, nom, source, TAILLE_MAX_ACTIVITE)
-    except Exception as e:  # noqa: BLE001 — zlib, lzma, bz2, en-tête faux : tout est « illisible »
+    except Exception as e:  # zlib, lzma, bz2, en-tête faux : tout est « illisible »
         etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
         return None
     if tampon is None:

@@ -1333,7 +1333,7 @@ def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
 
     try:
         connexion = ouvrir(url_db)
-    except Exception as e:  # noqa: BLE001 - psycopg lève une famille entière, toutes traitées pareil
+    except Exception as e:  # psycopg lève une famille entière, toutes traitées pareil
         raise ErreurUtilisateur(
             f"{commande} : base des comptes injoignable ({_premiere_ligne(e)}) — vérifier "
             f"{VARIABLE_DATABASE_URL}, et que le serveur PostgreSQL est démarré"
@@ -1346,7 +1346,7 @@ def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
             yield connexion
     except ErreurUtilisateur:
         raise
-    except Exception as e:  # noqa: BLE001 - idem : une phrase plutôt qu'une pile
+    except Exception as e:  # idem : une phrase plutôt qu'une pile
         raise ErreurUtilisateur(f"{commande} : {_premiere_ligne(e)}") from e
 
 

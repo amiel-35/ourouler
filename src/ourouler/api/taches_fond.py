@@ -94,7 +94,7 @@ class ErreurTacheEnCours(Exception):
         self.nature = nature
 
 
-class EchecLisible(Exception):  # noqa: N818 — « échec », pas « erreur » : c'est le cycliste qui le lit
+class EchecLisible(Exception):  # « échec », pas « erreur » : c'est le cycliste qui le lit
     """Un échec qu'on peut montrer tel quel au cycliste : le message est déjà assaini.
 
     Tout autre exception d'un travail devient un message générique — la trace
@@ -113,7 +113,7 @@ class TacheAnnulee(EchecLisible):
         super().__init__("annulée : le compte a été supprimé pendant la tâche")
 
 
-class SuppressionDejaEnCours(Exception):  # noqa: N818 — un refus, pas une erreur du serveur
+class SuppressionDejaEnCours(Exception):  # un refus, pas une erreur du serveur
     """`DELETE /moi` du même compte tourne déjà : celui-ci refuse plutôt que d'attendre à son tour.
 
     Levée par `debuter_effacement` refusé — voir `api/vie_privee.effacer_donnees`,
@@ -242,7 +242,7 @@ def lancer(
             job.erreur = str(e)
             job.code_erreur = e.code
             job.statut = STATUT_ECHOUE
-        except Exception:  # noqa: BLE001 — une tâche de fond ne doit jamais planter en silence
+        except Exception:  # une tâche de fond ne doit jamais planter en silence
             _journal.exception("tâche de fond %s (%s) en échec", job.id, nature)
             job.erreur = MESSAGE_ERREUR_INTERNE
             job.code_erreur = CODE_ERREUR_INTERNE
@@ -297,7 +297,7 @@ def annuler_et_attendre(proprietaire: str, delai_s: float = 120.0) -> bool:
     return all(job._termine.wait(max(0.0, echeance - time.monotonic())) for job in en_cours)
 
 
-class suspendre:  # noqa: N801 — s'emploie comme une fonction : `with suspendre(qui):`
+class suspendre:  # s'emploie comme une fonction : `with suspendre(qui):`
     """Aucune nouvelle tâche pour ce propriétaire tant que le bloc dure (suppression du compte).
 
     Une classe et non un `@contextmanager` : une `ErreurApi` (dataclass figée)

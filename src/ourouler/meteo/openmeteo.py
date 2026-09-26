@@ -282,6 +282,6 @@ def motif_api(reponse: httpx.Response) -> str:
 
 def _flottant(x: Any, defaut: float) -> float:
     try:
-        return float(x)  # type: ignore[arg-type]
+        return float(x)
     except (TypeError, ValueError):
         return defaut

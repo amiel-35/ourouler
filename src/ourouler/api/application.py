@@ -509,7 +509,7 @@ def _publier_les_modeles_de_reponse(app: FastAPI) -> None:
             app.openapi_schema = publier_modeles(produire())
         return app.openapi_schema
 
-    app.openapi = openapi  # type: ignore[method-assign]
+    app.openapi = openapi
 
 
 def application() -> FastAPI:

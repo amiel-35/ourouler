@@ -114,7 +114,7 @@ def generer_sortie(
             donnees = vues.avec_gpx_par_proposition(
                 donnees,
                 generation=ctx.generations.retenir(qui, recueillis),
-                noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
+                noms={int(g.numero): str(g.nom_fichier) for g in recueillis},
                 prefixe=routeur.prefix,
             )
     except Exception:
