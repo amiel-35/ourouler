@@ -737,7 +737,7 @@ class PropositionCarte:
     Construit par `sortie.commande` à partir d'une `contraste.Retenue` : ce
     module ne sait toujours ni trier ni contraster, seulement dessiner ce
     qu'on lui donne. `distinction` et `chiffres` sont déjà en langage de
-    cycliste (`sortie.contraste.phrase`, `sortie.commande._details_proposition`)
+    cycliste (`sortie.contraste.phrase`, `rendu.sortie._details_proposition`)
     — recopiés tels quels, jamais reformulés ici. `gpx_texte` est le GPX du
     **parcours placé** (demi-tours compris, comme `_ecrire_gpx`) : ce module
     ne l'écrit pas sur disque, il l'embarque dans la page pour un

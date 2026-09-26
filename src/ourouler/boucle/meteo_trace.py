@@ -365,7 +365,7 @@ def _tenter_repli_partiel(
 def fleches_vent(meteo: MeteoTrace | None) -> list[dict]:
     """Un point de flèche par échantillon assez venté, prêt à dessiner.
 
-    **La règle est celle de la page HTML du sprint 5** (`sortie.carte`), qui
+    **La règle est celle de la page HTML du sprint 5** (`rendu.carte`), qui
     l'appliquait la première et qui appelle maintenant cette fonction : rien
     n'est réinventé ici, le code a seulement été remonté d'un cran pour que le
     JSON puisse le servir au front. Un écran qui dessine le vent et une page

@@ -34,7 +34,7 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
    comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
    rend deux et on dit pourquoi ;
 9. et ces mêmes propositions deviennent **la page du jour** (lot L5.4,
-   `sortie.carte.construire_page_jour`) : une carte, les tracés superposés,
+   `rendu.sortie.page_jour`) : une carte, les tracés superposés,
    seule la sélectionnée en couleurs — et un GPX par proposition,
    téléchargeable depuis la page, qui suit le choix du cycliste et non le
    classement.
@@ -48,7 +48,9 @@ tranche entre deux boucles que le terrain et le vent ne distinguent pas.
 Ce module est la couche commande : c'est lui qui lit `calibration.json` et
 `poids_routes.json` (par les fonctions qui savent où ils sont) et qui passe
 des objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
-injectables pour que les tests ne touchent jamais le réseau.
+injectables pour que les tests ne touchent jamais le réseau. Ce qu'il montre
+— tableau, JSON, phrases, page du jour — est construit par `rendu/sortie.py`
+(lot 6) : ce module écrit les fichiers et imprime ce que le rendu lui rend.
 
 **`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
 ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule

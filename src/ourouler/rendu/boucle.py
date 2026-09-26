@@ -346,7 +346,7 @@ def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
     le repli de Q19 s'applique aussi à `boucle`, ce serait un mensonge une
     fois sur deux : le tableau montrerait la pluie d'`icon_seamless` sous un
     en-tête qui nomme AROME. Même phrase et même raison que
-    `sortie.commande._ligne_modele_meteo` — règle absolue 5 : quand un seul
+    `rendu.sortie._ligne_modele_meteo` — règle absolue 5 : quand un seul
     des deux modèles a pu répondre, c'est encore une divergence à dire.
     """
     meteo = _meteo_rendue(evaluations)

@@ -18,6 +18,9 @@ L'enchaînement est celui du contrat de sprint §6 :
 
 Avec `--gpx`, les étapes 1 et 5 sautent : on évalue le fichier importé seul.
 
+Le tableau texte et le JSON sont construits par `rendu/boucle.py` (lot 6) :
+ce module mesure, classe, écrit le GPX et imprime ce que le rendu lui rend.
+
 La météo est le seul maillon qu'on accepte de perdre : si Open-Meteo ne
 répond pas, le tableau s'affiche sans ses colonnes et un avertissement part
 sur la sortie d'erreur. Perdre la boucle parce qu'il manque la pluie serait
