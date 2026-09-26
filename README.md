@@ -41,11 +41,15 @@ d'ouverture : la 1.0.0 viendra avec l'ouverture publique.
 Il faut Python 3.12 ou plus et [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync --frozen --extra dev
+uv sync --frozen
 mkdir -p ~/.config/ourouler
 cp config.example.toml ~/.config/ourouler/config.toml
 uv run ourouler config        # relit la configuration et dit ce qui manque
 ```
+
+`uv sync --frozen` suffit pour la ligne de commande. Ajouter `--extra api`
+pour lancer `ourouler api` (l'interface web), ou `--extra dev` pour
+contribuer au projet (tests, lint — voir [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Renseignez dans ce fichier votre point de départ, votre masse et votre FTP,
 vos vélos et, si vous en avez une, votre clé d'API intervals.icu.
