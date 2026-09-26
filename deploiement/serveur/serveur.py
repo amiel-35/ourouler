@@ -61,7 +61,7 @@ class GestionnaireAuthentifie(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(corps)
 
-    def list_directory(self, path):  # noqa: N802 - signature imposée par http.server
+    def list_directory(self, path):  # signature imposée par http.server
         """Pas de listage : un volume neuf ou une première génération ratée
         exposait sinon les noms des `sortie_AAAAMMJJ.gpx` accumulés. Derrière
         l'authentification, mais gratuit à fermer (relecture du 16/09/2026).
@@ -69,19 +69,19 @@ class GestionnaireAuthentifie(http.server.SimpleHTTPRequestHandler):
         self.send_error(404, "Rien à cet endroit")
         return None
 
-    def do_GET(self):  # noqa: N802 - signature imposée par http.server
+    def do_GET(self):  # signature imposée par http.server
         if not self._authentifie():
             self._refuser()
             return
         super().do_GET()
 
-    def do_HEAD(self):  # noqa: N802 - signature imposée par http.server
+    def do_HEAD(self):  # signature imposée par http.server
         if not self._authentifie():
             self._refuser()
             return
         super().do_HEAD()
 
-    def log_message(self, format: str, *args) -> None:  # noqa: A002 - signature imposée
+    def log_message(self, format: str, *args) -> None:  # signature imposée
         # Jamais l'en-tête Authorization (contient les identifiants en clair,
         # seulement encodés en base64) dans les logs.
         sys.stderr.write(f"{self.address_string()} - {format % args}\n")
@@ -94,7 +94,7 @@ def main() -> None:
             "(authentification basique) — voir deploiement/README.md"
         )
     os.makedirs(DOSSIER, exist_ok=True)
-    with http.server.ThreadingHTTPServer(("0.0.0.0", PORT), GestionnaireAuthentifie) as httpd:  # noqa: S104
+    with http.server.ThreadingHTTPServer(("0.0.0.0", PORT), GestionnaireAuthentifie) as httpd:
         print(f"serveur statique sur :{PORT}, dossier {DOSSIER}", flush=True)
         httpd.serve_forever()
 

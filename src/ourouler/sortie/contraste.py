@@ -92,13 +92,9 @@ from itertools import combinations
 
 from ourouler.boucle.mailles import mailles_ponderees
 from ourouler.boucle.marqueurs import compter
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, MeteoTrace
 from ourouler.seance.placement import MOTIF_SEANCE_AMPUTEE
-from ourouler.seance.vent import (
-    SEUIL_VENT_SENSIBLE_KMH,
-    ChampVent,
-    seuil_vent_sensible_ms,
-)
+from ourouler.seance.vent import ChampVent, seuil_vent_sensible_ms
 from ourouler.sortie.orientation import (
     ORIENTATION_DEPART_DOS,
     ORIENTATION_FACE,
@@ -1113,7 +1109,7 @@ def _gagne(axe: str, sujet: Profil, autres: list[Profil]) -> bool:
     valeur = sujet.valeur(axe)
     if valeur is None:
         return False
-    if axe == AXE_VENT:  # noqa: SIM102 - lisibilité : chaque axe a sa clause
+    if axe == AXE_VENT:  # lisibilité : chaque axe a sa clause
         # Le vent n'a pas de « meilleur » : le mainteneur a dit qu'il voulait
         # arbitrer lui-même entre rentrer avec, partir avec, ou du travers.
         # « Gagner » l'axe, c'est donc être la **seule** de son orientation —

@@ -27,12 +27,11 @@ au lieu de l'azimut d'une direction de couronne.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from ourouler.boucle.horaire import Horaire
+from ourouler.boucle.horaire import Horaire, strictement_positif
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -43,7 +42,7 @@ from ourouler.meteo.rapport import (
     vent_relatif,
 )
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
-from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint, interpoler_angle, interpoler_lineaire
 from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
@@ -66,10 +65,8 @@ SEUIL_PLUIE_MM_H = 0.2
 #: l'orientation au vent se pose (`sortie.vent_demande`). Si le vent ne mérite
 #: pas d'être montré, il ne mérite pas qu'on demande son orientation.
 #:
-#: Elle vivait dans `seance.vent`, qui la réexporte pour ses appelants
-#: historiques. Elle est descendue ici le 17/09/2026 parce que `boucle` en a
-#: besoin pour sérialiser les flèches, et que `boucle` ne peut pas importer
-#: `seance` : partout ailleurs, c'est `seance` qui importe `boucle`.
+#: Elle vit ici, et non dans `seance.vent`, parce que `boucle` en a besoin pour
+#: sérialiser les flèches et que `boucle` ne peut pas importer `seance`.
 SEUIL_VENT_SENSIBLE_KMH = 8.0
 
 #: Marge demandée après l'heure d'arrivée : la dernière heure encadrante doit
@@ -209,7 +206,7 @@ def evaluer(
     # entrée absurde ne consomme pas de quota et ne fait pas attendre.
     if not trace.points:
         raise ErreurUtilisateur("tracé sans point : il n'y a rien à évaluer le long du parcours")
-    if not _strictement_positif(pas_m):
+    if not strictement_positif(pas_m):
         raise ErreurUtilisateur(
             f"pas_m = {pas_m} : un pas d'échantillonnage strictement positif est attendu"
         )
@@ -444,11 +441,6 @@ def vent_par_position(meteo: MeteoTrace | None) -> list[dict]:
 # --- échantillonnage ---------------------------------------------------------
 
 
-def _strictement_positif(valeur: float) -> bool:
-    """Vrai pour un nombre fini et > 0. NaN et l'infini sont des refus, pas des vitesses."""
-    return math.isfinite(valeur) and valeur > 0
-
-
 def _distances_cumulees(points: Sequence[PointTrace]) -> list[float]:
     """Les distances cumulées du tracé, recalculées si le tracé n'en porte pas.
 
@@ -554,11 +546,11 @@ def _interpoler(heures: Sequence[PrevisionHeure], t: datetime) -> _Valeurs:
     duree = (apres.t - avant.t).total_seconds()
     f = (t - avant.t).total_seconds() / duree if duree > 0 else 0.0
     return _Valeurs(
-        pluie_mm=_lineaire(avant.pluie_mm, apres.pluie_mm, f),
-        vent_kmh=_lineaire(avant.vent_kmh, apres.vent_kmh, f),
+        pluie_mm=interpoler_lineaire(avant.pluie_mm, apres.pluie_mm, f),
+        vent_kmh=interpoler_lineaire(avant.vent_kmh, apres.vent_kmh, f),
         vent_depuis_deg=interpoler_angle(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
-        ressenti_c=_lineaire(avant.ressenti_c, apres.ressenti_c, f),
-        rafales_kmh=_lineaire(avant.rafales_kmh, apres.rafales_kmh, f),
+        ressenti_c=interpoler_lineaire(avant.ressenti_c, apres.ressenti_c, f),
+        rafales_kmh=interpoler_lineaire(avant.rafales_kmh, apres.rafales_kmh, f),
     )
 
 
@@ -580,29 +572,6 @@ def _encadrantes(
         if avant.t < t < apres.t:
             return (avant, apres)
     return None  # série non triée : on préfère ne rien affirmer
-
-
-def _lineaire(a: float | None, b: float | None, f: float) -> float | None:
-    if a is None or b is None:
-        return None
-    return a + (b - a) * f
-
-
-def interpoler_angle(a: float | None, b: float | None, f: float) -> float | None:
-    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°.
-
-    Publique parce que `seance.vent` interpole le même angle entre deux
-    échantillons distants de 5 km : une seconde version aurait tôt fait de
-    diverger de celle-ci, et c'est exactement la faute qu'elle évite.
-    """
-    if a is None or b is None:
-        return None
-    ra, rb = math.radians(a), math.radians(b)
-    x = math.cos(ra) + (math.cos(rb) - math.cos(ra)) * f
-    y = math.sin(ra) + (math.sin(rb) - math.sin(ra)) * f
-    if x == 0.0 and y == 0.0:  # deux directions opposées à mi-chemin : indécidable
-        return a
-    return math.degrees(math.atan2(y, x)) % 360.0
 
 
 # --- second avis -------------------------------------------------------------

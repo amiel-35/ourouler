@@ -25,8 +25,8 @@ import qu'il n'a pas lancé.
 **Le registre, le verrou et le cloisonnement vivent désormais dans
 `api/taches_fond.py`** (L9.4, 25/09/2026), partagés avec la calibration :
 le verrou est celui des tâches lourdes, import *ou* calibration. Ce module
-garde ce qui est propre à l'import et ré-exporte le reste sous ses noms
-d'origine.
+garde ce qui est propre à l'import ; le verrou et les statuts se lisent dans
+`taches_fond`.
 
 Ce module ne lit ni fichier de configuration ni variable d'environnement
 (doctrine §2) : il reçoit un `Cache` déjà construit pour un propriétaire et
@@ -41,15 +41,7 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.activites.import_archive import importer
-from ourouler.api.taches_fond import (
-    JOBS_GARDES,
-    NATURE_IMPORT,
-    STATUT_ECHOUE,
-    STATUT_EN_COURS,
-    STATUT_FINI,
-    VERROU,
-    Job,
-)
+from ourouler.api.taches_fond import NATURE_IMPORT, Job
 from ourouler.api.taches_fond import ErreurTacheEnCours as ErreurImportEnCours
 from ourouler.api.taches_fond import lancer as _lancer_tache
 from ourouler.api.taches_fond import trouver as _trouver_tache
@@ -136,12 +128,7 @@ def trouver(proprietaire: str, id_job: str) -> Job | None:
 
 __all__ = [
     "AGE_ORPHELIN_S",
-    "JOBS_GARDES",
     "PREFIXE_TEMPORAIRE",
-    "STATUT_ECHOUE",
-    "STATUT_EN_COURS",
-    "STATUT_FINI",
-    "VERROU",
     "ErreurImportEnCours",
     "Job",
     "balayer_temporaires_orphelins",

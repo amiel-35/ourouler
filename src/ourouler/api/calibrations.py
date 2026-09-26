@@ -52,8 +52,10 @@ from pathlib import Path
 from ourouler.activites.cache import Cache
 from ourouler.api import taches_fond
 from ourouler.api.erreurs import ErreurApi, assainir
-from ourouler.config import Config, Velo
+from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.profil import Velo
+from ourouler.noyau.texte import nombre_fr
 from ourouler.physique import calibration as calib
 from ourouler.physique import commande as physique
 from ourouler.physique import litterature
@@ -150,7 +152,7 @@ def verifier(
                 f"calibration de {velo.nom} : aucun pneu déclaré. Choisissez-le dans vos "
                 "vélos — le résultat sera plus sûr —, ou calibrez quand même : la "
                 f"résistance au roulement typique d'un vélo « {velo.usage} » "
-                f"({_fr(crr, 4)}, littérature) sera alors gardée fixe, et le résultat le dira"
+                f"({nombre_fr(crr, 4)}, littérature) sera alors gardée fixe, et le résultat le dira"
             ),
             statut=422,
             details={"velo": velo.nom, "crr_usage": crr},
@@ -307,10 +309,6 @@ def lancer(
 def fichier_du_compte(dossier_du_compte: Path) -> Path:
     """Où la calibration d'un compte hébergé s'écrit : dans son dossier, à côté de son profil."""
     return dossier_du_compte / physique.NOM_CALIBRATION
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    return f"{valeur:.{decimales}f}".replace(".", ",")
 
 
 __all__ = [

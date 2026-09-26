@@ -40,6 +40,3 @@ PROPRIETAIRE_LOCAL = "local"
 #: rendra le partage explicite le jour venu, au lieu de le laisser implicite
 #: dans l'absence de colonne.
 PROPRIETAIRE_PARTAGE = "partage"
-
-#: Nom de la colonne, cité par les schémas et par l'invariant qui les vérifie.
-COLONNE_PROPRIETAIRE = "proprietaire"

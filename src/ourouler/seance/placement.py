@@ -78,6 +78,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
 from ourouler.noyau.seance import Etape, Seance
+from ourouler.noyau.texte import minutes_signees
 from ourouler.noyau.trace import (
     Trace,
 )
@@ -246,7 +247,7 @@ def _motif_global(
 ) -> str:
     """Un motif d'échec exploitable : ce qui a été essayé, et ce qui a coincé."""
     essaye = (
-        f"décalages essayés : de {_minutes(decalages[0])} à {_minutes(decalages[-1])} "
+        f"décalages essayés : de {minutes_signees(decalages[0])} à {minutes_signees(decalages[-1])} "
         f"({len(decalages)} valeurs)"
     )
     detail = motifs[0] if motifs else "aucun décalage n'a pu être déroulé"
@@ -417,7 +418,7 @@ def _derouler_etapes(
         duree = etape.duree_s + (decalage_s if i == idx_ouverture else 0.0)
         if duree < 0:
             return (
-                f"un décalage de {_minutes(decalage_s)} raccourcit la Z2 d'ouverture "
+                f"un décalage de {minutes_signees(decalage_s)} raccourcit la Z2 d'ouverture "
                 "au-delà de sa durée"
             )
         if i == idx_ouverture and etape.duree_s > 0:
@@ -934,5 +935,3 @@ def _plus_de_route(etat: _Etat, terrain: _Terrain, etape: Etape, idx: int) -> st
     )
 
 
-def _minutes(secondes: float) -> str:
-    return f"{secondes / 60:+.0f} min"

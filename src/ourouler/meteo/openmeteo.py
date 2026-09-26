@@ -102,7 +102,7 @@ class ClientOpenMeteo:
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
                 f"Open-Meteo : HTTP {reponse.status_code} sur {self.url_prevision}"
-                f"{_motif_api(reponse)} (modèle demandé : {modele})"
+                f"{motif_api(reponse)} (modèle demandé : {modele})"
             )
 
         try:
@@ -269,7 +269,7 @@ def _blocs(charge: Any, url: str) -> list[Any]:
     raise ErreurConnecteur(f"Open-Meteo : JSON inattendu ({type(charge).__name__}) sur {url}")
 
 
-def _motif_api(reponse: httpx.Response) -> str:
+def motif_api(reponse: httpx.Response) -> str:
     """Le motif renvoyé par l'API, s'il est lisible. Ne contient jamais les paramètres envoyés."""
     try:
         charge = reponse.json()
@@ -282,6 +282,6 @@ def _motif_api(reponse: httpx.Response) -> str:
 
 def _flottant(x: Any, defaut: float) -> float:
     try:
-        return float(x)  # type: ignore[arg-type]
+        return float(x)
     except (TypeError, ValueError):
         return defaut

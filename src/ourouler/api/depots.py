@@ -737,7 +737,7 @@ class DepotGenerations:
     def retenir(self, proprietaire: Proprietaire, propositions: Iterable[object]) -> str:
         """Range les GPX d'une génération et rend son identifiant opaque."""
         par_numero = {
-            int(p.numero): (str(p.nom_fichier), str(p.texte))  # type: ignore[attr-defined]
+            int(p.numero): (str(p.nom_fichier), str(p.texte))
             for p in propositions
         }
         identifiant = uuid.uuid4().hex

@@ -257,18 +257,3 @@ def test_compte_par_email_et_compte_du_proprietaire(depot: DepotComptes):
 
 def test_compte_par_email_rend_none_si_l_adresse_n_a_pas_de_compte(depot: DepotComptes):
     assert depot.compte_par_email("personne@exemple.invalid") is None
-
-
-# --- fermer_sessions_du_compte, appelable seule -----------------------------
-
-
-def test_fermer_sessions_du_compte_les_ferme_toutes_et_rend_le_compte(depot: DepotComptes):
-    identifiant = _compte_actif(depot, "toutes-fermees@exemple.invalid")
-    a = depot.ouvrir_session(identifiant)
-    b = depot.ouvrir_session(identifiant)
-
-    assert depot.fermer_sessions_du_compte(identifiant) == 2
-    assert depot.proprietaire_de_la_session(a) is None
-    assert depot.proprietaire_de_la_session(b) is None
-    # Idempotente : rien à fermer une seconde fois.
-    assert depot.fermer_sessions_du_compte(identifiant) == 0

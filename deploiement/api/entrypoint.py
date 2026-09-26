@@ -48,7 +48,7 @@ CHEMIN_SERVICE = os.environ.get("OUROULER_SERVICE", "/config/service.toml")
 SERVICE_TOML_B64 = os.environ.get("OUROULER_SERVICE_TOML_B64", "")
 
 #: Adresse et port d'écoute du serveur, à l'intérieur du conteneur.
-HOTE = os.environ.get("OUROULER_HOTE", "0.0.0.0")  # noqa: S104 — le conteneur, pas la machine hôte
+HOTE = os.environ.get("OUROULER_HOTE", "0.0.0.0")  # le conteneur, pas la machine hôte
 PORT = int(os.environ.get("OUROULER_PORT", "8000"))
 
 
@@ -64,7 +64,7 @@ def _ecrire_config_depuis_environnement() -> None:
         return
     try:
         contenu = base64.b64decode(CONFIG_TOML_B64, validate=True)
-    except Exception as e:  # noqa: BLE001 - toute erreur de décodage se traite pareil
+    except Exception as e:  # toute erreur de décodage se traite pareil
         raise SystemExit(
             f"OUROULER_CONFIG_TOML_B64 n'est pas du base64 valide ({e}) : "
             "encoder le fichier TOML avec `base64 -i config.toml`"
@@ -96,7 +96,7 @@ def _ecrire_service_depuis_environnement() -> None:
         return
     try:
         contenu = base64.b64decode(SERVICE_TOML_B64, validate=True)
-    except Exception as e:  # noqa: BLE001 - toute erreur de décodage se traite pareil
+    except Exception as e:  # toute erreur de décodage se traite pareil
         raise SystemExit(
             f"OUROULER_SERVICE_TOML_B64 n'est pas du base64 valide ({e}) : "
             "encoder le fichier avec `base64 -i service.toml`"

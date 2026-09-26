@@ -62,7 +62,7 @@ def construire_horaire(
     (la vitesse vient de la configuration ou d'une simulation, jamais d'une
     lecture faite ici).
     """
-    if not _strictement_positif(vitesse_kmh):
+    if not strictement_positif(vitesse_kmh):
         raise ErreurUtilisateur(
             f"vitesse_kmh = {vitesse_kmh} : une vitesse strictement positive est attendue "
             "(l'heure de passage vaut départ + distance / vitesse)"
@@ -78,9 +78,14 @@ def construire_horaire(
     return horaire
 
 
-def _strictement_positif(valeur: float) -> bool:
+def strictement_positif(valeur: float) -> bool:
     """Vrai pour un nombre fini et > 0. NaN et l'infini sont des refus, pas des vitesses."""
     return math.isfinite(valeur) and valeur > 0
+
+
+def duree_pauses_s(pauses: Sequence[Pause]) -> float:
+    """Le temps passé à l'arrêt, toutes pauses confondues, en secondes."""
+    return sum(p.duree_s for p in pauses)
 
 
 # --- lecture des options --pause ----------------------------------------------

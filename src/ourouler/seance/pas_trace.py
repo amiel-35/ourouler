@@ -157,10 +157,6 @@ class _Terrain:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
         return self.pentes[self._pas_contenant(position_m)]
 
-    def cap_a(self, position_m: float) -> float:
-        """Le cap du pas qui contient `position_m`, en degrés. Pendant de `pente_a`."""
-        return self.caps[self._pas_contenant(position_m)]
-
     def _pas_contenant(self, position_m: float) -> int:
         """L'indice du pas qui contient `position_m`, celui du bout au-delà des bornes."""
         i = bisect.bisect_right(self.bornes, position_m) - 1

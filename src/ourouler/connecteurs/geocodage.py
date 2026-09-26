@@ -50,6 +50,7 @@ from typing import Any
 import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur
+from ourouler.noyau.lecture import texte_ou_none
 
 BASE_URL_BAN = "https://data.geopf.fr/geocodage"
 CHEMIN_RECHERCHE_BAN = "/search"
@@ -288,8 +289,8 @@ def _candidats_ban(charge: Any, url: str) -> list[Candidat]:
                     longitude=float(lon),
                     score=float(proprietes.get("score", 0.0)),
                     source="ban",
-                    commune=_texte_ou_none(proprietes.get("city")),
-                    code_postal=_texte_ou_none(proprietes.get("postcode")),
+                    commune=texte_ou_none(proprietes.get("city")),
+                    code_postal=texte_ou_none(proprietes.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
@@ -313,20 +314,12 @@ def _candidats_nominatim(charge: Any, url: str) -> list[Candidat]:
                     score=float(item.get("importance", 0.0)),
                     source="nominatim",
                     commune=_commune_nominatim(adresse),
-                    code_postal=_texte_ou_none(adresse.get("postcode")),
+                    code_postal=texte_ou_none(adresse.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
             raise ErreurConnecteur(f"Nominatim : candidat illisible sur {url} ({e})") from e
     return candidats
-
-
-def _texte_ou_none(valeur: Any) -> str | None:
-    """Une chaîne non vide, ou `None`. Un champ absent et un champ vide se valent ici."""
-    if valeur is None:
-        return None
-    texte = str(valeur).strip()
-    return texte or None
 
 
 #: Les clefs sous lesquelles Nominatim range ce que la BAN appelle `city`.
@@ -347,7 +340,7 @@ def _commune_nominatim(adresse: Any) -> str | None:
     if not isinstance(adresse, dict):
         return None
     for clef in CLEFS_COMMUNE_NOMINATIM:
-        commune = _texte_ou_none(adresse.get(clef))
+        commune = texte_ou_none(adresse.get(clef))
         if commune is not None:
             return commune
     return None

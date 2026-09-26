@@ -7,7 +7,7 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 1 bis. la **question de l'orientation au vent** est posée **avant** la
    recherche (lot L5.3) : un appel Open-Meteo sur un point et une heure, donc
    le poste le moins cher, et il tombe avant BRouter. Elle ne se pose que si
-   le vent se sent (8 km/h, `seance.vent.SEUIL_VENT_SENSIBLE_KMH`) et à trois
+   le vent se sent (8 km/h, `boucle.meteo_trace.SEUIL_VENT_SENSIBLE_KMH`) et à trois
    jours au plus. Quand elle a une réponse (`--vent`), elle **dirige** la
    recherche au lieu de contraster après coup ;
 2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
@@ -76,7 +76,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
+from ourouler.apprentissage.commande import NOM_POIDS, base_routes_existante
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
@@ -98,13 +98,14 @@ from ourouler.noyau.erreurs import (
 )
 from ourouler.noyau.profil import Profil
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import azimut_texte
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.placement import CLE_MOTIF, Placement, placer
-from ourouler.seance.placement_resultat import trace_parcourue
+from ourouler.seance.placement import CLE_MOTIF, placer
+from ourouler.seance.placement_resultat import Placement, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
@@ -498,11 +499,8 @@ def motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) ->
     l'erreur qu'il lève, pas un rendu de son résultat.
     """
 
-    def azimut(azimut_deg: float | None) -> str:
-        return f"{azimut_deg:.0f}°" if azimut_deg is not None else "direction inconnue"
-
     detail = "; ".join(
-        f"{azimut(e.azimut_deg)} {e.distance_km:.1f} km : {e.motif}" for e in ecartees[:3]
+        f"{azimut_texte(e.azimut_deg)} {e.distance_km:.1f} km : {e.motif}" for e in ecartees[:3]
     )
     suite = f" (et {len(ecartees) - 3} autre(s))" if len(ecartees) > 3 else ""
     return (
@@ -513,15 +511,6 @@ def motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) ->
 
 
 # --- options ------------------------------------------------------------------
-
-
-def jour_option(brut: str | None) -> date:
-    if not brut:
-        return date.today()
-    try:
-        return date.fromisoformat(str(brut).strip())
-    except ValueError as e:
-        raise ErreurUtilisateur(f"--jour {brut!r} : date AAAA-MM-JJ attendue") from e
 
 
 def heure_depart_du_jour(brut: str | None, jour: date) -> datetime:
@@ -1067,7 +1056,7 @@ def _mesurer(
     a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
     poids = lire_poids(dossier_cache / NOM_POIDS)
-    base = base_routes if base_routes is not None else _base_routes(dossier_cache)
+    base = base_routes if base_routes is not None else base_routes_existante(dossier_cache)
     propositions: list[Proposition] = []
     panne: str | None = None
     for candidate, placement in retenues:
@@ -1114,22 +1103,6 @@ def _vitesse(placement: Placement, config: Profil) -> float:
         if math.isfinite(vitesse) and vitesse > 0:
             return vitesse
     return config.boucle.vitesse_moyenne_kmh
-
-
-def _base_routes(dossier_cache: Path) -> BaseRoutes | None:
-    """La base des routes connues si elle existe déjà, sinon `None`.
-
-    Même règle que `boucle.commande` : on ne la **crée** pas au passage, et une
-    base illisible ne fait pas perdre la sortie — la colonne « connu % »
-    disparaît, elle n'a jamais pesé sur le tri.
-    """
-    chemin = dossier_cache / NOM_BASE
-    if not chemin.is_file():
-        return None
-    try:
-        return BaseRoutes(chemin)
-    except ErreurUtilisateur:
-        return None
 
 
 # --- écriture des fichiers -----------------------------------------------------

@@ -50,6 +50,23 @@ NOM_BASE = "routes_connues.sqlite"
 #: Nom du fichier de poids appris, sous le dossier de cache. Même raison.
 NOM_POIDS = "poids_routes.json"
 
+
+def base_routes_existante(dossier_cache: Path) -> BaseRoutes | None:
+    """La base des routes connues si elle existe déjà, sinon `None`.
+
+    On ne la **crée** pas au passage : `boucle` et `sortie` n'ont pas à
+    fabriquer un fichier vide dans le cache pour afficher une colonne
+    informative. Une base illisible ne fait pas non plus perdre la boucle — on
+    s'en passe, la colonne « connu % » disparaît, elle n'a jamais pesé sur le tri.
+    """
+    chemin = dossier_cache / NOM_BASE
+    if not chemin.is_file():
+        return None
+    try:
+        return BaseRoutes(chemin)
+    except ErreurUtilisateur:
+        return None
+
 #: Distance des boucles d'exposition, en kilomètres. Assez long pour sortir de
 #: l'agglomération et rencontrer les mêmes classes de routes qu'une vraie
 #: sortie, assez court pour que huit appels restent une affaire de secondes.

@@ -56,14 +56,6 @@ export function sortieRetenue(jour: string): SortieMemorisee | null {
   }
 }
 
-export function oublierSortie(jour: string): void {
-  try {
-    window.localStorage.removeItem(`${CLE_SORTIE}.${jour}`);
-  } catch {
-    /* rien à faire */
-  }
-}
-
 export function retenirLectureSeances(jour: string): void {
   try {
     window.localStorage.setItem(CLE_SEANCES, jour);

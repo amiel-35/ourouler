@@ -13,11 +13,11 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.boucle.meteo_trace import fleches_vent
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, fleches_vent
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import nombre_fr
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
-from ourouler.seance.placement import Emplacement, Placement
-from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
+from ourouler.seance.placement_resultat import Emplacement, Placement
 
 #: Version épinglée de Leaflet, servie par le CDN autorisé.
 LEAFLET_VERSION = "1.9.4"
@@ -110,7 +110,7 @@ def _blocs(
                 "couleur": couleur,
                 "pts": portion.points,
                 "milieu": _milieu(portion.points),
-                "etiquette": f"{numero} · {_fr(emplacement.note.note, 1)}",
+                "etiquette": f"{numero} · {nombre_fr(emplacement.note.note, 1)}",
                 "infobulle": _infobulle(numero, emplacement, etape),
                 # Position sur le tracé, pas le compteur : c'est ce dont le
                 # profil d'altitude a besoin pour placer sa bande (`cumuls`
@@ -151,10 +151,10 @@ def _infobulle(numero: int, emplacement: Emplacement, etape) -> str:
         lignes.append(html.escape(f"{consigne} · {duree}{watts}"))
     fin_parcourue = emplacement.debut_parcouru_m + emplacement.longueur_m
     lignes.append(
-        f"km {_fr(emplacement.debut_parcouru_m / 1000, 1)} → {_fr(fin_parcourue / 1000, 1)} "
-        f"({_fr(emplacement.longueur_m / 1000, 1)} km)"
+        f"km {nombre_fr(emplacement.debut_parcouru_m / 1000, 1)} → {nombre_fr(fin_parcourue / 1000, 1)} "
+        f"({nombre_fr(emplacement.longueur_m / 1000, 1)} km)"
     )
-    lignes.append(f"note {_fr(note.note, 2)} km équivalents")
+    lignes.append(f"note {nombre_fr(note.note, 2)} km équivalents")
     if emplacement.demi_tour:
         lignes.append("demi-tour : le couloir précédent, repris en sens inverse")
     for motif in note.motifs:
@@ -448,5 +448,3 @@ vitesse moyenne puis rafale, en km/h. Rien en dessous de {SEUIL_AFFICHAGE_VENT_K
 (en deçà, on ne sent quasiment plus l'air).</p>"""
 
 
-def _fr(valeur: float, decimales: int) -> str:
-    return f"{valeur:.{decimales}f}".replace(".", ",")

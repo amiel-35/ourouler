@@ -26,12 +26,13 @@ from ourouler.api.modeles import Point, ReponseErreur
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.quotas import Quotas
 from ourouler.api.session import CODE_SANS_SESSION, MESSAGE_SANS_SESSION, MODE_PERSONNEL, FournisseurSession
-from ourouler.config import Config, Depart
+from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.profil import Depart
 from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
@@ -283,7 +284,7 @@ def _base_routes(config: Config, qui: Proprietaire):
     authentifié ».
 
     **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
-    ce que font `boucle/commande._base_routes` et son jumeau de `sortie` —
+    ce que font `apprentissage.commande.base_routes_existante` pour `boucle` et `sortie` —
     eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
     cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
     retomber la commande sur son propre constructeur, donc sur le

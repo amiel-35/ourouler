@@ -102,8 +102,6 @@ LONGUEUR_VIRAGE_M = 60.0
 #: tourne-à-gauche le pénalisait pour un virage qu'il ne fait pas.
 EPSILON_DEMI_TOUR_DEG = 1e-6
 
-SENS_INDETERMINE = "indetermine"
-
 
 @dataclass
 class Couts:

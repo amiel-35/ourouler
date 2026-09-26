@@ -208,6 +208,7 @@ class Seance:
 
     @property
     def duree_blocs_s(self) -> float:
+        """Le temps passé en bloc, en secondes : ce que le terrain doit accueillir."""
         return sum(e.duree_s for _, e in self.blocs())
 
 

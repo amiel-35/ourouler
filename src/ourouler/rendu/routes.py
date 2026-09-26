@@ -18,6 +18,7 @@ from ourouler.apprentissage.routes import (
 )
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
 from ourouler.meteo.couronne import NOMS_DIRECTIONS
+from ourouler.noyau.texte import nombre_fr
 
 
 def texte_apprentissage(rapport: RapportApprentissage, depuis: date, stats: Statistiques) -> str:
@@ -26,8 +27,8 @@ def texte_apprentissage(rapport: RapportApprentissage, depuis: date, stats: Stat
         f"Apprentissage des routes depuis le {depuis.isoformat()} — "
         f"{rapport.sorties_vues} sortie(s) extérieure(s) en cache",
         f"  apprises ce coup-ci : {rapport.sorties_apprises} "
-        f"({_fr(rapport.km, 0)} km rejoués, {rapport.mailles} mailles, "
-        f"D+ {_fr(rapport.denivele_m, 0) if rapport.denivele_m is not None else ABSENT} m "
+        f"({nombre_fr(rapport.km, 0)} km rejoués, {rapport.mailles} mailles, "
+        f"D+ {nombre_fr(rapport.denivele_m, 0) if rapport.denivele_m is not None else ABSENT} m "
         "tracé rerouté)",
         f"  déjà connues        : {rapport.sorties_deja_connues}",
         f"  échecs              : {rapport.echecs}",
@@ -37,7 +38,7 @@ def texte_apprentissage(rapport: RapportApprentissage, depuis: date, stats: Stat
         lignes.append(f"    … et {len(rapport.messages) - 20} autre(s)")
     lignes.append("")
     lignes.append(
-        f"Base : {stats.sorties} sortie(s), {_fr(stats.km_total, 0)} km roulés, "
+        f"Base : {stats.sorties} sortie(s), {nombre_fr(stats.km_total, 0)} km roulés, "
         f"{stats.mailles} mailles connues."
     )
     return "\n".join(lignes)
@@ -67,21 +68,21 @@ def texte_stats(stats: Statistiques, appris: dict[str, float] | None) -> str:
             "(un appel BRouter par sortie extérieure)."
         )
     lignes = [
-        f"Routes roulées — {stats.sorties} sortie(s), {_fr(stats.km_total, 0)} km, "
+        f"Routes roulées — {stats.sorties} sortie(s), {nombre_fr(stats.km_total, 0)} km, "
         f"{stats.mailles} mailles",
         f"Coût moyen du profil BRouter : "
-        f"{_fr(stats.cout_km_moyen, 0) if stats.cout_km_moyen is not None else ABSENT}",
+        f"{nombre_fr(stats.cout_km_moyen, 0) if stats.cout_km_moyen is not None else ABSENT}",
         "",
     ]
     titres = ("classe", "km", "part", "part semaine", "poids défaut", "poids appris")
     cellules = [
         [
             _libelle(classe),
-            _fr(stats.km_par_highway[classe], 0),
+            nombre_fr(stats.km_par_highway[classe], 0),
             f"{stats.part(classe) * 100:.0f} %",
             f"{stats.part_semaine(classe) * 100:.0f} %",
-            _fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
-            _fr(appris[classe], 2) if appris and classe in appris else ABSENT,
+            nombre_fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
+            nombre_fr(appris[classe], 2) if appris and classe in appris else ABSENT,
         ]
         for classe in stats.classes()
     ]
@@ -106,7 +107,7 @@ def _secondaire(nom: str, par_valeur: dict[str, float], km_total: float) -> list
     cellules = [
         [
             valeur or "(absent)",
-            _fr(km, 0),
+            nombre_fr(km, 0),
             f"{(km / km_total * 100 if km_total else 0):.0f} %",
         ]
         for valeur, km in classees
@@ -147,9 +148,9 @@ def texte_poids(
     ecrit_dans,
 ) -> str:
     lignes = [
-        f"Poids appris — {stats.sorties} sortie(s) roulée(s) ({_fr(stats.km_total, 0)} km) "
+        f"Poids appris — {stats.sorties} sortie(s) roulée(s) ({nombre_fr(stats.km_total, 0)} km) "
         f"contre {exposition.sorties} boucle(s) d'exposition "
-        f"({_fr(exposition.km_total, 0)} km, {DISTANCE_EXPOSITION_KM:g} km × "
+        f"({nombre_fr(exposition.km_total, 0)} km, {DISTANCE_EXPOSITION_KM:g} km × "
         f"{len(NOMS_DIRECTIONS)} directions)",
         "Poids = min(4, max(0, log2(part exposition / part sorties))), en km "
         "équivalents par km ; tertiary est la référence, donc 0.",
@@ -165,10 +166,10 @@ def texte_poids(
     cellules = [
         [
             _libelle(classe),
-            f"{_fr(stats.part(classe) * 100, 1)} %",
-            f"{_fr(exposition.part(classe) * 100, 1)} %",
-            _fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
-            _fr(poids[classe], 2) if classe in poids else ABSENT,
+            f"{nombre_fr(stats.part(classe) * 100, 1)} %",
+            f"{nombre_fr(exposition.part(classe) * 100, 1)} %",
+            nombre_fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
+            nombre_fr(poids[classe], 2) if classe in poids else ABSENT,
         ]
         for classe in classes
     ]
@@ -230,6 +231,3 @@ def _libelle(classe: str) -> str:
     return classe or LIBELLE_SANS_HIGHWAY
 
 
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale, pas de séparateur de milliers."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")

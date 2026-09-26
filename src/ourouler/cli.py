@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ourouler import __version__
-from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
+from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, charger
 
 if TYPE_CHECKING:
     # Imports réservés à l'analyse statique (annotations des adaptateurs de comptes) :
@@ -37,6 +37,7 @@ from ourouler.connecteurs.geocodage import (
     chercher_adresse,
 )
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import Depart
 from ourouler.rendu.profil import info_vitesse_compteur, profil_json
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`
@@ -1332,7 +1333,7 @@ def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
 
     try:
         connexion = ouvrir(url_db)
-    except Exception as e:  # noqa: BLE001 - psycopg lève une famille entière, toutes traitées pareil
+    except Exception as e:  # psycopg lève une famille entière, toutes traitées pareil
         raise ErreurUtilisateur(
             f"{commande} : base des comptes injoignable ({_premiere_ligne(e)}) — vérifier "
             f"{VARIABLE_DATABASE_URL}, et que le serveur PostgreSQL est démarré"
@@ -1345,7 +1346,7 @@ def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
             yield connexion
     except ErreurUtilisateur:
         raise
-    except Exception as e:  # noqa: BLE001 - idem : une phrase plutôt qu'une pile
+    except Exception as e:  # idem : une phrase plutôt qu'une pile
         raise ErreurUtilisateur(f"{commande} : {_premiere_ligne(e)}") from e
 
 

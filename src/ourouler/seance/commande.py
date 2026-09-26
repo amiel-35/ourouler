@@ -41,6 +41,7 @@ from ourouler.noyau.seance import (
     Etape,
     Seance,
 )
+from ourouler.noyau.texte import nombre_fr
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.intervals import seance_du_jour, seances_periode
 from ourouler.services.contexte import Contexte
@@ -144,11 +145,11 @@ class SourceVitesse:
         if self.parametres is not None:
             return (
                 f"vitesses par le modèle calibré du vélo {self.velo} "
-                f"(CdA {_fr(self.parametres.cda_m2, 3)} m², Crr {_fr(self.parametres.crr, 5)}, "
-                f"{_fr(self.parametres.masse_totale_kg, 1)} kg), sur le plat et sans vent"
+                f"(CdA {nombre_fr(self.parametres.cda_m2, 3)} m², Crr {nombre_fr(self.parametres.crr, 5)}, "
+                f"{nombre_fr(self.parametres.masse_totale_kg, 1)} kg), sur le plat et sans vent"
             )
         return (
-            f"vitesses à {_fr((self.vitesse_ms or 0.0) * 3.6, 1)} km/h, la vitesse moyenne de la "
+            f"vitesses à {nombre_fr((self.vitesse_ms or 0.0) * 3.6, 1)} km/h, la vitesse moyenne de la "
             f"configuration — le vélo {self.velo} n'est pas calibré "
             f"(`ourouler calibrer --velo {self.velo}`)"
         )
@@ -341,7 +342,7 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
     distance = sum(m.longueur_m for m in mesures if m.longueur_m is not None)
     inconnues = sum(1 for m in mesures if m.longueur_m is None)
     lignes.append(
-        f"Distance estimée : {_fr(distance / 1000, 1)} km"
+        f"Distance estimée : {nombre_fr(distance / 1000, 1)} km"
         + (f" (hors {inconnues} étape(s) sans puissance)" if inconnues else "")
     )
     lignes.append(source.resume)
@@ -389,12 +390,12 @@ def _approximation(seance: Seance) -> list[str]:
     pct = float(meta.get("puissance_endurance_pct") or 0.0)
     lignes = [
         f"⚠ Puissances **approximées** : la séance est prescrite en zones de fréquence "
-        f"cardiaque (FTP {_fr(ftp, 0)} W)."
+        f"cardiaque (FTP {nombre_fr(ftp, 0)} W)."
     ]
     if meta.get("etapes_fc_basses"):
         lignes.append(
             f"  Zones basses (jusqu'à Z{ZONE_FC_BASSE_MAX}) : visées à "
-            f"{_fr(pct * 100, 0)} % de FTP, soit {_fr(pct * ftp, 0)} W — la puissance "
+            f"{nombre_fr(pct * 100, 0)} % de FTP, soit {nombre_fr(pct * ftp, 0)} W — la puissance "
             "d'endurance mesurée sur vos sorties, pas le milieu de la zone de puissance."
         )
     if meta.get("etapes_fc_hautes"):
@@ -433,7 +434,7 @@ def _avertissements(seance: Seance) -> list[str]:
     if meta.get("seuil_recuperation_replie"):
         messages.append(
             "FTP inconnue : le seuil qui sépare un bloc d'une récupération a été tiré de la "
-            f"séance elle-même ({_fr(float(meta.get('seuil_recuperation_w') or 0), 0)} W), "
+            f"séance elle-même ({nombre_fr(float(meta.get('seuil_recuperation_w') or 0), 0)} W), "
             "pas du cycliste."
         )
     if meta.get("etapes_libres_reclassees"):
@@ -459,7 +460,7 @@ def _avertissements(seance: Seance) -> list[str]:
     if meta.get("ecart_duree_doc_s"):
         messages.append(
             f"la source annonce {_duree_longue(float(meta['duree_doc_s']))}, "
-            f"soit {_fr(float(meta['ecart_duree_doc_s']) / 60, 1)} min d'écart avec les étapes lues."
+            f"soit {nombre_fr(float(meta['ecart_duree_doc_s']) / 60, 1)} min d'écart avec les étapes lues."
         )
     return messages
 
@@ -571,11 +572,7 @@ def _puissance(etape: Etape) -> str:
 
 
 def _km(metres: float | None) -> str:
-    return "—" if metres is None else f"{_fr(metres / 1000, 1)} km"
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    return f"{valeur:.{decimales}f}".replace(".", ",")
+    return "—" if metres is None else f"{nombre_fr(metres / 1000, 1)} km"
 
 
 def _arrondi(valeur: float | None, decimales: int = 0) -> float | None:

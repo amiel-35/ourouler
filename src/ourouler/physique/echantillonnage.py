@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ourouler.noyau.activite import Activite, Point
-from ourouler.noyau.meteo import HeureArchive
+from ourouler.noyau.meteo import HeureArchive, interpoler_angle, interpoler_lineaire
 from ourouler.noyau.trace import PointTrace, cap_deg, distance_m
 from ourouler.physique.modele import (
     RENDEMENT_DEFAUT,
@@ -396,10 +396,10 @@ def _interpoler_archive(heures: Sequence[HeureArchive], t: datetime) -> HeureArc
             f = (t - avant.t).total_seconds() / duree if duree > 0 else 0.0
             return HeureArchive(
                 t=t,
-                vent_kmh=_lineaire(avant.vent_kmh, apres.vent_kmh, f),
-                vent_depuis_deg=_angulaire(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
-                temp_c=_lineaire(avant.temp_c, apres.temp_c, f),
-                pression_hpa=_lineaire(avant.pression_hpa, apres.pression_hpa, f),
+                vent_kmh=interpoler_lineaire(avant.vent_kmh, apres.vent_kmh, f),
+                vent_depuis_deg=interpoler_angle(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
+                temp_c=interpoler_lineaire(avant.temp_c, apres.temp_c, f),
+                pression_hpa=interpoler_lineaire(avant.pression_hpa, apres.pression_hpa, f),
             )
     return None
 
@@ -424,19 +424,3 @@ def _vent_de_face(heure: HeureArchive | None, cap: float | None) -> float | None
     return vent_au_cycliste(a_10m)
 
 
-def _lineaire(a: float | None, b: float | None, f: float) -> float | None:
-    if a is None or b is None:
-        return None
-    return a + (b - a) * f
-
-
-def _angulaire(a: float | None, b: float | None, f: float) -> float | None:
-    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°."""
-    if a is None or b is None:
-        return None
-    ra, rb = math.radians(a), math.radians(b)
-    x = math.cos(ra) + (math.cos(rb) - math.cos(ra)) * f
-    y = math.sin(ra) + (math.sin(rb) - math.sin(ra)) * f
-    if x == 0.0 and y == 0.0:
-        return a
-    return math.degrees(math.atan2(y, x)) % 360.0

@@ -150,11 +150,6 @@ class Candidate:
         """
         return self.elargissement > 0.0
 
-    @property
-    def tolerance_atteinte(self) -> float:
-        """La bande qu'il a fallu accepter : `tolerance + elargissement`."""
-        return self.tolerance + self.elargissement
-
 
 def appels_pour(nb: int) -> int:
     """Plafond d'appels au moteur pour `nb` candidates demandées.

@@ -391,7 +391,7 @@ def _nombre_positif(valeur: object) -> float | None:
     if isinstance(valeur, bool) or valeur is None:
         return None
     try:
-        nombre = float(valeur)  # type: ignore[arg-type]
+        nombre = float(valeur)
     except (TypeError, ValueError):
         return None
     return nombre if nombre > 0 else None

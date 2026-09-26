@@ -19,11 +19,14 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.meteo import portee
 from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.rapport import date_en_francais
 from ourouler.noyau.seance import Seance
-from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement, porte_a_porte
+from ourouler.noyau.texte import azimut_texte, duree_h_min, minutes_signees, nombre_fr
+from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement
+from ourouler.rendu.boucle_json import porte_a_porte
 from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
@@ -179,7 +182,7 @@ def vent_depart_json(
             if question.vent_depuis_deg is not None
             else None
         ),
-        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "seuil_kmh": SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "choix": list(orientation.CHOIX),
         "azimuts_par_choix": {
@@ -196,9 +199,9 @@ def _sous_titre(proposition: Proposition, demande: Demande, config: Config) -> s
     trace = proposition.trace
     morceaux = [
         f"départ {config.depart.nom}",
-        f"{_fr(trace.distance_m / 1000, 1)} km",
+        f"{nombre_fr(trace.distance_m / 1000, 1)} km",
         f"D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else f"D+ {ABSENT}",
-        f"note de placement {_fr(proposition.placement.note_totale, 2)}",
+        f"note de placement {nombre_fr(proposition.placement.note_totale, 2)}",
         f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())} blocs bien placés",
     ]
     if demande.direction:
@@ -210,13 +213,13 @@ def _notes_carte(proposition: Proposition, seance: Seance, tenue: Tenue | None) 
     notes = [
         f"Séance : {_duree_longue(seance.duree_s)}, {len(seance.blocs())} bloc(s) ; "
         f"placement {_duree_longue(proposition.placement.duree_totale_s)} pour "
-        f"{_fr(proposition.placement.distance_totale_m / 1000, 1)} km, décalage de la Z2 "
-        f"d'ouverture {_minutes(proposition.placement.decalage_z2_s)}.",
+        f"{nombre_fr(proposition.placement.distance_totale_m / 1000, 1)} km, décalage de la Z2 "
+        f"d'ouverture {minutes_signees(proposition.placement.decalage_z2_s)}.",
     ]
     meteo = proposition.meteo
     if meteo is not None:
         notes.append(
-            f"Météo le long du tracé : {_fr(meteo.pluie_cumulee_mm, 1)} mm cumulés, "
+            f"Météo le long du tracé : {nombre_fr(meteo.pluie_cumulee_mm, 1)} mm cumulés, "
             f"vent de face sur {meteo.part_vent_face * 100:.0f} % des échantillons."
         )
     else:
@@ -316,7 +319,7 @@ def _lignes_vent(contexte: _Contexte) -> list[str]:
         return []
     if not question.posee:
         return [f"Orientation au vent : pas d'avis — {question.motif}."]
-    vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {_azimut(question.vent_depuis_deg)}"
+    vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {azimut_texte(question.vent_depuis_deg)}"
     if demande.vent != orientation.PEU_IMPORTE:
         azimuts = question.azimuts_pour(demande.vent)
         ou = f" — recherche dirigée vers {_azimuts(azimuts)}" if azimuts else ""
@@ -449,7 +452,7 @@ def _ecart_seance(profil) -> str:
 def _details_proposition(retenue) -> str:
     """Les mesures qui portent la phrase, dans les unités du cycliste."""
     profil = retenue.profil
-    morceaux = [_duree_courte(profil.duree_s) + _ecart_seance(profil)]
+    morceaux = [duree_h_min(profil.duree_s) + _ecart_seance(profil)]
     if profil.feux is not None:
         # Nombres absolus, et séparés : « 1,7 feux/stops/passages au km » se
         # lisait « 170 sur 100 km » (mots du mainteneur) sur un composite dont
@@ -471,7 +474,7 @@ def _details_proposition(retenue) -> str:
         # portait les deux tiers).
         morceaux.append(f"{profil.part_trafic * 100:.0f} % de nationales")
     if profil.pluie_mm is not None:
-        morceaux.append(f"{_fr(profil.pluie_mm, 1)} mm de pluie")
+        morceaux.append(f"{nombre_fr(profil.pluie_mm, 1)} mm de pluie")
     if profil.orientation is not None:
         morceaux.append(f"vent : {_LIBELLES_ORIENTATION[profil.orientation]}")
     part = getattr(retenue.proposition, "part_connue", None)
@@ -508,8 +511,8 @@ def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[s
     lignes: list[str] = []
     if "parcours" in presentes:
         lignes.append(
-            f"Boucle {_fr(proposition.trace.distance_m / 1000, 1)} km, parcours réellement "
-            f"roulé {_fr(proposition.distance_parcours_m / 1000, 1)} km "
+            f"Boucle {nombre_fr(proposition.trace.distance_m / 1000, 1)} km, parcours réellement "
+            f"roulé {nombre_fr(proposition.distance_parcours_m / 1000, 1)} km "
             f"({proposition.demi_tours} demi-tour(s)) : le GPX porte le parcours, la carte "
             "montre la boucle. La colonne « temps » va avec le parcours."
         )
@@ -574,7 +577,7 @@ def _entete(
         f"Boucle depuis {config.depart.nom} — {contexte.distance_km:g} km {direction}, "
         f"profil {demande.profil}",
         f"Départ {date_en_francais(demande.depart)} — vitesse de la séance sur le tracé "
-        f"{_fr(propositions[0].vitesse_kmh, 1)} km/h (heures de passage météo)",
+        f"{nombre_fr(propositions[0].vitesse_kmh, 1)} km/h (heures de passage météo)",
         f"Distance : {contexte.distance_source}",
         f"Modèle physique : {contexte.provenance_modele}",
     ]
@@ -612,7 +615,8 @@ def _entete(
         lignes.append(f"{len(contexte.ecartees)} candidate(s) écartée(s) —")
         for ecartee in contexte.ecartees:
             lignes.append(
-                f"    {_azimut(ecartee.azimut_deg)} {_fr(ecartee.distance_km, 1)} km : {ecartee.motif}"
+                f"    {azimut_texte(ecartee.azimut_deg)} "
+                f"{nombre_fr(ecartee.distance_km, 1)} km : {ecartee.motif}"
             )
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
@@ -624,7 +628,7 @@ def _entete(
         "pluie cumulée qui décide (`tolerance_egalite`, config [seance])."
     )
     lignes.append(
-        f"« blocs bien placés » : note du couloir sous {_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
+        f"« blocs bien placés » : note du couloir sous {nombre_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
         "équivalent, soit moins qu'un feu rouge."
     )
     if "meteo" not in presentes:
@@ -654,14 +658,14 @@ def _cellules(
     partiels = bool(trace.meta.get("couts_partiels"))
     cellules = [
         str(proposition.numero),
-        f"{_fr(trace.distance_m / 1000, 1)} km",
+        f"{nombre_fr(trace.distance_m / 1000, 1)} km",
         f"{trace.denivele_m:.0f} m" if trace.denivele_m is not None else ABSENT,
     ]
     if "parcours" in presentes:
-        cellules.append(f"{_fr(proposition.distance_parcours_m / 1000, 1)} km")
+        cellules.append(f"{nombre_fr(proposition.distance_parcours_m / 1000, 1)} km")
     cellules += [
         _temps_texte(proposition, compteur_info),
-        ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
+        ABSENT if partiels else f"{nombre_fr(couts.km_trafic, 1)} km",
     ]
     if "connu" in presentes:
         cellules.append(
@@ -669,11 +673,11 @@ def _cellules(
         )
     if "meteo" in presentes:
         cellules += [
-            f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo is not None else ABSENT,
+            f"{nombre_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo is not None else ABSENT,
             f"{meteo.part_vent_face * 100:.0f} %" if meteo is not None else ABSENT,
         ]
     cellules += [
-        _fr(proposition.placement.note_totale, 2),
+        nombre_fr(proposition.placement.note_totale, 2),
         f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())}",
     ]
     if "demi_tours" in presentes:
@@ -707,19 +711,19 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     """
     placement = proposition.placement
     seance = contexte.seance
-    note = _fr(placement.note_totale, 2)
+    note = nombre_fr(placement.note_totale, 2)
     if placement.penalite_seance > 0:
         note += (
             # « extrémités » et non « séance non tenue » : depuis Q14 cette
             # pénalité additionne deux choses de natures différentes — une
             # séance amputée, qui est un défaut, et le dépassement du retour au
             # calme, qui n'en est pas un. Le détail se lit deux lignes plus bas.
-            f" = terrain {_fr(placement.note_terrain, 2)} + extrémités "
-            f"{_fr(placement.penalite_seance, 2)}"
+            f" = terrain {nombre_fr(placement.note_terrain, 2)} + extrémités "
+            f"{nombre_fr(placement.penalite_seance, 2)}"
         )
     lignes = [
         f"Séance placée sur la candidate n° {proposition.numero} (note {note}) :",
-        f"    Z2 d'ouverture allongée de {_minutes(placement.decalage_z2_s)} — c'est elle qui "
+        f"    Z2 d'ouverture allongée de {minutes_signees(placement.decalage_z2_s)} — c'est elle qui "
         "fait coulisser les blocs le long du tracé.",
     ]
     numero_bloc = 0
@@ -727,15 +731,15 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
         etape = seance.etapes[emplacement.etape_idx]
         fin = emplacement.debut_parcouru_m + emplacement.longueur_m
         km = (
-            f"km {_fr(emplacement.debut_parcouru_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
-            f"({_fr(emplacement.longueur_m / 1000, 1)} km, {_duree_courte(etape.duree_s)}, "
+            f"km {nombre_fr(emplacement.debut_parcouru_m / 1000, 1)} → {nombre_fr(fin / 1000, 1)} "
+            f"({nombre_fr(emplacement.longueur_m / 1000, 1)} km, {duree_h_min(etape.duree_s)}, "
             f"{_puissance(etape)})"
         )
         demi_tour = " — demi-tour" if emplacement.demi_tour else ""
         if emplacement.note is not None:
             numero_bloc += 1
             lignes.append(
-                f"    bloc {numero_bloc} — {km} : note {_fr(emplacement.note.note, 2)}{demi_tour}"
+                f"    bloc {numero_bloc} — {km} : note {nombre_fr(emplacement.note.note, 2)}{demi_tour}"
             )
             if emplacement.note.note >= NOTE_BLOC_BIEN_PLACE:
                 for motif in emplacement.note.motifs or ["aucun motif détaillé"]:
@@ -745,7 +749,7 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
             lignes.append(f"    {libelle} — {km}{demi_tour}")
     lignes.append(
         f"    Retour au calme : {_duree_longue(placement.duree_totale_s)} et "
-        f"{_fr(placement.distance_totale_m / 1000, 1)} km au total — il absorbe ce qui reste."
+        f"{nombre_fr(placement.distance_totale_m / 1000, 1)} km au total — il absorbe ce qui reste."
     )
     for information in placement.informations:
         lignes.append(f"    {information}")
@@ -793,10 +797,6 @@ def _puissance(etape) -> str:
     return f"{bas:.0f} W" if bas == haut else f"{bas:.0f}-{haut:.0f} W"
 
 
-def _azimut(azimut_deg: float | None) -> str:
-    return f"{azimut_deg:.0f}°" if azimut_deg is not None else "direction inconnue"
-
-
 def _azimuts(azimuts_deg: Sequence[float]) -> str:
     """Un azimut, ou deux joints par « et » — le travers en ouvre deux (Q44).
 
@@ -807,20 +807,11 @@ def _azimuts(azimuts_deg: Sequence[float]) -> str:
     """
     if not azimuts_deg:
         return "direction inconnue"
-    return " et ".join(_azimut(a) for a in azimuts_deg)
+    return " et ".join(azimut_texte(a) for a in azimuts_deg)
 
 
 def _liste(elements) -> str:
     return ", ".join(elements) if elements else "rien de particulier"
-
-
-def _minutes(secondes: float) -> str:
-    return f"{secondes / 60:+.0f} min"
-
-
-def _duree_courte(secondes: float) -> str:
-    minutes = round(secondes / 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"
 
 
 def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
@@ -836,11 +827,11 @@ def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
     """
     placement = proposition.placement
     if compteur_info is None:
-        return _duree_courte(placement.duree_totale_s)
+        return duree_h_min(placement.duree_totale_s)
     pp = porte_a_porte(placement.duree_totale_s, compteur_info)
     return (
-        f"{_duree_courte(pp.bas_s)}-{_duree_courte(pp.haut_s)} / "
-        f"{_duree_courte(placement.duree_totale_s)}"
+        f"{duree_h_min(pp.bas_s)}-{duree_h_min(pp.haut_s)} / "
+        f"{duree_h_min(placement.duree_totale_s)}"
     )
 
 
@@ -849,5 +840,3 @@ def _duree_longue(secondes: float) -> str:
     return f"{minutes} min" if minutes < 60 else f"{minutes // 60} h {minutes % 60:02d}"
 
 
-def _fr(valeur: float, decimales: int) -> str:
-    return f"{valeur:.{decimales}f}".replace(".", ",")

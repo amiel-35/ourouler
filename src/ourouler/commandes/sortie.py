@@ -28,6 +28,7 @@ from ourouler.noyau.seance import Seance
 from ourouler.rendu import sortie as rendu
 from ourouler.rendu.sortie import page_jour, page_sans_seance
 from ourouler.rendu.sortie_json import rendre_json
+from ourouler.seance.commande import jour_option
 from ourouler.services.contexte import Contexte
 from ourouler.sortie import commande as service
 from ourouler.sortie import contraste, orientation
@@ -39,7 +40,6 @@ from ourouler.sortie.commande import (
     chemin_carte_par_defaut,
     chemin_gpx_par_defaut,
     heure_depart_du_jour,
-    jour_option,
     verifier_ecriture,
 )
 

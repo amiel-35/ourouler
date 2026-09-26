@@ -41,22 +41,11 @@ import bisect
 import math
 from collections.abc import Sequence
 
-from ourouler.boucle.meteo_trace import (
-    SEUIL_VENT_SENSIBLE_KMH,
-    Echantillon,
-    interpoler_angle,
-)
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, Echantillon
+from ourouler.noyau.meteo import interpoler_angle
 from ourouler.physique.modele import FACTEUR_VENT_HAUTEUR
 
-#: Réexporté de `boucle.meteo_trace`, où la constante vit depuis le
-#: 17/09/2026 avec sa justification (échelle de Beaufort) et la règle qui
-#: s'en sert, `fleches_vent`. Elle était ici ; `boucle` en a eu besoin pour
-#: sérialiser les flèches de vent du JSON, et `boucle` ne peut pas importer
-#: `seance` — c'est `seance` qui importe `boucle`, partout. La déplacer d'un
-#: cran plus bas garde **une seule constante pour tous ses usages**, qui est
-#: exactement ce que le lot L5.3 voulait ; la dupliquer pour préserver
-#: l'emplacement aurait trahi la règle en respectant la ligne.
-__all__ = ["SEUIL_VENT_SENSIBLE_KMH", "ChampVent", "seuil_vent_sensible_ms"]
+__all__ = ["ChampVent", "seuil_vent_sensible_ms"]
 
 
 def seuil_vent_sensible_ms() -> float:

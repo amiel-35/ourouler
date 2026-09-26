@@ -111,13 +111,9 @@ ECHANTILLONS_MINIMUM = 3
 #: Distance minimale d'une sortie calibrable, en mètres.
 DISTANCE_MINIMALE_M = 20_000.0
 
-#: Vitesse à laquelle on exprime ce que la calibration détermine **vraiment**.
-#: CdA et Crr pris séparément peuvent être mal séparés ; leur somme des forces
-#: à l'allure d'entraînement, elle, est bien contrainte par les données.
-V_REFERENCE_KMH = 27.0
-
-#: Les deux allures auxquelles le rapport chiffre cette résistance totale
-#: (décision du 13/09, point 5 de la relecture) : l'allure d'entraînement et
+#: Les deux allures auxquelles le rapport chiffre la résistance totale — la
+#: somme des forces, bien contrainte par les données même quand CdA et Crr
+#: pris séparément le sont mal (décision du 13/09, point 5 de la relecture) : l'allure d'entraînement et
 #: l'allure de contre-la-montre. Deux points valent mieux qu'un : c'est leur
 #: **écart** qui dit la part aérodynamique, sans qu'on ait à prétendre séparer
 #: CdA de Crr.
@@ -183,16 +179,6 @@ class Ajustement:
         """(vitesse km/h, force N, puissance W) à chacune des `V_REFERENCES_KMH`."""
         return [(v, *self.resistance_a(v)) for v in V_REFERENCES_KMH]
 
-    @property
-    def force_reference_n(self) -> float:
-        """Force totale à vaincre à `V_REFERENCE_KMH` sur le plat sans vent, en newtons.
-
-        C'est la grandeur que l'ajustement contraint le mieux : CdA et Crr
-        peuvent se compenser l'un l'autre, leur somme à l'allure courante non.
-        À citer chaque fois qu'une borne est atteinte.
-        """
-        return force_resistante_n(self.parametres())
-
     def parametres(self, *, rho: float | None = None) -> Parametres:
         """Les `Parametres` correspondants, avec la masse volumique moyenne des échantillons."""
         return Parametres(
@@ -201,12 +187,6 @@ class Ajustement:
             crr=self.crr,
             rho=rho if rho is not None else self.rho_moyen,
         )
-
-
-def force_resistante_n(p: Parametres, v_kmh: float = V_REFERENCE_KMH) -> float:
-    """Force totale à vaincre sur le plat sans vent, en newtons, à `v_kmh`."""
-    v = v_kmh / 3.6
-    return puissance_requise(v, 0.0, 0.0, p) * p.rendement / v
 
 
 def calibrer(

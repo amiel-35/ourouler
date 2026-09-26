@@ -10,6 +10,7 @@ from datetime import date, datetime
 
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.rendu.carte_dessin import (
     _FORME_FLECHE_VENT,
@@ -23,13 +24,12 @@ from ourouler.rendu.carte_dessin import (
     _blocs,
     _charge_json,
     _cumuls,
-    _fr,
     _liaisons,
     _profil_svg,
     _section_vent,
     _vent_fleches,
 )
-from ourouler.seance.placement import Placement
+from ourouler.seance.placement_resultat import Placement
 
 # --- la page du jour (lot L5.4) -------------------------------------------------
 
@@ -173,7 +173,7 @@ def _panneau_proposition(prop: PropositionCarte, blocs: Sequence[dict], avec_ven
     propositions dans un même paragraphe.
     """
     puces = "".join(
-        f'<li><i style="background:{b["couleur"]}"></i>bloc {b["n"]} — note {_fr(b["note"], 2)}</li>'
+        f'<li><i style="background:{b["couleur"]}"></i>bloc {b["n"]} — note {nombre_fr(b["note"], 2)}</li>'
         for b in blocs
     )
     lignes_notes = "".join(f'<p class="note">{html.escape(str(n))}</p>' for n in prop.notes)

@@ -46,17 +46,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ourouler.noyau.texte import nombre_fr
 from ourouler.physique.modele import RHO_DEFAUT, Parametres, force_a_plat_n
 
 #: Vitesse de référence à laquelle la résistance totale se lit et se compare.
 #: 27 km/h, c'est l'allure de croisière du mainteneur — et la valeur qui sert
 #: encore de `vitesse_moyenne_kmh` par défaut dans la configuration.
 VITESSE_REFERENCE_KMH = 27.0
-
-
-def _fr(valeur: float, decimales: int, *, signe: bool = False) -> str:
-    """Un nombre à la française : virgule décimale (même règle que le reste de la CLI)."""
-    return f"{valeur:{'+' if signe else ''}.{decimales}f}".replace(".", ",")
 
 
 @dataclass(frozen=True)
@@ -144,11 +140,11 @@ class Choix:
     def resume(self) -> str:
         """Une ligne lisible, pour un écran qui veut dire d'où sort le modèle."""
         return (
-            f"« {self.jeu.nom} » — CdA {_fr(self.jeu.cda_m2, 3)} m², "
-            f"Crr {_fr(self.jeu.crr, 4)} ; littérature, non mesurée sur vous. "
+            f"« {self.jeu.nom} » — CdA {nombre_fr(self.jeu.cda_m2, 3)} m², "
+            f"Crr {nombre_fr(self.jeu.crr, 4)} ; littérature, non mesurée sur vous. "
             f"Dérive mesurée sur {self.mesure_sur} : "
-            f"{_fr(self.derive_min_2h, 1, signe=True)} min sur 2 h "
-            f"(F@27 {_fr(self.f27_jeu_n, 2)} N contre {_fr(self.f27_reference_n, 2)} N calibrés)."
+            f"{nombre_fr(self.derive_min_2h, 1, signe=True)} min sur 2 h "
+            f"(F@27 {nombre_fr(self.f27_jeu_n, 2)} N contre {nombre_fr(self.f27_reference_n, 2)} N calibrés)."
         )
 
 

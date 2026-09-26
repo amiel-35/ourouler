@@ -170,7 +170,7 @@ class ClientOpenMeteoCache:
                 while len(self._entrees) > self._taille_max:
                     self._entrees.popitem(last=False)  # le plus ancien (LRU)
 
-        return resultat  # type: ignore[return-value]  # entièrement rempli à ce point
+        return resultat  # entièrement rempli à ce point
 
     def stats(self) -> dict:
         """Pour `/systeme` : ce que ce processus a réellement demandé au réseau."""
