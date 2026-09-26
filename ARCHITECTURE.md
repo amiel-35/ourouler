@@ -66,7 +66,8 @@ HTTP injectable :
 
 | Paquet | Rôle | Fichiers principaux (lignes) |
 |---|---|---|
-| `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 428) |
+| `cli.py` | argparse (le parseur), lecture de la config, `--adresse-depart`, codes de sortie, appel des commandes | `cli.py` (1 432) |
+| `commandes/` | une entrée par sous-commande (lot 10) : lit le `Namespace`, construit la `Demande` du service et son `Contexte` depuis la `Config`, appelle le service puis le rendu, et imprime ; `executer_depuis_namespace` sert encore l'API jusqu'au lot 11 | `sortie.py` (253), `boucle.py` (159), `physique.py` (151), `comparer.py` (130) |
 | `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (886) |
 | `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) et celui où le connecteur Intervals range ses sorties (`DepotActivites`) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py` |
 | `activites/` | lecteur unique FIT/GPX/TCX, cache SQLite, inventaire, import d'archive | `cache.py` (703), `import_archive.py` (526), `lecture.py` (490) |
@@ -74,13 +75,13 @@ HTTP injectable :
 | `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` (lot 7) ; le cache d'activités, les routes connues et le cache des prévisions y viendront | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
 | `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (904), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
-| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr (pur depuis le lot 8), comparaison de vélos | `calibration.py` (1 696), `modele.py` (668), `comparer.py` (672), `commande.py` (641) |
+| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr (pur depuis le lot 8) ; `commande.py` porte les cas d'usage `calibrer`, `simuler`, `analyser` | `calibration.py` (1 696), `modele.py` (668), `commande.py` |
 | `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions | `commande.py` (1 305), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
-| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`), le texte et le JSON de `calibrer`, `simuler`, `analyser` et `comparer` (`physique.py`, lot 8) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `profil.py`, `comptes.py` |
-| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`, lot 8) | `calibrer.py`, `comptes.py` |
+| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`), le texte et le JSON de `calibrer`, `simuler`, `analyser` et `comparer` (`physique.py`, lot 8) et de `routes` (`routes.py`, lot 10) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `routes.py`, `profil.py`, `comptes.py` |
+| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`, lot 8) ; comparer deux vélos (`comparer.py`, lot 10) ; le `Contexte` que reçoit tout service — profil, dossier de cache et fichier de calibration résolus (`contexte.py`, lot 10). Les autres cas d'usage vivent encore dans les `*/commande.py` de leur paquet, sous la même règle | `comparer.py` (610), `calibrer.py`, `comptes.py`, `contexte.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `comptes.py` (1 095), `depots.py` (988), `application.py` (632), `routes/commun.py` (411), `routes/profil.py` (331) — les routes, un module par domaine sous `routes/` (lot 13) |
 
 Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
@@ -92,11 +93,15 @@ le profil, et `meteo/openmeteo.py` les types de prévision. Depuis le lot 7,
 `calibration.json` (`stockage/calibrations.py`) et la `Calibration`. Depuis
 le lot 6, `sortie/carte.py` réexporte `rendu/carte.py`.
 
-Les commandes `boucle` et `sortie` ne font plus de rendu (lot 6) : elles
-cherchent, mesurent, écrivent les fichiers et impriment ce que `rendu/` leur
-rend. C'est encore `executer` qui imprime, donc chacune importe son rendu —
-une arête qui monte, datée au lot 10 dans `tests/test_architecture.py`.
-`physique/commande.py` garde le sien jusqu'au lot 8.
+Depuis le lot 10, argparse est sorti des cas d'usage. Chaque sous-commande
+a sa `Demande` (une dataclass, dans le module du service) et un service
+`executer(demande, contexte, clients…)` qui rend un résultat sans rien
+imprimer ; le `Contexte` porte le profil (`noyau.profil.Profil`, que
+`Config` satisfait), le dossier de cache et le fichier de calibration déjà
+résolus, et le canal des avertissements. `commandes/<nom>.py` lit le
+`Namespace`, appelle le service, puis le rendu, et imprime. Les `*/commande.py`
+n'importent plus ni `config` ni `rendu`, et `physique/comparer.py` n'est plus
+qu'un réexport de `services/comparer.py`.
 
 Chaque paquet de domaine a son `commande.py` : c'est la sous-commande de la
 ligne de commande, et, on le verra, bien plus que ça.
@@ -132,7 +137,8 @@ chaque sous-commande d'abord, l'API ensuite par-dessus.
 
 **L'API appelle la ligne de commande.** `src/ourouler/api/adaptateur.py`
 fabrique un `argparse.Namespace` identique à celui de la CLI, appelle la même
-fonction `executer(args, config, …)` avec `json=True`, redirige la sortie
+commande (`commandes.executer_depuis_namespace`, qui trouve la commande du
+service que la route nomme) avec `json=True`, redirige la sortie
 standard et la sortie d'erreur dans des tampons, puis relit le JSON imprimé.
 Comme la sortie standard est un objet de processus, un verrou global
 sérialise les calculs coûteux ; une deuxième requête reçoit `calcul_en_cours`.
@@ -146,7 +152,9 @@ comptes, le client SMTP, la lecture des variables de l'hébergé, les dépôts �
 effacer) : c'est lui qui construit ces dépendances et les passe au service,
 d'une entrée à une autre, sans cycle.
 
-**Les `commande.py` font tout.** `sortie/commande.py` (2 494 lignes),
+**Les `commande.py` faisaient tout** (diagnostic d'avant le lot 6 ; le rendu
+en est sorti aux lots 6 et 8, argparse et l'impression au lot 10, vers
+`rendu/` et `commandes/`). `sortie/commande.py` (2 494 lignes),
 `boucle/commande.py` (1 857) et `physique/commande.py` (1 330) mêlent la
 lecture des options argparse, l'orchestration des connecteurs, les écritures
 de fichiers, le rendu texte et le rendu JSON. D'autres cas d'usage importent
@@ -199,7 +207,7 @@ Les dépendances ne vont que de haut en bas.
 
 | Couche | Contenu | Peut importer |
 |---|---|---|
-| 5. Entrées | `cli`, `api`, `config` (lecture TOML et environnement) | tout |
+| 5. Entrées | `cli`, `commandes` (du `Namespace` à la `Demande`, puis au rendu imprimé), `api`, `config` (lecture TOML et environnement) | tout |
 | 4. Rendu | `rendu/` : texte, JSON (le contrat du front), carte HTML | 0 à 3 |
 | 3. Cas d'usage | `services/` : sortie, boucle, meteo, calibrer, comparer, seance, apprendre, inventaire, comptes. Une `Demande` en entrée, un résultat en sortie, sans argparse ni `print` | 0 à 2 |
 | 2. Adaptateurs | `connecteurs/` (HTTP) ; `stockage/` (cache, lecteurs FIT/GPX/TCX, routes connues, calibrations, cache des prévisions) | 0 et 1 |
@@ -249,6 +257,7 @@ identiques, et retire les exceptions qu'elle rend inutiles.
 7. Introduire une interface de routeur et découper `generer`. *Fait (lot 9)* :
    `noyau/ports.py`, et le découpage en mailles passé à `boucle/mailles.py`.
 8. Sortir argparse des commandes : la `Demande` est construite par `cli`.
+   *Fait (lot 10)* : `commandes/` et `services/contexte.py`.
 9. Faire appeler service et rendu par l'API, sans `Namespace` ni capture de
    la sortie standard, avec une période où l'ancien et le nouveau chemin
    tournent ensemble et où l'écart est journalisé.
