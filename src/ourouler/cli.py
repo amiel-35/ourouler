@@ -727,9 +727,9 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_seance(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.seance.commande import executer  # import paresseux (lot L4.1)
+    from ourouler.commandes.seance import executer_depuis_namespace  # import paresseux (lot L4.1)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
