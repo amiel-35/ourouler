@@ -81,11 +81,11 @@ max-statements = 50
 max-positional-args = 6
 
 [tool.ruff.lint.per-file-ignores]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+# exception datée : 1 fonction(s), à retirer avant 2026-12-31
 "src/ourouler/api/application.py" = ["C901"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+# exception datée : 1 fonction(s), à retirer avant 2026-12-31
 "src/ourouler/api/limite_corps.py" = ["C901"]
-# exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
+# exception datée : 2 fonction(s), à retirer avant 2026-12-31
 "src/ourouler/api/routes/meteo.py" = ["PLR0917"]
 # exception permanente : scénario de bout en bout (semer, prouver, effacer, vérifier) lu dans l'ordre
 "tests/comptes/test_vie_privee_comptes.py" = ["PLR0915"]

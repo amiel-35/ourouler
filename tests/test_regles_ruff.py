@@ -5,7 +5,7 @@ Les seuils de complexité et de taille (`C901`, `PLR0912`, `PLR0915`,
 exceptions dans `pyproject.toml`, chacune précédée d'un commentaire de l'une
 de ces deux formes :
 
-- « exception datée : n fonction(s), à retirer au lot 12 (AAAA-MM-JJ) » :
+- « exception datée : n fonction(s), à retirer avant AAAA-MM-JJ » :
   une dette à rembourser avant l'échéance ;
 - « exception permanente : <raison> » : assumée, pour une raison écrite
   (un script de mesure hors produit, par exemple).
@@ -36,7 +36,7 @@ CODES_BORNES = ["C901", "PLR0912", "PLR0915", "PLR0917"]
 # Un commentaire d'exception, immédiatement suivi de la ligne
 # `"chemin" = ["CODE", ...]`.
 MOTIF_EXCEPTION = re.compile(
-    r"# exception datée : \d+ fonction\(s\), à retirer au lot 12 \((?P<date>\d{4}-\d{2}-\d{2})\)\n"
+    r"# exception datée : \d+ fonction\(s\), à retirer avant (?P<date>\d{4}-\d{2}-\d{2})\n"
     r'"(?P<chemin>[^"]+)" = \[(?P<codes>[^\]]*)\]'
 )
 
@@ -76,7 +76,7 @@ def test_chaque_exception_a_un_commentaire_date_ou_une_raison() -> None:
     assert not set(datees) & set(permanentes), "une exception est à la fois datée et permanente"
     assert set(per_file_ignores) == set(datees) | set(permanentes), (
         "Chaque entrée de [tool.ruff.lint.per-file-ignores] doit être précédée d'un "
-        "commentaire « exception datée : n fonction(s), à retirer au lot 12 (AAAA-MM-JJ) » "
+        "commentaire « exception datée : n fonction(s), à retirer avant AAAA-MM-JJ » "
         "ou « exception permanente : <raison> »."
     )
 
@@ -92,7 +92,8 @@ def test_aucune_echeance_depassee() -> None:
             depassees[chemin] = texte_date
 
     assert not depassees, (
-        f"Échéance(s) d'exception dépassée(s), à traiter au lot 12 : {depassees}"
+        "Échéance(s) d'exception dépassée(s) : découper la fonction, ou repousser "
+        f"la date en le justifiant : {depassees}"
     )
 
 
@@ -180,4 +181,4 @@ def test_per_file_ignores_ne_depasse_pas_les_codes_bornes() -> None:
 
     for chemin, codes in per_file_ignores.items():
         inconnus = set(codes) - set(CODES_BORNES)
-        assert not inconnus, f"{chemin} : code(s) hors périmètre du lot 2 : {inconnus}"
+        assert not inconnus, f"{chemin} : code(s) hors des règles de taille et de complexité : {inconnus}"
