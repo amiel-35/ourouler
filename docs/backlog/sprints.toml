@@ -41,7 +41,8 @@ statut = "en_cours"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-partage-gpx-boucle-libre"
-statut = "en_cours"
+statut = "abandonne"
+raison = "iOS ne propose pas Garmin Connect pour ce fichier dans le partage : bouton retiré le 27/09/2026, GPX en téléchargement"
 
 [[sprint.element]]
 fiche = "2026-09-27-bug-retour-navigateur-quitte-l-appli"

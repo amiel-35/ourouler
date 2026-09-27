@@ -6,22 +6,17 @@
  * kilométrage de début et de fin, parce que c'est ce qu'on lit sur un
  * compteur en roulant.
  *
- * « Envoyer vers mon compteur » plutôt que « Télécharger » (décision Q5,
- * `docs/journal/questions/questions_mainteneur.md`) : le
- * partage système du mobile, qui marche avec Garmin, Coros, Wahoo et les
- * autres sans intégration par marque. Le téléchargement reste en dessous,
- * discret, pour celui qui est sur un ordinateur — et c'est le seul recours
- * quand le navigateur ne sait pas partager de fichier.
+ * Le GPX de la proposition affichée se télécharge (décision du 27/09/2026 :
+ * sur iPhone, la feuille de partage d'iOS ne propose pas Garmin Connect pour
+ * ce fichier, donc plus de « Envoyer vers mon compteur »).
  *
- * Le découpage du tracé est dans `proposition/traceVent.ts`, le bouton
- * d'envoi et le lien de téléchargement dans `../composants/BoutonsGpx.tsx`
- * (repris aussi par `ecrans/Boucles.tsx`), les chiffres et la tenue dans
- * `proposition/Onglets.tsx`.
+ * Le découpage du tracé est dans `proposition/traceVent.ts`, le lien de
+ * téléchargement dans `proposition/Onglets.tsx` (`LienGpx`), les chiffres et
+ * la tenue aussi dans `proposition/Onglets.tsx`.
  */
 
 import { useState } from "react";
 import type { Candidate, Enveloppe, Seance, Sortie } from "../api/types";
-import type { PanneGpx } from "../api/client";
 import { duree, heure, heureDeRetour, nombre, jourEnLettres } from "../api/formats";
 import { Carte, LegendeVent, type SegmentDessine } from "../composants/Carte";
 import { RetourEnTete } from "../composants/Retour";
@@ -29,7 +24,7 @@ import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { TempsEcoule } from "../composants/TempsEcoule";
-import { ChiffresParcours, EnvoiGpx, Tenue } from "./proposition/Onglets";
+import { ChiffresParcours, LienGpx, Tenue } from "./proposition/Onglets";
 import { portion, segmentsVent } from "./proposition/traceVent";
 
 export { portion, segmentsVent } from "./proposition/traceVent";
@@ -43,10 +38,6 @@ interface Props {
 
 export function PropositionDetail({ reponse, numero, seance, surRetour }: Props) {
   const [onglet, setOnglet] = useState<"parcours" | "tenue">("parcours");
-  // La panne du partage GPX, quand c'est le serveur (ou le réseau) qui a
-  // refusé plutôt que le navigateur : un écran ne peut pas rester muet sur
-  // ce cas.
-  const [erreurGpx, setErreurGpx] = useState<PanneGpx | null>(null);
   const sortie = reponse.donnees;
   const proposition = sortie.propositions.find((p) => p.numero === numero) ?? null;
   const candidate: Candidate | null = sortie.candidates.find((c) => c.numero === numero) ?? null;
@@ -212,7 +203,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             </div>
           ))}
 
-          <EnvoiGpx proposition={proposition} erreurGpx={erreurGpx} surErreurGpx={setErreurGpx} />
+          <LienGpx proposition={proposition} />
         </>
       ) : (
         <Tenue tenue={sortie.tenue} />
