@@ -94,6 +94,11 @@ export function Connexion({ surConnecte }: Props) {
       <button type="button" className="bouton" disabled={!pret} onClick={connecter}>
         {envoi ? "Connexion…" : "Se connecter"}
       </button>
+      <p>
+        <a className="lien" href="/demande-invitation">
+          Pas encore de compte ? Demander une invitation
+        </a>
+      </p>
     </section>
   );
 }
