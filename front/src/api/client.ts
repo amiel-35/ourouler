@@ -28,11 +28,13 @@ import type {
   MonCompte,
   Panne,
   Profil,
+  ReponseConservation,
   Seance,
   Semaine,
   Simple,
   Sortie,
   Systeme,
+  TacheConservation,
   VentDepart,
   Zones,
 } from "./types";
@@ -464,12 +466,18 @@ export const api = {
   etatConservationFichiers: () => appeler<Simple<ConservationFichiers>>(url("/moi/fichiers-origine")),
 
   /**
-   * `PUT /moi/fichiers-origine` : change le choix. Passer `garder: false` efface
-   * tout de suite tous les fichiers d'origine du compte — l'écran qui appelle ceci
-   * porte la confirmation qui dit le coût, pas ce module.
+   * `PUT /moi/fichiers-origine` : change le choix. Revenir à « garder » répond
+   * tout de suite (200, `tache: null`). Passer à « ne pas garder » lance une
+   * tâche de fond (202) qui dérive chaque sortie calibrable puis efface les
+   * fichiers d'origine du compte — `suivreConservation` la suit. L'écran qui
+   * appelle ceci porte la confirmation qui dit le coût, pas ce module.
    */
   definirConservationFichiers: (garder: boolean) =>
-    mettre<Simple<ConservationFichiers>>("/moi/fichiers-origine", { garder }),
+    mettre<Simple<ReponseConservation>>("/moi/fichiers-origine", { garder }),
+
+  /** `GET /moi/fichiers-origine/{id}` : où en est l'effacement lancé par `definirConservationFichiers`. */
+  suivreConservation: (idTache: string) =>
+    appeler<Simple<TacheConservation>>(url(`/moi/fichiers-origine/${idTache}`)),
 
   /**
    * `DELETE /moi` : efface les données personnelles du compte de la session en cours,

@@ -101,19 +101,55 @@ export interface MonCompte {
 }
 
 /**
- * `GET /moi/fichiers-origine` et `PUT /moi/fichiers-origine` (`donnees`) :
- * le choix de garder ou d'effacer ses fichiers d'origine (FIT/GPX/TCX).
+ * `GET /moi/fichiers-origine` (`donnees`) : le choix de garder ou d'effacer
+ * ses fichiers d'origine (FIT/GPX/TCX), et combien il en reste.
  *
  * `garder` vaut `true` par défaut sur un déploiement sans base de comptes
  * (mode personnel) — il n'y a alors pas de choix à faire. `depuis` est
  * `null` tant que personne n'a jamais posé le réglage explicitement.
- * `fichiers_effaces` n'apparaît que dans la réponse du `PUT`.
  */
 export interface ConservationFichiers {
   garder: boolean;
   depuis: string | null;
-  nombre_fichiers?: number;
-  fichiers_effaces?: number;
+  nombre_fichiers: number;
+}
+
+/** Ce que `RapportConservation.rapport` porte une fois la tâche finie. */
+export interface RapportConservation {
+  candidates: number;
+  derivees: number;
+  sans_vent: number;
+  echecs: number;
+  fichiers_effaces: number;
+}
+
+/**
+ * Une tâche de fond de `PUT /moi/fichiers-origine` (`garder: false`) :
+ * dérive chaque sortie calibrable puis efface les fichiers d'origine.
+ * `GET /moi/fichiers-origine/{id}` la suit, comme un import.
+ */
+export interface TacheConservation {
+  id: string;
+  statut: "en_cours" | "fini" | "echoue";
+  traites: number;
+  total: number;
+  rapport: RapportConservation | null;
+  erreur: string | null;
+  code_erreur?: string | null;
+}
+
+/**
+ * `PUT /moi/fichiers-origine` (`donnees`) : le choix, aussitôt posé, et la
+ * tâche de fond qu'il a pu lancer.
+ *
+ * `tache` est `null` en revenant à « garder » — rien à dériver ni à
+ * effacer, la réponse est immédiate (200) — et porte la tâche lancée en
+ * passant à « ne pas garder » (202, à suivre via `TacheConservation`).
+ */
+export interface ReponseConservation {
+  garder: boolean;
+  depuis: string;
+  tache: TacheConservation | null;
 }
 
 /** `DELETE /moi` (`donnees`) : ce que l'effacement RGPD a supprimé, et ce qu'il a conservé.

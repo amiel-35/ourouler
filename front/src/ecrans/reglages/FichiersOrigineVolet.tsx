@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../../api/client";
-import type { ConservationFichiers } from "../../api/types";
+import type { ConservationFichiers, TacheConservation } from "../../api/types";
 import { nombre } from "../../api/formats";
+
+/** Combien de temps entre deux interrogations de `GET /moi/fichiers-origine/{id}`. */
+const DELAI_INTERROGATION_MS = 1_500;
 
 /**
  * Le bloc « Fichiers d'origine » du volet « Mon compte » — fiche « choix de
@@ -21,7 +24,12 @@ export function FichiersOrigineVolet() {
   const [conservation, setConservation] = useState<ConservationFichiers | null>(null);
   const [confirmation, setConfirmation] = useState(false);
   const [enCours, setEnCours] = useState(false);
+  const [tache, setTache] = useState<TacheConservation | null>(null);
   const [panne, setPanne] = useState<string | null>(null);
+
+  function rechargerEtat() {
+    return api.etatConservationFichiers().then((reponse) => setConservation(reponse.donnees));
+  }
 
   useEffect(() => {
     let vivant = true;
@@ -38,13 +46,41 @@ export function FichiersOrigineVolet() {
     };
   }, []);
 
+  // Interroge périodiquement tant que l'effacement tourne, et recharge
+  // l'état final (nombre de fichiers à 0) une fois qu'il a fini.
+  useEffect(() => {
+    if (!tache || tache.statut !== "en_cours") return;
+    const jeton = setInterval(() => {
+      api
+        .suivreConservation(tache.id)
+        .then((reponse) => {
+          setTache(reponse.donnees);
+          if (reponse.donnees.statut !== "en_cours") {
+            rechargerEtat().catch(() => undefined);
+          }
+        })
+        .catch(() => {
+          // Un raté d'interrogation ne coupe pas le suivi : le prochain
+          // intervalle réessaie. Le serveur, lui, continue la tâche.
+        });
+    }, DELAI_INTERROGATION_MS);
+    return () => clearInterval(jeton);
+  }, [tache]);
+
   async function basculer(garder: boolean) {
     setPanne(null);
     setEnCours(true);
     try {
       const reponse = await api.definirConservationFichiers(garder);
-      setConservation(reponse.donnees);
-      setConfirmation(false);
+      if (reponse.donnees.tache) {
+        // « Ne plus garder » : la tâche de fond dérive puis efface — l'écran
+        // dit « effacement en cours » jusqu'à ce qu'elle finisse.
+        setTache(reponse.donnees.tache);
+        setConfirmation(false);
+      } else {
+        // « Garder » : rien à dériver ni à effacer, la réponse est déjà finale.
+        await rechargerEtat();
+      }
     } catch (erreur) {
       setPanne(erreur instanceof ErreurApi ? erreur.message : String(erreur));
     } finally {
@@ -52,21 +88,30 @@ export function FichiersOrigineVolet() {
     }
   }
 
+  const tacheEnCours = tache !== null && tache.statut === "en_cours";
+
   return (
     <>
       <div className="bloc-tete">
         <h2>Fichiers d'origine</h2>
       </div>
       {panne ? <div className="encart alerte">{panne}</div> : null}
+      {tache?.statut === "echoue" ? (
+        <div className="encart alerte">
+          L'effacement n'a pas pu aller au bout : {tache.erreur ?? "erreur inconnue"}.
+        </div>
+      ) : null}
       <div className="champ">
         <span className="cle">État</span>
         <div className="val texte">
-          {conservation === null ? (
+          {tacheEnCours ? (
+            "Effacement en cours…"
+          ) : conservation === null ? (
             "Chargement…"
           ) : conservation.garder ? (
             <>
-              Vous gardez vos fichiers d'origine ({nombre(conservation.nombre_fichiers ?? 0)} fichier
-              {(conservation.nombre_fichiers ?? 0) > 1 ? "s" : ""})
+              Vous gardez vos fichiers d'origine ({nombre(conservation.nombre_fichiers)} fichier
+              {conservation.nombre_fichiers > 1 ? "s" : ""})
             </>
           ) : (
             "Vous ne gardez pas vos fichiers d'origine"
@@ -78,13 +123,13 @@ export function FichiersOrigineVolet() {
         aujourd'hui.
       </p>
 
-      {conservation?.garder && !confirmation ? (
+      {!tacheEnCours && conservation?.garder && !confirmation ? (
         <button type="button" className="lien" onClick={() => setConfirmation(true)}>
           Ne plus les garder…
         </button>
       ) : null}
 
-      {conservation?.garder && confirmation ? (
+      {!tacheEnCours && conservation?.garder && confirmation ? (
         <>
           <div className="encart alerte">
             <p>
@@ -93,7 +138,7 @@ export function FichiersOrigineVolet() {
             </p>
           </div>
           <button type="button" className="bouton" disabled={enCours} onClick={() => basculer(false)}>
-            {enCours ? "Effacement…" : "Confirmer : ne plus garder mes fichiers"}
+            {enCours ? "Lancement…" : "Confirmer : ne plus garder mes fichiers"}
           </button>
           <button
             type="button"
@@ -106,7 +151,7 @@ export function FichiersOrigineVolet() {
         </>
       ) : null}
 
-      {conservation !== null && !conservation.garder ? (
+      {!tacheEnCours && conservation !== null && !conservation.garder ? (
         <button type="button" className="bouton" disabled={enCours} onClick={() => basculer(true)}>
           {enCours ? "Changement…" : "Garder mes fichiers d'origine"}
         </button>
