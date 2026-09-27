@@ -295,6 +295,20 @@
       "nom": "mon_compte"
     },
     {
+      "chemin": "/api/v1/moi/fichiers-origine",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_conservation_fichiers"
+    },
+    {
+      "chemin": "/api/v1/moi/fichiers-origine",
+      "methodes": [
+        "PUT"
+      ],
+      "nom": "definir_conservation_fichiers"
+    },
+    {
       "chemin": "/api/v1/moi/mot-de-passe",
       "methodes": [
         "POST"
@@ -332,6 +346,7 @@
     "DELETE /api/v1/meteo": "405",
     "DELETE /api/v1/moi": "ourouler.api.routes:supprimer_mes_donnees",
     "DELETE /api/v1/moi/export": "405",
+    "DELETE /api/v1/moi/fichiers-origine": "405",
     "DELETE /api/v1/moi/mot-de-passe": "405",
     "DELETE /api/v1/parcours/analyser": "405",
     "DELETE /api/v1/parcours/fichier": "405",
@@ -373,6 +388,7 @@
     "GET /api/v1/meteo": "ourouler.api.routes:meteo",
     "GET /api/v1/moi": "ourouler.api.routes:mon_compte",
     "GET /api/v1/moi/export": "ourouler.api.routes:exporter_mes_donnees",
+    "GET /api/v1/moi/fichiers-origine": "ourouler.api.routes:etat_conservation_fichiers",
     "GET /api/v1/moi/mot-de-passe": "405",
     "GET /api/v1/parcours/analyser": "405",
     "GET /api/v1/parcours/fichier": "405",
@@ -414,6 +430,7 @@
     "PATCH /api/v1/meteo": "405",
     "PATCH /api/v1/moi": "405",
     "PATCH /api/v1/moi/export": "405",
+    "PATCH /api/v1/moi/fichiers-origine": "405",
     "PATCH /api/v1/moi/mot-de-passe": "405",
     "PATCH /api/v1/parcours/analyser": "405",
     "PATCH /api/v1/parcours/fichier": "405",
@@ -455,6 +472,7 @@
     "POST /api/v1/meteo": "405",
     "POST /api/v1/moi": "405",
     "POST /api/v1/moi/export": "405",
+    "POST /api/v1/moi/fichiers-origine": "405",
     "POST /api/v1/moi/mot-de-passe": "ourouler.api.routes:changer_mon_mot_de_passe",
     "POST /api/v1/parcours/analyser": "ourouler.api.routes:analyser_parcours",
     "POST /api/v1/parcours/fichier": "ourouler.api.routes:deposer_parcours",
@@ -480,6 +498,47 @@
     "POST /docs/oauth2-redirect": "405",
     "POST /openapi.json": "405",
     "POST /redoc": "405",
-    "POST /sante": "405"
+    "POST /sante": "405",
+    "PUT /api/v1/activites/import": "405",
+    "PUT /api/v1/activites/import/exemple-id_job": "405",
+    "PUT /api/v1/boucles": "405",
+    "PUT /api/v1/calibrations": "405",
+    "PUT /api/v1/calibrations/exemple-id_job": "405",
+    "PUT /api/v1/connexion": "405",
+    "PUT /api/v1/entrer": "405",
+    "PUT /api/v1/fichiers/exemple-identifiant": "405",
+    "PUT /api/v1/geocodage": "405",
+    "PUT /api/v1/inventaire": "405",
+    "PUT /api/v1/invitation": "405",
+    "PUT /api/v1/meteo": "405",
+    "PUT /api/v1/moi": "405",
+    "PUT /api/v1/moi/export": "405",
+    "PUT /api/v1/moi/fichiers-origine": "ourouler.api.routes:definir_conservation_fichiers",
+    "PUT /api/v1/moi/mot-de-passe": "405",
+    "PUT /api/v1/parcours/analyser": "405",
+    "PUT /api/v1/parcours/fichier": "405",
+    "PUT /api/v1/profil": "405",
+    "PUT /api/v1/profil/ftp/apercu": "405",
+    "PUT /api/v1/profil/ftp/generique": "405",
+    "PUT /api/v1/profil/intervals": "405",
+    "PUT /api/v1/profil/zones": "405",
+    "PUT /api/v1/profil/zones/apercu": "405",
+    "PUT /api/v1/reinitialiser": "405",
+    "PUT /api/v1/routes/exemple-action": "405",
+    "PUT /api/v1/seances": "405",
+    "PUT /api/v1/seances/2026-09-26": "405",
+    "PUT /api/v1/seances/fichier": "405",
+    "PUT /api/v1/simulations": "405",
+    "PUT /api/v1/sorties": "405",
+    "PUT /api/v1/sorties/exemple-generation/propositions/exemple-numero/gpx": "405",
+    "PUT /api/v1/sortir": "405",
+    "PUT /api/v1/systeme": "405",
+    "PUT /api/v1/systeme/budgets": "405",
+    "PUT /api/v1/vent-depart": "405",
+    "PUT /docs": "405",
+    "PUT /docs/oauth2-redirect": "405",
+    "PUT /openapi.json": "405",
+    "PUT /redoc": "405",
+    "PUT /sante": "405"
   }
 }

@@ -100,6 +100,22 @@ export interface MonCompte {
   email: string | null;
 }
 
+/**
+ * `GET /moi/fichiers-origine` et `PUT /moi/fichiers-origine` (`donnees`) :
+ * le choix de garder ou d'effacer ses fichiers d'origine (FIT/GPX/TCX).
+ *
+ * `garder` vaut `true` par défaut sur un déploiement sans base de comptes
+ * (mode personnel) — il n'y a alors pas de choix à faire. `depuis` est
+ * `null` tant que personne n'a jamais posé le réglage explicitement.
+ * `fichiers_effaces` n'apparaît que dans la réponse du `PUT`.
+ */
+export interface ConservationFichiers {
+  garder: boolean;
+  depuis: string | null;
+  nombre_fichiers?: number;
+  fichiers_effaces?: number;
+}
+
 /** `DELETE /moi` (`donnees`) : ce que l'effacement RGPD a supprimé, et ce qu'il a conservé.
  *
  * Forme volontairement ouverte (`Record<string, boolean | number>` pour `supprime`,
@@ -302,6 +318,12 @@ export interface RapportImport {
   importees: number;
   doublons: number;
   ignorees: MotifIgnore[];
+  /** Faux pour un compte qui ne garde pas ses fichiers d'origine : le fichier
+   * n'a pas été gardé, seul ce qu'on en a tiré (`derivees`) pour la calibration. */
+  fichiers_conserves: boolean;
+  derivees: number;
+  rafraichies: number;
+  sans_vent: number;
 }
 
 /** Ce que rend `GET /activites/import` : l'état du dépôt pour ce cycliste. */
@@ -309,6 +331,8 @@ export interface EtatImport {
   nombre: number;
   premiere: string | null;
   derniere: string | null;
+  /** Le choix en vigueur au moment de l'appel — voir `ConservationFichiers`. */
+  fichiers_conserves: boolean;
 }
 
 /**

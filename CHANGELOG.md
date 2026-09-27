@@ -22,6 +22,12 @@ partir des PR.
 
 ### Ajouté
 
+- Réglages → Mon compte propose de garder ou de ne pas garder ses fichiers
+  d'origine (FIT/GPX/TCX) déposés sur le serveur — gardés par défaut, comme
+  avant ; passer à « ne pas garder » les efface tout de suite, après une
+  confirmation qui dit le coût, et les imports suivants n'en gardent plus :
+  la calibration et le dédoublonnage continuent de fonctionner sur ce qui en
+  est tiré, avec un résultat de calibration identique.
 - Sur la fiche vélo, l'écart de calibration mesuré sur peu de sorties de
   vérification (moins de 20) se dit « provisoire », avec l'explication que
   ça peut encore bouger en important plus d'historique — sans rien changer

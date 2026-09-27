@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../../api/client";
+import { FichiersOrigineVolet } from "./FichiersOrigineVolet";
 
 /**
  * Le volet « Mon compte » : adresse, changement de mot de passe, export,
@@ -145,6 +146,8 @@ export function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () =>
 
       {aUnCompte ? (
         <>
+          <FichiersOrigineVolet />
+
           <div className="bloc-tete">
             <h2>Supprimer mon compte</h2>
           </div>
