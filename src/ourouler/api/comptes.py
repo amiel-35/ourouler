@@ -219,14 +219,14 @@ class ChoixConservation:
     """Le choix de garder ou d'effacer ses fichiers d'origine, et depuis quand.
 
     Fiche « choix de garder ou d'effacer ses fichiers d'origine » —
-    `migrations/0003_conservation_fichiers.sql`. `garder` vaut `True` par
+    `migrations/0004_conservation_fichiers.sql`. `garder` vaut `True` par
     défaut (Q67 révisée le 27/09/2026) : un compte qui n'a jamais touché ce
     réglage garde ses fichiers, comme avant que ce choix existe.
     """
 
     garder: bool
     #: `None` si personne n'a jamais posé ce choix explicitement — voir
-    #: `migrations/0003_conservation_fichiers.sql`.
+    #: `migrations/0004_conservation_fichiers.sql`.
     depuis: datetime | None
 
 

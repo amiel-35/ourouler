@@ -38,7 +38,7 @@ def test_l_etat_par_defaut_est_garder(url_base, tmp_path):
     assert donnees["garder"] is True
     assert donnees["nombre_fichiers"] == 0
     # Personne n'a jamais posé ce choix : pas de date fictive prise à la
-    # création du compte (`migrations/0003_conservation_fichiers.sql`).
+    # création du compte (`migrations/0004_conservation_fichiers.sql`).
     assert donnees["depuis"] is None
 
 

@@ -505,6 +505,7 @@
     "PUT /api/v1/calibrations": "405",
     "PUT /api/v1/calibrations/exemple-id_job": "405",
     "PUT /api/v1/connexion": "405",
+    "PUT /api/v1/demandes-invitation": "405",
     "PUT /api/v1/entrer": "405",
     "PUT /api/v1/fichiers/exemple-identifiant": "405",
     "PUT /api/v1/geocodage": "405",

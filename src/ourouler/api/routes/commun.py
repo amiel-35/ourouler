@@ -313,7 +313,7 @@ def _conserver_brut(ctx: Contexte, qui: Proprietaire) -> bool:
     """Ce compte garde-t-il ses fichiers d'origine ? Vrai par défaut (Q67).
 
     Lu sur `comptes.conserver_fichiers_bruts` — colonne posée par
-    `migrations/0003_conservation_fichiers.sql`. Un déploiement sans base de
+    `migrations/0004_conservation_fichiers.sql`. Un déploiement sans base de
     comptes (mode personnel, ou hébergé sans `SessionParCookie`) n'a pas de
     choix à lire : il garde toujours ses fichiers, comme aujourd'hui.
     """
