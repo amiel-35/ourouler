@@ -126,6 +126,47 @@ describe("la calibration sur la fiche vélo", () => {
     );
   });
 
+  it("marque « provisoire » sous 20 sorties de validation", async () => {
+    rendre({
+      "/api/v1/calibrations": enveloppe(
+        etat(velo({ calibration: { ...RESUME, n_validation: 19 } })),
+      ),
+    });
+    const bloc = await screen.findByLabelText(`Calibration de ${VELO}`);
+    await waitFor(() => expect(bloc.textContent).toContain("Provisoire"));
+    expect(bloc.textContent).toContain(
+      "Peu de sorties ont servi à vérifier ce chiffre : il peut encore bouger en important plus d'historique.",
+    );
+  });
+
+  it("n'affiche pas « provisoire » à 20 sorties de validation ou plus", async () => {
+    rendre({
+      "/api/v1/calibrations": enveloppe(
+        etat(velo({ calibration: { ...RESUME, n_validation: 20 } })),
+      ),
+    });
+    const bloc = await screen.findByLabelText(`Calibration de ${VELO}`);
+    await waitFor(() => expect(bloc.textContent).toContain("il vous faut"));
+    expect(bloc.textContent).not.toContain("Provisoire");
+    expect(bloc.textContent).not.toContain("Peu de sorties ont servi à vérifier ce chiffre");
+  });
+
+  it("sans erreur de validation, ne dit ni le pourcentage ni « provisoire »", async () => {
+    rendre({
+      "/api/v1/calibrations": enveloppe(
+        etat(
+          velo({
+            calibration: { ...RESUME, n_validation: 0, erreur_validation: null, biais_validation: null },
+          }),
+        ),
+      ),
+    });
+    const bloc = await screen.findByLabelText(`Calibration de ${VELO}`);
+    await waitFor(() => expect(bloc.textContent).toContain("il vous faut"));
+    expect(bloc.textContent).not.toContain("Provisoire");
+    expect(bloc.textContent).not.toMatch(/que le\s*calcul n'avait pas vue/);
+  });
+
   it("lance la calibration, montre l'avancement, puis relit l'état", async () => {
     let suivis = 0;
     let fini = false;

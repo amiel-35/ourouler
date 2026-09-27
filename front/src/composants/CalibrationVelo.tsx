@@ -27,6 +27,17 @@ import { enPlus, jourEnLettres, nombre } from "../api/formats";
 /** Tous les combien on redemande où en est le calcul. */
 const INTERVALLE_SUIVI_MS = 1500;
 
+/**
+ * Sous ce nombre de sorties de validation, l'erreur affichée se dit
+ * « provisoire » (fiche du 26/09/2026, QP7). Le double du minimum de 10
+ * sorties exploitables déjà exigé pour calibrer (L9.4) : au sprint 9,
+ * l'écart mesuré est passé de 5,6 % à 10 sorties de validation à 3,6 % à 25,
+ * donc l'instabilité se réduit nettement avant ce palier. Ne change rien au
+ * calcul ni au minimum pour calibrer — seulement l'affichage d'un résultat
+ * déjà mesuré.
+ */
+const N_VALIDATION_PROVISOIRE = 20;
+
 const ETAPES: Record<string, string> = {
   lecture: "Lecture de vos sorties",
   meteo: "Vent de chaque jour de sortie",
@@ -180,11 +191,26 @@ function Resultat({ calibration }: { calibration: ResumeCalibration }) {
         <b>{nombre(calibration.puissance_repere_w)} W</b> sur ce vélo.
       </p>
       {calibration.erreur_validation !== null && calibration.n_validation > 0 ? (
-        <p>
-          Sur {calibration.n_validation} sortie{calibration.n_validation > 1 ? "s" : ""} que le
-          calcul n'avait pas vue{calibration.n_validation > 1 ? "s" : ""}, le temps prévu s'écarte
-          en moyenne de <b>{nombre(calibration.erreur_validation * 100, 1)} %</b> du temps réel.
-        </p>
+        <>
+          <p>
+            Sur {calibration.n_validation} sortie{calibration.n_validation > 1 ? "s" : ""} que le
+            calcul n'avait pas vue{calibration.n_validation > 1 ? "s" : ""}, le temps prévu
+            s'écarte en moyenne de <b>{nombre(calibration.erreur_validation * 100, 1)} %</b> du
+            temps réel.
+            {calibration.n_validation < N_VALIDATION_PROVISOIRE ? (
+              <>
+                {" "}
+                <b>Provisoire.</b>
+              </>
+            ) : null}
+          </p>
+          {calibration.n_validation < N_VALIDATION_PROVISOIRE ? (
+            <p className="mention">
+              Peu de sorties ont servi à vérifier ce chiffre : il peut encore bouger en important
+              plus d'historique.
+            </p>
+          ) : null}
+        </>
       ) : null}
       <p>
         Porte à porte, arrêts compris : {enPlus(pp.bas)} à {enPlus(pp.haut)} sur le temps de
