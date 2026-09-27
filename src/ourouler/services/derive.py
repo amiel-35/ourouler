@@ -466,7 +466,11 @@ def purger_avec_derivation(
     risque, une sortie déjà dérivée reste dérivée même si le reste échoue.
 
     Une sortie hors calibration (home-trainer, sans puissance, trop courte)
-    n'a rien à dériver ; son fichier part quand même avec les autres.
+    n'a rien à dériver ; son fichier part quand même avec les autres. Une
+    sortie dont le dérivé est **déjà à jour** (`Derivateur.a_rafraichir` faux
+    — un compte qui était déjà passé par « ne pas garder » puis revenu à
+    « garder » sans réimporter) n'est pas relue non plus : rien de neuf à en
+    tirer, seul son fichier doit encore partir.
 
     `verifier` : la vérification d'annulation à passer à chaque écriture
     (`Job.verifier_annulation`) — un compte supprimé pendant la tâche ne
@@ -477,10 +481,14 @@ def purger_avec_derivation(
     entrees = [e for e in cache.lister() if candidate(e)]
     deriver = Derivateur(cache=cache, client_archive=client_archive, verifier=verifier)
     total = len(entrees)
+    deja_a_jour = 0
     try:
         for rang, entree in enumerate(entrees, start=1):
             if avancer is not None:
                 avancer(rang, total)
+            if not deriver.a_rafraichir(entree.identifiant):
+                deja_a_jour += 1
+                continue  # dérivé déjà à jour : rien à en tirer, le fichier partira tout de même
             try:
                 activite = cache.relire(entree.identifiant)
             except (KeyError, ErreurUtilisateur, OSError):
@@ -500,6 +508,7 @@ def purger_avec_derivation(
     return {
         "candidates": total,
         "derivees": deriver.derivees,
+        "deja_a_jour": deja_a_jour,
         "sans_vent": deriver.sans_vent,
         "echecs": len(deriver.echecs),
         "fichiers_effaces": fichiers_effaces,
