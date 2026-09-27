@@ -33,7 +33,8 @@ derogations = ["27/09/2026 : anomalie retour navigateur ajoutée à la demande d
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-heure-depart-du-jour"
-statut = "en_cours"
+statut = "livre"
+pr = 123
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-trois-boucles-retenues"
@@ -46,7 +47,8 @@ raison = "iOS ne propose pas Garmin Connect pour ce fichier dans le partage : bo
 
 [[sprint.element]]
 fiche = "2026-09-27-bug-retour-navigateur-quitte-l-appli"
-statut = "en_cours"
+statut = "livre"
+pr = 125
 
 [[sprint]]
 numero = 12
