@@ -34,6 +34,14 @@ Un fichier corrompu, une archive hostile ou une entrée hors liste ne fait
 jamais échouer l'import : il compte dans `RapportImport.ignorees`, avec un
 motif lisible — même philosophie que `Cache.indexer_dossier`, qui ne laisse
 pas un `.fit` abîmé faire échouer tout un dossier.
+
+**Pour un compte qui ne garde pas ses fichiers d'origine** (fiche « choix de
+garder ou d'effacer ses fichiers d'origine ») : l'appelant passe un cache qui
+ne conserve pas le brut (`Cache(..., conserver_brut=False)`) et un `deriver`
+— ce qu'on tire de chaque sortie pour la calibration, sans coordonnées
+(`services/derive.py`). Ce module ne sait pas ce que le dérivé contient : il
+le fait calculer pendant que les octets sont encore en mémoire, et c'est
+tout.
 """
 
 from __future__ import annotations
@@ -46,9 +54,11 @@ import stat
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import BinaryIO
+from typing import BinaryIO, Protocol
 
 from ourouler.activites.cache import Cache
+from ourouler.activites.lecture import lecteur_pour
+from ourouler.noyau.activite import Activite
 
 #: `(fichiers_traites, total_estime)`, rappelé pendant l'import — pour la
 #: tâche de fond (`api/imports_fond.py`) : une archive Strava réelle prend
@@ -59,6 +69,31 @@ from ourouler.activites.cache import Cache
 #: qu'on découvre en cours de route) — jamais un dénombrement complet
 #: d'avance, qui coûterait aussi cher que l'import.
 Progres = Callable[[int, int], None]
+
+
+class Deriveur(Protocol):
+    """Ce que l'import demande à qui dérive (`services.derive.Derivateur`) — voir le module.
+
+    `__call__` peut rendre la main avant d'avoir fini (le vent de la sortie
+    arrive en fond) : `terminer()` attend ce qui reste, `fermer()` l'abandonne.
+    Les compteurs se lisent une fois `terminer()` fait.
+    """
+
+    derivees: int
+    rafraichies: int
+    sans_vent: int
+    echecs: list[tuple[str, str]]
+
+    def a_rafraichir(self, identifiant: str) -> bool: ...
+
+    def __call__(
+        self, identifiant: str, activite: Activite, meta: dict | None = None, *, nom: str, deja: bool
+    ) -> str: ...
+
+    def terminer(self) -> None: ...
+
+    def fermer(self) -> None: ...
+
 
 #: `.fit`/`.gpx`/`.tcx`, avec ou sans `.gz` — Strava gzippe ses fichiers
 #: d'activité à l'intérieur de son archive (décision Q48,
@@ -130,6 +165,19 @@ class RapportImport:
     importees: int = 0
     doublons: int = 0
     ignorees: list[Ignoree] = field(default_factory=list)
+    #: Faux pour un compte qui ne garde pas ses fichiers d'origine : le
+    #: fichier n'a pas été gardé, seul ce qu'on en a tiré. L'écran le dit à
+    #: côté du rapport.
+    fichiers_conserves: bool = True
+    #: Sorties dont on a tiré de quoi calibrer (compte sans fichiers gardés
+    #: seulement) — dont `rafraichies` : déjà connues, mais dont le dérivé
+    #: manquait ou était périmé, ce qu'un nouveau dépôt de la même archive
+    #: vient réparer.
+    derivees: int = 0
+    rafraichies: int = 0
+    #: Sorties dérivées sans vent : l'archive météo de leur jour n'a pas
+    #: répondu (ou le jour est trop récent pour elle).
+    sans_vent: int = 0
 
     def resume_ignorees(self, max_exemples: int = 5) -> list[dict]:
         """Les motifs groupés, comptés, avec quelques noms d'exemple.
@@ -152,6 +200,10 @@ class RapportImport:
             "importees": self.importees,
             "doublons": self.doublons,
             "ignorees": self.resume_ignorees(),
+            "fichiers_conserves": self.fichiers_conserves,
+            "derivees": self.derivees,
+            "rafraichies": self.rafraichies,
+            "sans_vent": self.sans_vent,
         }
 
 
@@ -166,6 +218,7 @@ class _Etat:
     octets_decompresses: int = 0
     limites_signalees: set[str] = field(default_factory=set)
     progres: Progres | None = None
+    deriver: Deriveur | None = None
 
     def compter(self, entrees: int) -> None:
         """Une archive (le dépôt, ou une archive imbriquée) vient de s'ouvrir : `entrees`
@@ -184,7 +237,10 @@ class _Etat:
 
 
 def importer(
-    cache: Cache, depots: list[tuple[str, bytes | BinaryIO]], progres: Progres | None = None
+    cache: Cache,
+    depots: list[tuple[str, bytes | BinaryIO]],
+    progres: Progres | None = None,
+    deriver: Deriveur | None = None,
 ) -> RapportImport:
     """Importe un ou plusieurs fichiers/archives déposés en une requête.
 
@@ -207,13 +263,38 @@ def importer(
 
     `progres`, s'il est donné, est rappelé avec `(fichiers_traites, total_estime)`
     à mesure que l'import avance — voir `Progres`.
+
+    `deriver`, s'il est donné (compte sans fichiers gardés), tire de chaque
+    sortie ce que la calibration lira plus tard, pendant que ses octets sont
+    encore là — et refait ce dérivé pour une sortie déjà connue dont le
+    dérivé manque ou est périmé (redéposer son archive répare, sans rien
+    dupliquer).
     """
-    etat = _Etat(cache=cache, rapport=RapportImport(), progres=progres)
-    for nom, contenu in depots:
-        source = io.BytesIO(contenu) if isinstance(contenu, bytes | bytearray) else contenu
-        if not nom.lower().endswith(".zip"):
-            etat.compter(1)
-        _importer_un(etat, nom or "(sans nom)", source)
+    etat = _Etat(
+        cache=cache,
+        rapport=RapportImport(fichiers_conserves=cache.conserver_brut),
+        progres=progres,
+        deriver=deriver,
+    )
+    try:
+        for nom, contenu in depots:
+            source = io.BytesIO(contenu) if isinstance(contenu, bytes | bytearray) else contenu
+            if not nom.lower().endswith(".zip"):
+                etat.compter(1)
+            _importer_un(etat, nom or "(sans nom)", source)
+        if deriver is not None:
+            deriver.terminer()
+            etat.rapport.derivees = deriver.derivees
+            etat.rapport.rafraichies = deriver.rafraichies
+            etat.rapport.sans_vent = deriver.sans_vent
+            etat.rapport.ignorees.extend(
+                Ignoree(nom=nom, motif=f"importée, mais rien à en tirer pour la calibration ({motif})")
+                for nom, motif in deriver.echecs
+            )
+    finally:
+        # Annulation, panne : les appels à l'archive encore en vol sont abandonnés.
+        if deriver is not None:
+            deriver.fermer()
     return etat.rapport
 
 
@@ -370,23 +451,40 @@ def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> 
     un chemin sur un disque, qui désigne vraiment un fichier.
     """
     identifiant = hashlib.sha256(contenu).hexdigest()
-    if etat.cache.contient(source="fichier", id_externe=identifiant):
+    deja = etat.cache.contient(source="fichier", id_externe=identifiant)
+    if deja and (etat.deriver is None or not etat.deriver.a_rafraichir(identifiant)):
         etat.rapport.doublons += 1
         return
+    # Le nom du fichier n'est gardé qu'avec le fichier : sans lui (compte qui
+    # ne garde pas ses fichiers d'origine), un nom d'export Strava
+    # (`activities/1234567890.fit.gz`) est l'identifiant de l'activité chez
+    # Strava, qui désigne la trace ailleurs.
+    meta = {"fichier": nom} if etat.cache.conserver_brut else {}
     try:
-        etat.cache.ajouter(
-            contenu,
-            source="fichier",
-            id_externe=identifiant,
-            extension=extension,
-            meta={"fichier": nom},
-        )
+        activite = lecteur_pour(extension)(contenu)
+        if not deja:
+            etat.cache.ajouter(
+                contenu,
+                source="fichier",
+                id_externe=identifiant,
+                extension=extension,
+                meta=meta,
+                activite=activite,
+            )
     except sqlite3.Error:
         raise  # l'index du serveur est en panne : ce n'est pas la faute du fichier
-    except Exception as e:  # les lecteurs FIT/GPX/TCX sur octets hostiles
+    except Exception as e:  # noqa: BLE001 — les lecteurs FIT/GPX/TCX sur octets hostiles
         etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
         return
-    etat.rapport.importees += 1
+    if not deja:
+        etat.rapport.importees += 1
+    if etat.deriver is None:
+        return
+    # Le dérivateur rattrape lui-même ce qu'une sortie hostile lui fait lever ;
+    # ce qui passe ici (annulation de la tâche, index en panne) doit arrêter l'import.
+    statut = etat.deriver(identifiant, activite, meta, nom=nom, deja=deja)
+    if deja and statut != "en_attente":  # `services.derive.STATUT_EN_ATTENTE`, en clair pour éviter le cycle
+        etat.rapport.doublons += 1
 
 
 # --- bornes, vérifiées à la lecture, pas seulement aux métadonnées ------------
@@ -515,6 +613,7 @@ def _signaler_une_fois(etat: _Etat, cle: str, motif: str) -> None:
 
 __all__ = [
     "EXTENSIONS_ACTIVITE",
+    "Deriveur",
     "NOMBRE_MAX_FICHIERS",
     "PROFONDEUR_MAX_ARCHIVE",
     "RATIO_MAX_DECOMPRESSION",

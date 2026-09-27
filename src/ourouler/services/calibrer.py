@@ -37,6 +37,7 @@ from ourouler.noyau.profil import Profil, Velo
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.parametres_velo import CRR_DEFAUT, crr_du_velo
+from ourouler.services import derive
 from ourouler.stockage.calibrations import contenu_calibration
 
 #: Date de repli pour trier une entrée sans horodatage — avant tout le reste,
@@ -211,42 +212,71 @@ def calibrer_velo(
     depuis = depuis if depuis is not None else config.historique_depuis
     annoncer = progres or (lambda etape, faits, total: None)
 
-    # Un seul lecteur pour tout le calcul : le choix des sorties a besoin du
-    # contenu des fichiers (combien de sessions ? quel sport ?) et le
-    # chargement en a besoin aussi. Sans mémoïsation, chaque FIT serait analysé
-    # deux fois.
-    lecteur = _Lecteur(cache)
-    candidates, _ = sorties_calibrables_et_motifs(
-        cache, config, velo, depuis=depuis, strict=rattachement_strict
-    )
-    total = len(candidates)
-    annoncer(ETAPE_LECTURE, 0, total)
-
-    def relire(identifiant: str):
-        deja = identifiant in lecteur._lues
-        activite = lecteur(identifiant)
-        if not deja:
-            annoncer(ETAPE_LECTURE, len(lecteur._lues), total)
-        return activite
-
-    entrees, motifs = sorties_calibrables_et_motifs(
-        cache, config, velo, depuis=depuis, relire=relire, strict=rattachement_strict
-    )
-    if maximum:
-        entrees = entrees[-int(maximum) :]
-    if not entrees:
-        raise ErreurUtilisateur(
-            f"calibration : aucune sortie calibrable pour {velo.nom} depuis le {depuis} "
-            "— vérifier le rattachement au vélo (`ourouler inventaire`)"
+    if not cache.conserver_brut:
+        # Ce compte a choisi de ne pas garder ses fichiers d'origine : il n'y
+        # a plus de trace à relire, seulement ce que l'import en a tiré
+        # (`services/derive.py`). Même choix des sorties (motifs à bon
+        # marché) ; la relecture d'un fichier pour détecter un multisport se
+        # fait à l'import, une fois pour toutes, plutôt qu'ici.
+        entrees, motifs = sorties_calibrables_et_motifs(
+            cache, config, velo, depuis=depuis, strict=rattachement_strict
         )
-
-    sorties, pannes = _charger_sorties(
-        lecteur, entrees, client_archive, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
-    )
-    if not sorties:
-        raise ErreurUtilisateur(
-            f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
+        entrees, motifs_derive = derive.trier(cache, entrees)
+        for motif, n in motifs_derive.items():
+            motifs[motif] = motifs.get(motif, 0) + n
+        if maximum:
+            entrees = entrees[-int(maximum) :]
+        if not entrees:
+            raise ErreurUtilisateur(
+                f"calibration : aucune sortie calibrable pour {velo.nom} depuis le {depuis} "
+                "— vérifier le rattachement au vélo (`ourouler inventaire`)"
+            )
+        annoncer(ETAPE_LECTURE, len(entrees), len(entrees))
+        sorties, pannes = derive.charger(
+            cache, entrees, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
         )
+        if not sorties:
+            raise ErreurUtilisateur(
+                f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible "
+                "sur son dérivé"
+            )
+    else:
+        # Un seul lecteur pour tout le calcul : le choix des sorties a besoin du
+        # contenu des fichiers (combien de sessions ? quel sport ?) et le
+        # chargement en a besoin aussi. Sans mémoïsation, chaque FIT serait analysé
+        # deux fois.
+        lecteur = _Lecteur(cache)
+        candidates, _ = sorties_calibrables_et_motifs(
+            cache, config, velo, depuis=depuis, strict=rattachement_strict
+        )
+        total = len(candidates)
+        annoncer(ETAPE_LECTURE, 0, total)
+
+        def relire(identifiant: str):
+            deja = identifiant in lecteur._lues
+            activite = lecteur(identifiant)
+            if not deja:
+                annoncer(ETAPE_LECTURE, len(lecteur._lues), total)
+            return activite
+
+        entrees, motifs = sorties_calibrables_et_motifs(
+            cache, config, velo, depuis=depuis, relire=relire, strict=rattachement_strict
+        )
+        if maximum:
+            entrees = entrees[-int(maximum) :]
+        if not entrees:
+            raise ErreurUtilisateur(
+                f"calibration : aucune sortie calibrable pour {velo.nom} depuis le {depuis} "
+                "— vérifier le rattachement au vélo (`ourouler inventaire`)"
+            )
+
+        sorties, pannes = _charger_sorties(
+            lecteur, entrees, client_archive, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
+        )
+        if not sorties:
+            raise ErreurUtilisateur(
+                f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
+            )
 
     annoncer(ETAPE_AJUSTEMENT, 0, 1)
     crr, crr_source = _crr_de_calibration(velo, crr_libre, crr_usage)
@@ -304,10 +334,10 @@ class _Lecteur:
 
     def __init__(self, cache: Cache):
         self.cache = cache
-        self._lues: dict[str, object] = {}
+        self._lues: dict[str, Activite | None] = {}
         self.pannes: dict[str, str] = {}
 
-    def __call__(self, identifiant: str):
+    def __call__(self, identifiant: str) -> Activite | None:
         if identifiant not in self._lues:
             try:
                 self._lues[identifiant] = self.cache.relire(identifiant)

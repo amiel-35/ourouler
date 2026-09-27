@@ -52,6 +52,7 @@ def lancer(
     depots: list[tuple[str, Path]],
     *,
     au_echec: Callable[[], None] | None = None,
+    client_archive=None,
 ) -> Job:
     """Démarre un import en tâche de fond. Lève `ErreurImportEnCours` si une tâche lourde tourne.
 
@@ -60,10 +61,20 @@ def lancer(
     la requête : celui-ci ne survit pas à la réponse 202 que cette fonction
     permet de rendre tout de suite (Starlette referme ses fichiers temporaires
     une fois la requête terminée).
+
+    `client_archive` : donné pour un compte qui ne garde pas ses fichiers
+    d'origine (`cache.conserver_brut` faux) — sert à résoudre le vent de
+    chaque sortie pendant l'import (`services/derive.Derivateur`), tant que
+    la trace est encore là. `None` sinon : rien à dériver.
     """
 
     def travailler(job: Job):
         fichiers = [(nom, chemin.open("rb")) for nom, chemin in depots]
+        deriver = None
+        if not cache.conserver_brut:
+            from ourouler.services.derive import Derivateur
+
+            deriver = Derivateur(cache=cache, client_archive=client_archive, verifier=job.verifier_annulation)
         try:
             # `importer` est relu dans ce module à chaque appel : un test peut
             # le remplacer (`monkeypatch`) sans toucher au registre.
@@ -71,6 +82,7 @@ def lancer(
                 cache,
                 [(nom, f) for nom, f in fichiers],
                 progres=lambda traites, total: job.avancer(traites, total),
+                deriver=deriver,
             )
         finally:
             for _, f in fichiers:
