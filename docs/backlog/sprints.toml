@@ -53,7 +53,7 @@ pr = 125
 
 [[sprint]]
 numero = 12
-statut = "fige"
+statut = "en_cours"
 titre = "Le cycliste décide de ses données, le mainteneur administre sans ssh"
 
 [[sprint.element]]
@@ -62,11 +62,11 @@ statut = "prevu"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-demande-invitation-et-admin"
-statut = "prevu"
+statut = "en_cours"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-calibration-provisoire"
-statut = "prevu"
+statut = "en_cours"
 
 [[sprint]]
 numero = 13
