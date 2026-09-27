@@ -35,6 +35,15 @@ partir des PR.
   mainteneur : ils disent le pourquoi au présent, et « l'administrateur du
   service » quand il faut quelqu'un pour émettre un lien.
 
+### Corrigé
+
+- Le bouton retour du navigateur, depuis les résultats d'une recherche
+  (propositions, boucles, détail d'une proposition) ou depuis un autre
+  onglet, ramène désormais au bon écran — le formulaire rempli comme avant,
+  ou l'onglet précédent — au lieu de quitter l'application. « Modifier la
+  demande » fait le même geste, sans empiler une entrée d'historique de
+  plus ; avancer retrouve les mêmes résultats sans recalcul.
+
 ## [0.11.0] — 2026-09-27
 
 ### Modifié

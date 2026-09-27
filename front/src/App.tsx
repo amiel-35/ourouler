@@ -30,6 +30,7 @@ import { EcranAmorcage } from "./app/EcranAmorcage";
 import { Contenu } from "./app/Contenu";
 import { useRecherche } from "./app/useRecherche";
 import { heureDepartResolue } from "./ecrans/Demander";
+import { useNavigationHistorique } from "./app/useNavigationHistorique";
 import {
   ongletDepuisUrl,
   paginaDepuisUrl,
@@ -88,6 +89,10 @@ function ApplicationPrincipale() {
    */
   const [sessionPerdue, setSessionPerdue] = useState(false);
 
+  // L'historique du navigateur (onglet dans l'adresse, résultats en
+  // entrées sans adresse propre) — voir `useNavigationHistorique.ts`.
+  const allerVersOnglet = useNavigationHistorique(onglet, setOnglet, setVue);
+
   const systeme = useRessource(() => api.systeme(), []);
   const profil = useRessource(() => api.profil(), []);
   const zones = useRessource(() => api.zones(), []);
@@ -137,7 +142,7 @@ function ApplicationPrincipale() {
     joursMemorises,
     setJoursMemorises,
     chercher,
-  } = useRecherche({ jour, fichierSeance, zonesCourantes, budgetDe, setVue });
+  } = useRecherche({ jour, onglet, fichierSeance, zonesCourantes, budgetDe, setVue });
 
   // Intervals se branche via l'assistant ou Réglages sans que `jour` bouge :
   // sans ce rechargement, la séance et la semaine restent sur leur premier
@@ -227,17 +232,13 @@ function ApplicationPrincipale() {
         fermerErreur={() => setErreurCalcul(null)}
         allerVersDemander={() => {
           setErreurCalcul(null);
-          setOnglet("demander");
-          setVue({ genre: "onglet" });
+          allerVersOnglet("demander");
         }}
         allerVersDepot={() => {
           setErreurCalcul(null);
           setVue({ genre: "importer", jour: demande.jour });
         }}
-        changerOnglet={(cle) => {
-          setOnglet(cle);
-          setVue({ genre: "onglet" });
-        }}
+        changerOnglet={allerVersOnglet}
       />
     );
   }
@@ -280,13 +281,7 @@ function ApplicationPrincipale() {
         />
       ) : null}
       {contenu}
-      <BarreOnglets
-        onglet={onglet}
-        surOnglet={(cle) => {
-          setOnglet(cle);
-          setVue({ genre: "onglet" });
-        }}
-      />
+      <BarreOnglets onglet={onglet} surOnglet={allerVersOnglet} />
     </div>
   );
 }

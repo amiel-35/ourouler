@@ -18,7 +18,15 @@ import { Boucles } from "../ecrans/Boucles";
 import { Reglages } from "../ecrans/Reglages";
 import { Assistant } from "../ecrans/Assistant";
 import { EnAttendantHistorique } from "./EnAttendantHistorique";
-import { ONGLETS, type Onglet, type Resultat, type SeanceDeposee, type Vue } from "./navigation";
+import {
+  changerOnglet,
+  ONGLETS,
+  pousserVue,
+  type Onglet,
+  type Resultat,
+  type SeanceDeposee,
+  type Vue,
+} from "./navigation";
 
 export interface ContenuProps {
   vue: Vue;
@@ -81,10 +89,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
         zones={zonesCourantes}
         surProfil={setProfilCourant}
         surZones={setZonesCourantes}
-        surFin={() => {
-          setVue({ genre: "onglet" });
-          setOnglet("aujourdhui");
-        }}
+        surFin={() => changerOnglet(onglet, "aujourdhui", setOnglet, setVue)}
         vers={versOnglet}
         surRetour={() => setVue({ genre: "onglet" })}
       />
@@ -116,13 +121,25 @@ export function Contenu(props: ContenuProps): JSX.Element {
       <Propositions
         reponse={reponse}
         choisie={parDefaut}
-        surChoix={(numero) => setVue({ genre: "detail", numero })}
-        surOuvrir={() => setVue({ genre: "detail", numero: parDefaut })}
-        surElargir={() => chercher({ candidates: 8 })}
-        surRetour={() => {
-          setVue({ genre: "onglet" });
-          setOnglet("demander");
+        // Le passage à une proposition est une entrée d'historique de plus
+        // (même adresse) : un retour navigateur doit repasser par la liste,
+        // pas sauter tout droit au formulaire.
+        surChoix={(numero) => {
+          pousserVue(onglet, { genre: "detail", numero });
+          setVue({ genre: "detail", numero });
         }}
+        surOuvrir={() => {
+          pousserVue(onglet, { genre: "detail", numero: parDefaut });
+          setVue({ genre: "detail", numero: parDefaut });
+        }}
+        surElargir={() => chercher({ candidates: 8 })}
+        // « Modifier la demande » et le retour navigateur doivent mener au
+        // même état (fiche du 27/09/2026) : un vrai retour d'historique,
+        // pas une reconstruction manuelle qui empilerait une entrée de
+        // plus. `pousserVue`, au moment de la recherche, garantit qu'il y a
+        // toujours quelque chose à retrouver là-dessous — le formulaire,
+        // rempli comme avant.
+        surRetour={() => window.history.back()}
       />
     );
   }
@@ -136,20 +153,12 @@ export function Contenu(props: ContenuProps): JSX.Element {
         reponse={resultat.sortie}
         numero={vue.numero}
         seance={resultat.seance}
-        surRetour={() => setVue({ genre: "propositions" })}
+        surRetour={() => window.history.back()}
       />
     );
   }
   if (vue.genre === "boucles" && resultat?.boucle) {
-    return (
-      <Boucles
-        reponse={resultat.boucle}
-        surRetour={() => {
-          setVue({ genre: "onglet" });
-          setOnglet("demander");
-        }}
-      />
-    );
+    return <Boucles reponse={resultat.boucle} surRetour={() => window.history.back()} />;
   }
   if (onglet === "aujourdhui") {
     if (seanceDuJour.erreur) {
@@ -161,7 +170,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           reessayer={seanceDuJour.recharger}
           secours={
             <EnAttendantHistorique
-              surDemander={() => setOnglet("demander")}
+              surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
               surDeposer={() => setVue({ genre: "importer", jour })}
             />
           }
@@ -189,10 +198,11 @@ export function Contenu(props: ContenuProps): JSX.Element {
               seance: seanceDuJour.valeur?.donnees ?? null,
               jour,
             });
+            pousserVue(onglet, { genre: "propositions" });
             setVue({ genre: "propositions" });
           }
         }}
-        surDemander={() => setOnglet("demander")}
+        surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
         surDeposer={() => setVue({ genre: "importer", jour })}
       />
     );
@@ -207,7 +217,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           reessayer={semaine.recharger}
           secours={
             <EnAttendantHistorique
-              surDemander={() => setOnglet("demander")}
+              surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
               surDeposer={() => setVue({ genre: "importer", jour })}
             />
           }
@@ -238,6 +248,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
             seance: quand === jour ? (seanceDuJour.valeur?.donnees ?? null) : null,
             jour: quand,
           });
+          pousserVue(onglet, { genre: "propositions" });
           setVue({ genre: "propositions" });
         }}
         surDeposer={() => setVue({ genre: "importer", jour })}

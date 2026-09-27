@@ -120,3 +120,79 @@ export function ongletDepuisUrl(): Onglet {
   const trouve = ONGLETS.find((o) => o.cle === valeur);
   return trouve ? trouve.cle : "aujourdhui";
 }
+
+/**
+ * Ce que porte chaque entrée d'historique du navigateur — décision du
+ * mainteneur du 27/09/2026 (`docs/backlog/2026-09-27-bug-retour-navigateur-quitte-l-appli.md`) :
+ * **l'onglet est dans l'adresse** (`/?onglet=...`), les **résultats**
+ * (propositions, détail, boucles) sont des étapes d'historique **sans
+ * adresse propre** — un rechargement y ramène par l'onglet, jamais par eux.
+ */
+export interface EtatHistorique {
+  onglet: Onglet;
+  vue: Vue;
+}
+
+/**
+ * Change d'onglet : une adresse différente, une entrée d'historique de
+ * plus. **Ne pousse rien si l'onglet visé est déjà l'onglet actif** — sinon
+ * un rechargement, un clic répété ou l'arrivée sur l'onglet par défaut
+ * empileraient des entrées qui ne changent rien, et un seul retour ne
+ * suffirait plus à sortir de l'onglet.
+ */
+export function pousserOnglet(actif: Onglet, cible: Onglet): void {
+  if (cible === actif) return;
+  const etat: EtatHistorique = { onglet: cible, vue: { genre: "onglet" } };
+  window.history.pushState(etat, "", `/?onglet=${cible}`);
+}
+
+/**
+ * Entre dans un écran de résultats — formulaire → propositions/boucles,
+ * liste → détail d'une proposition : une entrée d'historique de plus, mais
+ * la **même adresse** (les résultats n'ont pas d'adresse propre). Un retour
+ * navigateur la dépile et retombe sur l'écran précédent (le formulaire,
+ * rempli comme avant, ou la liste) sans le moindre appel réseau — les
+ * résultats déjà obtenus restent dans `Resultat`/`etat/memoire.ts`, `popstate`
+ * ne fait que les rafficher.
+ */
+export function pousserVue(onglet: Onglet, vue: Vue): void {
+  const etat: EtatHistorique = { onglet, vue };
+  window.history.pushState(etat, "", window.location.pathname + window.location.search);
+}
+
+/**
+ * Pose l'état courant sur l'entrée d'historique **sans en ajouter** —
+ * `replaceState`, comme `paginaDepuisUrl` le fait déjà pour `/entrer` et
+ * `/reinitialiser`. Sert deux fois : normaliser l'adresse au démarrage (pour
+ * que `history.state` porte déjà la forme que `popstate` attend), et
+ * resynchroniser l'entrée courante quand on quitte des résultats vers
+ * l'onglet qui les a produits sans pousser de nouvelle entrée (l'onglet
+ * était déjà l'onglet actif — voir `pousserOnglet`).
+ */
+export function remplacerVersOnglet(onglet: Onglet): void {
+  const etat: EtatHistorique = { onglet, vue: { genre: "onglet" } };
+  window.history.replaceState(etat, "", `/?onglet=${onglet}`);
+}
+
+/**
+ * Le seul geste qui change d'onglet, où qu'il parte dans l'application
+ * (barre d'onglets, écran d'échec, lien « Demander » d'un secours) — pose
+ * l'historique avant l'état React, jamais l'inverse : sans quoi l'entrée
+ * courante resterait sur une vue de résultats après un changement d'onglet
+ * qui ne passe pas par `pousserOnglet` (l'onglet visé déjà actif), et un
+ * retour navigateur retrouverait cette vue au lieu de l'onglet affiché.
+ */
+export function changerOnglet(
+  actif: Onglet,
+  cible: Onglet,
+  setOnglet: (onglet: Onglet) => void,
+  setVue: (vue: Vue) => void,
+): void {
+  if (cible === actif) {
+    remplacerVersOnglet(cible);
+  } else {
+    pousserOnglet(actif, cible);
+  }
+  setOnglet(cible);
+  setVue({ genre: "onglet" });
+}
