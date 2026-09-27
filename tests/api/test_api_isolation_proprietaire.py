@@ -1706,6 +1706,34 @@ def test_ourouler_api_sert_toujours_le_mainteneur(tmp_path, monkeypatch):
     assert reponse.json()["proprietaire"] == str(PROPRIETAIRE_LOCAL)
 
 
+def test_ourouler_api_sert_le_fichier_de_ourouler_config(tmp_path, monkeypatch):
+    """Sans `--config`, `ourouler api` sert le fichier que `OUROULER_CONFIG` désigne.
+
+    `main()` charge ce fichier-là ; l'application doit lire le même, sinon le
+    cache viendrait d'une configuration et le profil d'une autre.
+    """
+    uvicorn = pytest.importorskip("uvicorn", reason="extra « api » absent")
+
+    from ourouler.api import application
+    from ourouler.cli import main
+
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_toml_d_essai(tmp_path), encoding="utf-8")
+    monkeypatch.setenv("OUROULER_CONFIG", str(chemin))
+    lus: list[object] = []
+    fabrique = application.creer_application
+
+    def espion(**kwargs):
+        lus.append(kwargs["chemin_config"])
+        return fabrique(**kwargs)
+
+    monkeypatch.setattr(application, "creer_application", espion)
+    monkeypatch.setattr(uvicorn, "run", lambda app, **_: None)
+
+    assert main(["api"]) == 0
+    assert lus == [chemin]
+
+
 # --- d'où vient le choix du fournisseur --------------------------------------
 
 
