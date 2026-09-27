@@ -36,7 +36,12 @@ export function FichiersOrigineVolet() {
     api
       .etatConservationFichiers()
       .then((reponse) => {
-        if (vivant) setConservation(reponse.donnees);
+        if (!vivant) return;
+        setConservation(reponse.donnees);
+        // Un effacement tournait déjà (rechargement de la page pendant la
+        // purge) : reprendre son suivi, plutôt que de proposer de nouveau
+        // « Garder » comme si rien n'était en cours.
+        if (reponse.donnees.tache) setTache(reponse.donnees.tache);
       })
       .catch(() => {
         // Un état qui ne charge pas n'empêche pas le reste de l'écran de fonctionner.
@@ -89,6 +94,11 @@ export function FichiersOrigineVolet() {
   }
 
   const tacheEnCours = tache !== null && tache.statut === "en_cours";
+  // Le choix est déjà « ne pas garder », rien ne tourne, mais des fichiers
+  // restent : l'effacement a échoué, ou le serveur a redémarré pendant la
+  // tâche (`api/routes/moi.py`). Un nouveau `PUT` la relance.
+  const effacementIncomplet =
+    !tacheEnCours && conservation !== null && !conservation.garder && conservation.nombre_fichiers > 0;
 
   return (
     <>
@@ -149,6 +159,18 @@ export function FichiersOrigineVolet() {
             Annuler
           </button>
         </>
+      ) : null}
+
+      {effacementIncomplet && conservation !== null ? (
+        <div className="encart alerte">
+          <p>
+            {nombre(conservation.nombre_fichiers)} fichier{conservation.nombre_fichiers > 1 ? "s" : ""}{" "}
+            restent à effacer — l'effacement n'a pas pu aller au bout.
+          </p>
+          <button type="button" className="bouton" disabled={enCours} onClick={() => basculer(false)}>
+            {enCours ? "Lancement…" : "Relancer l'effacement"}
+          </button>
+        </div>
       ) : null}
 
       {!tacheEnCours && conservation !== null && !conservation.garder ? (

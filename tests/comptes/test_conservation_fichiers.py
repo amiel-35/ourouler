@@ -15,6 +15,7 @@ vent en silence) : aucun réseau (règle absolue 3).
 
 from __future__ import annotations
 
+import threading
 import time
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -48,6 +49,19 @@ class _ArchiveConstante:
             )
             for h in range(24)
         ]
+
+
+class _ArchiveLente:
+    """Comme `_ArchiveConstante`, mais bloque jusqu'à ce que le test l'autorise —
+    de quoi tenir une tâche « en_cours » le temps d'éprouver une bascule
+    concurrente, sans dépendre d'un minutage réel."""
+
+    def __init__(self) -> None:
+        self.autorise = threading.Event()
+
+    def horaires(self, lat: float, lon: float, jour: date) -> list[HeureArchive]:
+        self.autorise.wait(5.0)
+        return _ArchiveConstante().horaires(lat, lon, jour)
 
 
 def _inviter_et_entrer(url_base: str, tmp_path: Path, *, client_archive: object | None = None):
@@ -157,6 +171,96 @@ def test_bascule_refusee_tant_qu_une_tache_lourde_tourne(url_base, tmp_path):
         app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": False}
     )
     assert reponse_apres.status_code == 202, reponse_apres.text
+
+
+def test_revenir_a_garder_refuse_tant_que_l_effacement_de_ce_compte_tourne(url_base, tmp_path):
+    """Relecture indépendante : un rechargement pendant la purge ne doit pas
+    pouvoir poser « garder » alors qu'elle efface encore — `PUT {garder: true}`
+    refuse (409) tant que la tâche `conservation` de **ce compte** tourne."""
+    archive = _ArchiveLente()
+    app, proprietaire_id, cookies = _inviter_et_entrer(url_base, tmp_path, client_archive=archive)
+    qui = Proprietaire(proprietaire_id)
+    dossier_cache = app.state.ourouler.dossier_cache
+    cache = Cache(dossier_cache, proprietaire=str(qui))
+    cache.ajouter(
+        synth.tcx_synthetique(synth.ROUTE, date(2026, 1, 1)),
+        source="fichier",
+        id_externe="sortie-essai",
+        extension="tcx",
+        meta={"fichier": "sortie-essai.tcx", "sport": "Ride", "puissance_moy_w": 180.0},
+    )
+
+    lancement = _requete(
+        app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": False}
+    )
+    assert lancement.status_code == 202, lancement.text
+    try:
+        # La tâche attend `archive.autorise` : elle est encore « en_cours ».
+        refus = _requete(
+            app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": True}
+        )
+        assert refus.status_code == 409, refus.text
+        assert refus.json()["erreur"]["code"] == "tache_lourde_en_cours"
+        # Le choix n'a pas bougé : toujours « ne pas garder », pas « garder ».
+        etat = _requete(app, "GET", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies)
+        assert etat.json()["donnees"]["garder"] is False
+        assert etat.json()["donnees"]["tache"] is not None
+        assert etat.json()["donnees"]["tache"]["statut"] == "en_cours"
+    finally:
+        archive.autorise.set()
+
+    fini = _attendre_conservation(app, cookies, lancement.json()["donnees"]["tache"]["id"])
+    assert fini["statut"] == "fini", fini
+    # La tâche terminée, revenir à « garder » passe.
+    retour = _requete(app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": True})
+    assert retour.status_code == 200, retour.text
+
+
+def test_effacement_incomplet_se_relance_sans_perdre_le_choix(url_base, tmp_path):
+    """Choix posé « ne pas garder », fichiers encore là, aucune tâche en
+    cours (tâche échouée, ou serveur redémarré depuis) : `GET` le dit encore,
+    et un nouveau `PUT {garder: false}` relance l'effacement."""
+    app, proprietaire_id, cookies = _inviter_et_entrer(url_base, tmp_path, client_archive=_ArchiveConstante())
+    qui = Proprietaire(proprietaire_id)
+    dossier_cache = app.state.ourouler.dossier_cache
+    cache = Cache(dossier_cache, proprietaire=str(qui))
+    cache.ajouter(
+        synth.tcx_synthetique(synth.ROUTE, date(2026, 1, 1)),
+        source="fichier",
+        id_externe="sortie-essai",
+        extension="tcx",
+        meta={"fichier": "sortie-essai.tcx", "sport": "Ride", "puissance_moy_w": 180.0},
+    )
+    lancement = _requete(
+        app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": False}
+    )
+    assert lancement.status_code == 202, lancement.text
+    _attendre_conservation(app, cookies, lancement.json()["donnees"]["tache"]["id"])
+
+    # Simule une tâche qui n'a pas fini son travail (panne, redémarrage) :
+    # le fichier est encore là malgré le choix « ne pas garder » déjà posé.
+    cache_directe = Cache(dossier_cache, proprietaire=str(qui), conserver_brut=True)
+    identifiant = cache_directe.lister()[0].identifiant
+    cache_directe.ajouter(
+        synth.tcx_synthetique(synth.ROUTE, date(2026, 1, 1)),
+        source="fichier",
+        id_externe="sortie-essai",
+        extension="tcx",
+        meta={"fichier": "sortie-essai.tcx", "sport": "Ride", "puissance_moy_w": 180.0},
+    )
+    assert cache_directe.chemin(identifiant).is_file()
+
+    etat = _requete(app, "GET", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies)
+    donnees = etat.json()["donnees"]
+    assert donnees["garder"] is False
+    assert donnees["nombre_fichiers"] >= 1
+    assert donnees["tache"] is None  # rien en cours : c'est bien à relancer
+
+    relance = _requete(app, "PUT", f"{PREFIXE}/moi/fichiers-origine", cookies=cookies, json={"garder": False})
+    assert relance.status_code == 202, relance.text
+    fini = _attendre_conservation(app, cookies, relance.json()["donnees"]["tache"]["id"])
+    assert fini["statut"] == "fini", fini
+    assert not cache_directe.chemin(identifiant).is_file()
 
 
 def test_isolation_entre_deux_comptes_reels_dont_un_fichier_commun(url_base, tmp_path):

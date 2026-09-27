@@ -10,6 +10,7 @@ from ourouler.api import base_de_donnees, vie_privee
 from ourouler.api.comptes import DepotComptes, ErreurCompte, ErreurMotDePasseActuelRefuse
 from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.modeles import DemandeChangementMotDePasse, DemandeConservationFichiers
+from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.routes.commun import (
     Contexte,
     Ctx,
@@ -120,19 +121,36 @@ def etat_conservation_fichiers(ctx: Ctx, qui: Qui) -> dict:
     personnel) — il n'y a alors pas de choix à faire, les fichiers bruts du
     cache local ne sont jamais effacés d'office.
     """
+    from ourouler.api import taches_fond
+
     with _comptes_du_deploiement(ctx) as comptes:
         choix = comptes.choix_conservation_du_proprietaire(qui) if comptes is not None else None
     garder = choix.garder if choix is not None else True
     config = _config(ctx, qui)
     nombre = _cache(config, qui, conserver_brut=garder).nombre_bruts()
+    tache = taches_fond.dernier(str(qui), taches_fond.NATURE_CONSERVATION)
     return {
         "proprietaire": str(qui),
         "donnees": {
             "garder": garder,
             "depuis": choix.depuis.isoformat() if choix is not None and choix.depuis is not None else None,
             "nombre_fichiers": nombre,
+            # Un rechargement de page pendant l'effacement ne doit pas
+            # perdre le suivi : `tache` n'est rendue que tant qu'elle tourne
+            # encore, `FichiersOrigineVolet` reprend son interrogation dès
+            # qu'elle la voit — sinon l'écran proposerait de nouveau
+            # « Garder » alors que la purge efface encore.
+            "tache": tache.json() if tache is not None and tache.statut == "en_cours" else None,
         },
     }
+
+
+def _tache_conservation_en_cours(qui: Proprietaire):
+    """Le job d'effacement de ce compte, s'il tourne encore — sinon `None`."""
+    from ourouler.api import taches_fond
+
+    tache = taches_fond.dernier(str(qui), taches_fond.NATURE_CONSERVATION)
+    return tache if tache is not None and tache.statut == "en_cours" else None
 
 
 @routeur.put("/moi/fichiers-origine")
@@ -141,52 +159,82 @@ def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservation
 
     **Revenir à « garder »** (`corps.garder` vrai) ne vaut que pour les
     imports suivants — rien à faire de plus, la réponse est immédiate (200).
+    Refusée (409) tant que la tâche d'effacement de ce compte tourne encore :
+    sans ce refus, le choix repasserait à « garder » pendant que la purge
+    dérive et efface encore ses fichiers, sous le nez de la personne.
 
-    **Passer à « ne pas garder »** lance une tâche de fond (202, comme un
-    import) : chaque sortie qu'une calibration pourrait retenir est dérivée
-    — l'archive météo est encore appelable, le fichier est encore là — puis
-    tous les fichiers d'origine du compte disparaissent d'un coup
-    (`services.derive.purger_avec_derivation`). Dériver avant d'effacer est
-    ce qui tient la promesse de l'écran : sans lui, toutes les sorties
-    passeraient « à redéposer » — l'inverse de ce que ce choix promet.
-    `GET /moi/fichiers-origine/{id_job}` suit son avancement.
+    **Passer à « ne pas garder »** pose le choix tout de suite, puis lance
+    une tâche de fond (202, comme un import) : chaque sortie qu'une
+    calibration pourrait retenir est dérivée — l'archive météo est encore
+    appelable, le fichier est encore là — puis tous les fichiers d'origine
+    du compte disparaissent d'un coup (`services.derive.purger_avec_derivation`).
+    Dériver avant d'effacer est ce qui tient la promesse de l'écran : sans
+    lui, toutes les sorties passeraient « à redéposer » — l'inverse de ce
+    que ce choix promet. `GET /moi/fichiers-origine/{id_job}` suit son
+    avancement, et `GET /moi/fichiers-origine` la retrouve après un
+    rechargement.
+
+    Si la tâche ne peut pas être lancée (verrou serveur entier déjà tenu par
+    un import, une calibration ou un autre effacement — 409
+    `tache_lourde_en_cours` —, ou toute autre panne au lancement), le choix
+    posé juste avant est **rétabli** : un refus est un refus complet, jamais
+    à moitié appliqué.
 
     L'écran doit avoir fait confirmer le coût avant d'appeler cette route ;
-    elle-même ne redemande rien. 409 `tache_lourde_en_cours` si un import,
-    une calibration ou un autre effacement tourne déjà sur le serveur — même
-    verrou que les deux autres tâches lourdes (`api/taches_fond.py`).
+    elle-même ne redemande rien.
 
     404 `comptes_indisponibles` sur un déploiement sans base de comptes : ce
     choix n'a de sens que pour un compte du service.
     """
+    if corps.garder:
+        return _revenir_a_garder(ctx, qui)
+    return _passer_a_ne_pas_garder(ctx, qui)
+
+
+def _revenir_a_garder(ctx: Contexte, qui: Proprietaire) -> dict:
+    """`corps.garder` vrai : rien à dériver ni à effacer, le choix se pose directement."""
+    from ourouler.api import taches_fond
+
+    if _tache_conservation_en_cours(qui) is not None:
+        raise ErreurApi(
+            code="tache_lourde_en_cours",
+            message=_message_occupe(taches_fond.NATURE_CONSERVATION),
+            statut=409,
+        )
+    with _comptes_du_deploiement(ctx) as comptes:
+        if comptes is None:
+            raise _sans_comptes()
+        try:
+            choix = comptes.definir_conservation_du_proprietaire(qui, garder=True)
+        except ErreurCompte as e:
+            raise _sans_comptes() from e
+    assert choix.depuis is not None  # toujours posé à `now()` par l'appel ci-dessus
+    return {
+        "proprietaire": str(qui),
+        "donnees": {"garder": True, "depuis": choix.depuis.isoformat(), "tache": None},
+    }
+
+
+def _passer_a_ne_pas_garder(ctx: Contexte, qui: Proprietaire):
+    """`corps.garder` faux : pose le choix, puis lance la tâche de fond — voir le module."""
     from ourouler.api import taches_fond
     from ourouler.services import derive
 
-    if corps.garder:
-        # Rien à dériver ni à effacer : le choix se pose directement.
-        with _comptes_du_deploiement(ctx) as comptes:
-            if comptes is None:
-                raise _sans_comptes()
-            try:
-                choix = comptes.definir_conservation_du_proprietaire(qui, garder=True)
-            except ErreurCompte as e:
-                raise _sans_comptes() from e
-        assert choix.depuis is not None  # toujours posé à `now()` par l'appel ci-dessus
-        return {
-            "proprietaire": str(qui),
-            "donnees": {"garder": True, "depuis": choix.depuis.isoformat(), "tache": None},
-        }
-
-    # « Ne pas garder » lance une tâche lourde : le verrou serveur entier est
-    # vérifié **avant** de poser le choix en base — un refus (409) ne doit
-    # rien changer, ni au choix ni aux fichiers. `comptes_indisponibles` (404)
-    # se vérifie aussi avant, pour la même raison : un refus est un refus
-    # complet, jamais à moitié appliqué.
+    # Le choix se pose tout de suite, avant de lancer la tâche — c'est ce qui
+    # permet à `GET` de dire aussitôt le bon état pendant que la tâche
+    # démarre. `ancien` garde de quoi rétablir si le lancement échoue (verrou
+    # tenu, panne) : un refus ne doit rien changer.
     with _comptes_du_deploiement(ctx) as comptes:
         if comptes is None:
             raise _sans_comptes()
         if comptes.compte_du_proprietaire(qui) is None:
             raise _sans_comptes()
+        ancien = comptes.choix_conservation_du_proprietaire(qui)
+        try:
+            choix = comptes.definir_conservation_du_proprietaire(qui, garder=False)
+        except ErreurCompte as e:
+            raise _sans_comptes() from e
+    assert choix.depuis is not None
 
     config = _config(ctx, qui)
     cache = _cache(config, qui, conserver_brut=False)
@@ -200,25 +248,24 @@ def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservation
             avancer=lambda traites, total: job.avancer(traites, total),
         )
 
+    def retablir() -> None:
+        garder_avant = ancien.garder if ancien is not None else True
+        with _comptes_du_deploiement(ctx) as comptes:
+            if comptes is not None:
+                comptes.definir_conservation_du_proprietaire(qui, garder=garder_avant)
+
     try:
         job = taches_fond.lancer(str(qui), taches_fond.NATURE_CONSERVATION, travailler)
     except taches_fond.ErreurTacheEnCours as occupe:
+        retablir()
         raise ErreurApi(
             code="tache_lourde_en_cours",
             message=_message_occupe(occupe.nature),
             statut=409,
         ) from None
-
-    # Le verrou est tenu par `job` jusqu'à la fin de la tâche : le choix ne
-    # se pose donc qu'une fois la tâche vraiment lancée.
-    with _comptes_du_deploiement(ctx) as comptes:
-        if comptes is None:  # ne peut plus arriver (vérifié ci-dessus), gardé pour le typage
-            raise _sans_comptes()
-        try:
-            choix = comptes.definir_conservation_du_proprietaire(qui, garder=False)
-        except ErreurCompte as e:
-            raise _sans_comptes() from e
-    assert choix.depuis is not None
+    except Exception as e:
+        retablir()
+        raise classer(e) from e
 
     return JSONResponse(
         status_code=202,

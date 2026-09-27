@@ -158,6 +158,51 @@ describe("fichiers d'origine, dans le volet « Mon compte »", () => {
     expect(serveur.vers("/api/v1/moi/fichiers-origine").filter((r) => r.methode === "PUT")).toHaveLength(0);
   });
 
+  it("reprend « Effacement en cours… » quand GET rend une tâche déjà en cours (rechargement)", async () => {
+    const idTache = "tache-en-cours-0002";
+    const serveur = new Serveur({
+      "/api/v1/moi/fichiers-origine": {
+        charge: {
+          donnees: {
+            garder: false,
+            depuis: "2026-09-27T10:00:00Z",
+            nombre_fichiers: 42,
+            tache: { id: idTache, statut: "en_cours", traites: 3, total: 42, rapport: null, erreur: null },
+          },
+        },
+      },
+      "/api/v1/moi": { charge: { proprietaire: "essai", donnees: { email: "compte@exemple.invalid" } } },
+    });
+    serveur.installer();
+    rendreReglages();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gérer" }));
+    // Ni « Effacement en cours » vu comme « Vous ne gardez pas… » sans plus
+    // d'explication, ni surtout le bouton « Garder » qui poserait le choix
+    // pendant que la purge efface encore.
+    await screen.findByText("Effacement en cours…");
+    expect(screen.queryByRole("button", { name: "Garder mes fichiers d'origine" })).toBeNull();
+  });
+
+  it("propose de relancer l'effacement quand des fichiers restent sans tâche en cours", async () => {
+    const serveur = new Serveur({
+      "/api/v1/moi/fichiers-origine": {
+        charge: {
+          donnees: { garder: false, depuis: "2026-09-27T10:00:00Z", nombre_fichiers: 5, tache: null },
+        },
+      },
+      "/api/v1/moi": { charge: { proprietaire: "essai", donnees: { email: "compte@exemple.invalid" } } },
+    });
+    serveur.installer();
+    rendreReglages();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gérer" }));
+    await screen.findByText(/5 fichiers restent à effacer/);
+    expect(screen.getByRole("button", { name: "Relancer l'effacement" })).toBeTruthy();
+    // Le bouton « Garder » reste proposé à côté : les deux choix restent ouverts.
+    expect(screen.getByRole("button", { name: "Garder mes fichiers d'origine" })).toBeTruthy();
+  });
+
   it("n'affiche pas la section sans compte (mode personnel)", async () => {
     const serveur = new Serveur({
       "/api/v1/moi": { charge: { proprietaire: "essai", donnees: { email: null } } },

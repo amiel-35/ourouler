@@ -107,17 +107,23 @@ export interface MonCompte {
  * `garder` vaut `true` par défaut sur un déploiement sans base de comptes
  * (mode personnel) — il n'y a alors pas de choix à faire. `depuis` est
  * `null` tant que personne n'a jamais posé le réglage explicitement.
+ * `tache` n'est rendue que si un effacement tourne encore : c'est ce qui
+ * permet à l'écran de reprendre « Effacement en cours… » après un
+ * rechargement, plutôt que de proposer de nouveau « Garder » pendant que la
+ * purge efface encore.
  */
 export interface ConservationFichiers {
   garder: boolean;
   depuis: string | null;
   nombre_fichiers: number;
+  tache: TacheConservation | null;
 }
 
 /** Ce que `RapportConservation.rapport` porte une fois la tâche finie. */
 export interface RapportConservation {
   candidates: number;
   derivees: number;
+  deja_a_jour: number;
   sans_vent: number;
   echecs: number;
   fichiers_effaces: number;
