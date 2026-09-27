@@ -22,6 +22,11 @@
       "nom": "0002_sessions.sql",
       "numero": 2,
       "sha256": "22dcc8b83f0591170a4e73e311fa187614cd172f27ede6722816babad288d437"
+    },
+    {
+      "nom": "0003_demandes_invitation.sql",
+      "numero": 3,
+      "sha256": "04d57e22ca64a1368644bac75adecbc29b19edfaa523503459089b7f254e849c"
     }
   ]
 }

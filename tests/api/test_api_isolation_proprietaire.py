@@ -151,6 +151,9 @@ ROUTES_AVANT_SESSION: dict[str, str] = {
     "/api/v1/connexion": "ouvre une session sur un compte existant — le propriétaire n'est "
     "pas encore résolu au moment de l'appel, c'est lui qui le produit",
     "/api/v1/sortir": "détruit la session en cours — efface un cookie, ne lit aucune donnée",
+    "/api/v1/demandes-invitation": "le formulaire public de demande d'invitation — aucun "
+    "compte, donc aucun propriétaire, n'existe encore quand cette route est appelée "
+    "(sprint 12, doctrine §10.2)",
 }
 
 
@@ -389,7 +392,7 @@ def _invariants_du_depot():
 #: La même liste vit dans `tests/test_invariants.py`, et un test ci-dessous
 #: échoue si les deux divergent : une exception qui n'existe qu'à un endroit
 #: est une exception qu'on oublie de justifier au second.
-TABLES_IDENTITE = ("comptes", "invitations", "sessions", "migrations")
+TABLES_IDENTITE = ("comptes", "invitations", "sessions", "migrations", "demandes_invitation")
 
 #: Le motif qui repère une instruction SQL de données dans un texte.
 #:

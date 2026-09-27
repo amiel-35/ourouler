@@ -195,12 +195,14 @@ MODULES: dict[str, str] = {
     "ourouler.boucle.gpx": "stockage",
     "ourouler.meteo.cache_previsions": "stockage",
     "ourouler.api.comptes": "stockage",
+    "ourouler.api.demandes": "stockage",
     "ourouler.api.courriel": "connecteurs",
     # 3. cas d'usage
     "ourouler.services": "services",
     "ourouler.services.calibrer": "services",
     "ourouler.services.comparer": "services",
     "ourouler.services.comptes": "services",
+    "ourouler.services.demandes": "services",
     "ourouler.services.contexte": "services",
     "ourouler.services.activites": "services",
     "ourouler.services.apprentissage": "services",
@@ -232,6 +234,7 @@ MODULES: dict[str, str] = {
     "ourouler.config": "config",
     "ourouler.cli": "cli",
     "ourouler.cli.__main__": "cli",
+    "ourouler.cli.admin": "cli",
     "ourouler.cli.comptes": "cli",
     "ourouler.cli.depart": "cli",
     "ourouler.cli.options": "cli",
@@ -250,6 +253,7 @@ MODULES: dict[str, str] = {
     "ourouler.commandes.sortie": "commandes",
     "ourouler.api": "api",
     "ourouler.api.adaptateur": "api",
+    "ourouler.api.admin": "api",
     "ourouler.api.calculs": "api",
     "ourouler.api.double_chemin": "api",
     "ourouler.api.reponses": "api",
@@ -268,6 +272,7 @@ MODULES: dict[str, str] = {
     "ourouler.api.routes.activites": "api",
     "ourouler.api.routes.calibrations": "api",
     "ourouler.api.routes.commun": "api",
+    "ourouler.api.routes.demandes": "api",
     "ourouler.api.routes.fichiers": "api",
     "ourouler.api.routes.generations": "api",
     "ourouler.api.routes.inventaire": "api",
@@ -313,6 +318,9 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     ("ourouler.cli.comptes", "ourouler.api.comptes"),
     ("ourouler.cli.comptes", "ourouler.api.courriel"),
     ("ourouler.cli.comptes", "ourouler.services.comptes"),
+    # `api/exploitation.py` annote le retour de `parametres_brevo_service` sans
+    # dépendre, à l'exécution, du client SMTP que `ourouler inviter` seul tire.
+    ("ourouler.api.exploitation", "ourouler.api.courriel"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
     # l'entrée qui la charge ; celui des parcours de même.
     ("ourouler.rendu.profil", "ourouler.config"),

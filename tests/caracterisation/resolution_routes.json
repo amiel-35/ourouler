@@ -64,6 +64,13 @@
       "nom": "sortir"
     },
     {
+      "chemin": "/api/v1/demandes-invitation",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "demander_invitation"
+    },
+    {
       "chemin": "/api/v1/systeme",
       "methodes": [
         "GET"
@@ -316,6 +323,7 @@
     "DELETE /api/v1/calibrations": "405",
     "DELETE /api/v1/calibrations/exemple-id_job": "405",
     "DELETE /api/v1/connexion": "405",
+    "DELETE /api/v1/demandes-invitation": "405",
     "DELETE /api/v1/entrer": "405",
     "DELETE /api/v1/fichiers/exemple-identifiant": "405",
     "DELETE /api/v1/geocodage": "405",
@@ -356,6 +364,7 @@
     "GET /api/v1/calibrations": "ourouler.api.routes:etat_calibrations",
     "GET /api/v1/calibrations/exemple-id_job": "ourouler.api.routes:etat_job_calibration",
     "GET /api/v1/connexion": "405",
+    "GET /api/v1/demandes-invitation": "405",
     "GET /api/v1/entrer": "405",
     "GET /api/v1/fichiers/exemple-identifiant": "ourouler.api.routes:servir_fichier",
     "GET /api/v1/geocodage": "ourouler.api.routes:geocoder",
@@ -396,6 +405,7 @@
     "PATCH /api/v1/calibrations": "405",
     "PATCH /api/v1/calibrations/exemple-id_job": "405",
     "PATCH /api/v1/connexion": "405",
+    "PATCH /api/v1/demandes-invitation": "405",
     "PATCH /api/v1/entrer": "405",
     "PATCH /api/v1/fichiers/exemple-identifiant": "405",
     "PATCH /api/v1/geocodage": "405",
@@ -436,6 +446,7 @@
     "POST /api/v1/calibrations": "ourouler.api.routes:lancer_calibration",
     "POST /api/v1/calibrations/exemple-id_job": "405",
     "POST /api/v1/connexion": "ourouler.api.routes:connexion",
+    "POST /api/v1/demandes-invitation": "ourouler.api.routes:demander_invitation",
     "POST /api/v1/entrer": "ourouler.api.routes:entrer",
     "POST /api/v1/fichiers/exemple-identifiant": "405",
     "POST /api/v1/geocodage": "405",
