@@ -424,9 +424,11 @@ def _depart(point: Point | None) -> Depart | None:
 
 def _message_occupe(nature: str | None) -> str:
     """Le refus quand une tâche lourde occupe le serveur — sans dire à qui elle appartient."""
-    quoi = {"import": "un import d'historique", "calibration": "une calibration"}.get(
-        nature or "", "un import ou une calibration"
-    )
+    quoi = {
+        "import": "un import d'historique",
+        "calibration": "une calibration",
+        "conservation": "l'effacement de fichiers d'origine",
+    }.get(nature or "", "un import, une calibration ou un effacement de fichiers d'origine")
     return (
         f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez dans quelques minutes"
     )

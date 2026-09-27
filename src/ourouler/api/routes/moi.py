@@ -4,13 +4,22 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from ourouler.api import base_de_donnees, vie_privee
 from ourouler.api.comptes import DepotComptes, ErreurCompte, ErreurMotDePasseActuelRefuse
 from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.modeles import DemandeChangementMotDePasse, DemandeConservationFichiers
-from ourouler.api.routes.commun import Contexte, Ctx, Qui, _cache, _config, nouveau_routeur
+from ourouler.api.routes.commun import (
+    Contexte,
+    Ctx,
+    Qui,
+    _cache,
+    _client_archive,
+    _config,
+    _message_occupe,
+    nouveau_routeur,
+)
 from ourouler.api.session import SessionParCookie
 
 routeur = nouveau_routeur()
@@ -113,12 +122,13 @@ def etat_conservation_fichiers(ctx: Ctx, qui: Qui) -> dict:
     """
     with _comptes_du_deploiement(ctx) as comptes:
         choix = comptes.choix_conservation_du_proprietaire(qui) if comptes is not None else None
+    garder = choix.garder if choix is not None else True
     config = _config(ctx, qui)
-    nombre = _cache(config, qui).nombre_bruts()
+    nombre = _cache(config, qui, conserver_brut=garder).nombre_bruts()
     return {
         "proprietaire": str(qui),
         "donnees": {
-            "garder": choix.garder if choix is not None else True,
+            "garder": garder,
             "depuis": choix.depuis.isoformat() if choix is not None and choix.depuis is not None else None,
             "nombre_fichiers": nombre,
         },
@@ -126,39 +136,117 @@ def etat_conservation_fichiers(ctx: Ctx, qui: Qui) -> dict:
 
 
 @routeur.put("/moi/fichiers-origine")
-def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservationFichiers) -> dict:
-    """Change le choix de ce compte. Passer à « ne pas garder » efface tout de suite ses fichiers.
+def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservationFichiers):
+    """Change le choix de ce compte.
 
-    **Immédiat et sans retour** : tous les fichiers d'origine du compte
-    (toutes sources) disparaissent dès cet appel — `Cache.effacer_bruts`.
+    **Revenir à « garder »** (`corps.garder` vrai) ne vaut que pour les
+    imports suivants — rien à faire de plus, la réponse est immédiate (200).
+
+    **Passer à « ne pas garder »** lance une tâche de fond (202, comme un
+    import) : chaque sortie qu'une calibration pourrait retenir est dérivée
+    — l'archive météo est encore appelable, le fichier est encore là — puis
+    tous les fichiers d'origine du compte disparaissent d'un coup
+    (`services.derive.purger_avec_derivation`). Dériver avant d'effacer est
+    ce qui tient la promesse de l'écran : sans lui, toutes les sorties
+    passeraient « à redéposer » — l'inverse de ce que ce choix promet.
+    `GET /moi/fichiers-origine/{id_job}` suit son avancement.
+
     L'écran doit avoir fait confirmer le coût avant d'appeler cette route ;
-    elle-même ne redemande rien. Revenir à « garder » ne vaut que pour les
-    imports suivants : les fichiers déjà effacés ne reviennent pas.
+    elle-même ne redemande rien. 409 `tache_lourde_en_cours` si un import,
+    une calibration ou un autre effacement tourne déjà sur le serveur — même
+    verrou que les deux autres tâches lourdes (`api/taches_fond.py`).
 
     404 `comptes_indisponibles` sur un déploiement sans base de comptes : ce
     choix n'a de sens que pour un compte du service.
     """
+    from ourouler.api import taches_fond
+    from ourouler.services import derive
+
+    if corps.garder:
+        # Rien à dériver ni à effacer : le choix se pose directement.
+        with _comptes_du_deploiement(ctx) as comptes:
+            if comptes is None:
+                raise _sans_comptes()
+            try:
+                choix = comptes.definir_conservation_du_proprietaire(qui, garder=True)
+            except ErreurCompte as e:
+                raise _sans_comptes() from e
+        assert choix.depuis is not None  # toujours posé à `now()` par l'appel ci-dessus
+        return {
+            "proprietaire": str(qui),
+            "donnees": {"garder": True, "depuis": choix.depuis.isoformat(), "tache": None},
+        }
+
+    # « Ne pas garder » lance une tâche lourde : le verrou serveur entier est
+    # vérifié **avant** de poser le choix en base — un refus (409) ne doit
+    # rien changer, ni au choix ni aux fichiers. `comptes_indisponibles` (404)
+    # se vérifie aussi avant, pour la même raison : un refus est un refus
+    # complet, jamais à moitié appliqué.
     with _comptes_du_deploiement(ctx) as comptes:
         if comptes is None:
             raise _sans_comptes()
+        if comptes.compte_du_proprietaire(qui) is None:
+            raise _sans_comptes()
+
+    config = _config(ctx, qui)
+    cache = _cache(config, qui, conserver_brut=False)
+    client_archive = _client_archive(ctx, config)
+
+    def travailler(job):
+        return derive.purger_avec_derivation(
+            cache,
+            client_archive,
+            verifier=job.verifier_annulation,
+            avancer=lambda traites, total: job.avancer(traites, total),
+        )
+
+    try:
+        job = taches_fond.lancer(str(qui), taches_fond.NATURE_CONSERVATION, travailler)
+    except taches_fond.ErreurTacheEnCours as occupe:
+        raise ErreurApi(
+            code="tache_lourde_en_cours",
+            message=_message_occupe(occupe.nature),
+            statut=409,
+        ) from None
+
+    # Le verrou est tenu par `job` jusqu'à la fin de la tâche : le choix ne
+    # se pose donc qu'une fois la tâche vraiment lancée.
+    with _comptes_du_deploiement(ctx) as comptes:
+        if comptes is None:  # ne peut plus arriver (vérifié ci-dessus), gardé pour le typage
+            raise _sans_comptes()
         try:
-            choix = comptes.definir_conservation_du_proprietaire(qui, garder=corps.garder)
+            choix = comptes.definir_conservation_du_proprietaire(qui, garder=False)
         except ErreurCompte as e:
             raise _sans_comptes() from e
-    config = _config(ctx, qui)
-    fichiers_effaces = 0
-    if not corps.garder:
-        fichiers_effaces = _cache(config, qui, conserver_brut=False).effacer_bruts()
-    # `definir_conservation_du_proprietaire` pose toujours `now()` : jamais `None` ici.
     assert choix.depuis is not None
-    return {
-        "proprietaire": str(qui),
-        "donnees": {
-            "garder": choix.garder,
-            "depuis": choix.depuis.isoformat(),
-            "fichiers_effaces": fichiers_effaces,
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "proprietaire": str(qui),
+            "donnees": {"garder": False, "depuis": choix.depuis.isoformat(), "tache": job.json()},
         },
-    }
+    )
+
+
+@routeur.get("/moi/fichiers-origine/{id_job}")
+def etat_job_conservation_fichiers(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est l'effacement lancé par `PUT /moi/fichiers-origine` — à interroger périodiquement.
+
+    Même cloisonnement que `GET /activites/import/{id}` : l'identifiant d'un
+    autre propriétaire, ou d'une tâche d'une autre nature, rend
+    `fichier_introuvable`.
+    """
+    from ourouler.api import taches_fond
+
+    job = taches_fond.trouver(str(qui), id_job, taches_fond.NATURE_CONSERVATION)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"effacement {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
 
 
 @routeur.post("/moi/mot-de-passe")

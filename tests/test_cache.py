@@ -541,6 +541,42 @@ def test_un_fichier_depose_avant_la_separation_se_relit_encore(tmp_path: Path, a
     assert not ancien.exists()
 
 
+def test_effacer_bruts_ne_touche_pas_le_fichier_partage_d_un_autre_compte(tmp_path: Path, activites: Path):
+    """Fiche « choix de garder ou d'effacer ses fichiers d'origine », relecture.
+
+    Un fichier déposé avant la séparation par compte (25/09/2026) peut être
+    cité par **deux** propriétaires à la fois dans le `brut/` commun — voir
+    `test_un_fichier_depose_avant_la_separation_se_relit_encore`. Le compte A
+    passe à « ne pas garder » (`effacer_bruts`) ; le compte B, qui n'a pas
+    changé d'avis, doit encore relire le sien — même identifiant, même
+    fichier partagé.
+    """
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    a = Cache(dossier, proprietaire="compte-a")
+    identifiant = a.ajouter(contenu, source="fichier", id_externe=None, extension="gpx", meta={})
+    # Simule l'ancien rangement : le fichier dans le `brut/` commun, cité par
+    # les deux comptes (le second dépôt n'écrit rien, `identite` = contenu).
+    propre = a.brut / f"{identifiant}.gpx"
+    partage = dossier / NOM_BRUT / f"{identifiant}.gpx"
+    propre.replace(partage)
+    # `conserver_brut=False` ici : seule l'index de B s'écrit, sans lui
+    # recopier le fichier — c'est le partage lui-même qui doit le lui
+    # laisser relire, via le repli sur `brut/` commun (`Cache._fichier`).
+    b = Cache(dossier, proprietaire="compte-b", conserver_brut=False)
+    b.ajouter(contenu, source="fichier", id_externe=None, extension="gpx", meta={})
+    assert a.chemin(identifiant) == partage
+    assert b.chemin(identifiant) == partage
+
+    a.conserver_brut = False
+    effaces = a.effacer_bruts()
+
+    assert effaces == 0  # le fichier n'est pas à A seul : il reste, rien à compter pour A
+    assert partage.is_file()
+    assert b.relire(identifiant) is not None
+    assert len(a.lister()) == 1  # l'index de A n'a pas bougé, seul le fichier était en jeu
+
+
 def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(tmp_path: Path, activites: Path):
     """`--synchroniser` ne doit pas cesser d'être idempotent pour autant."""
     dossier = tmp_path / "cache"

@@ -446,6 +446,66 @@ def trier(cache: Cache, entrees: list[EntreeCache]) -> tuple[list[EntreeCache], 
     return (gardees, motifs)
 
 
+def purger_avec_derivation(
+    cache: Cache,
+    client_archive,
+    *,
+    verifier: Callable[[], None] | None = None,
+    avancer: Callable[[int, int], None] | None = None,
+) -> dict:
+    """Dérive puis efface les fichiers d'origine déjà déposés — le geste de « ne plus les garder ».
+
+    **Dans cet ordre, et c'est ce qui compte** : chaque sortie qu'une
+    calibration pourrait retenir (`candidate`) est dérivée pendant que son
+    fichier est encore là — c'est le seul moment où l'archive météo peut
+    encore être appelée pour elle (`Derivateur`, comme à l'import) —, et ce
+    n'est qu'une fois **toutes** dérivées que `Cache.effacer_bruts` retire
+    les fichiers d'un coup. Effacer d'abord et dériver ensuite laisserait
+    les sorties déjà passées sans trace ni dérivé si la tâche s'arrêtait en
+    cours de route (panne, compte supprimé) : l'ordre inverse est sans
+    risque, une sortie déjà dérivée reste dérivée même si le reste échoue.
+
+    Une sortie hors calibration (home-trainer, sans puissance, trop courte)
+    n'a rien à dériver ; son fichier part quand même avec les autres.
+
+    `verifier` : la vérification d'annulation à passer à chaque écriture
+    (`Job.verifier_annulation`) — un compte supprimé pendant la tâche ne
+    reçoit plus rien, exactement comme un import. `avancer(traites, total)`
+    suit la dérivation ; l'effacement lui-même, une fois les fichiers déjà
+    connus, ne dure pas assez pour valoir un second décompte.
+    """
+    entrees = [e for e in cache.lister() if candidate(e)]
+    deriver = Derivateur(cache=cache, client_archive=client_archive, verifier=verifier)
+    total = len(entrees)
+    try:
+        for rang, entree in enumerate(entrees, start=1):
+            if avancer is not None:
+                avancer(rang, total)
+            try:
+                activite = cache.relire(entree.identifiant)
+            except (KeyError, ErreurUtilisateur, OSError):
+                continue  # fichier déjà absent ou illisible : rien à en tirer, il part quand même
+            deriver(
+                entree.identifiant,
+                activite,
+                entree.meta,
+                nom=str(entree.meta.get("fichier") or ""),
+                deja=True,
+            )
+        deriver.terminer()
+    except BaseException:
+        deriver.fermer()
+        raise
+    fichiers_effaces = cache.effacer_bruts()
+    return {
+        "candidates": total,
+        "derivees": deriver.derivees,
+        "sans_vent": deriver.sans_vent,
+        "echecs": len(deriver.echecs),
+        "fichiers_effaces": fichiers_effaces,
+    }
+
+
 def charger(
     cache: Cache,
     entrees: list[EntreeCache],
@@ -496,6 +556,7 @@ __all__ = [
     "entree_de",
     "etat",
     "melanger",
+    "purger_avec_derivation",
     "serialiser",
     "trier",
 ]
