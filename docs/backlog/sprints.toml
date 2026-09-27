@@ -1,0 +1,88 @@
+# État d'avancement des sprints d'ourouler.
+#
+# Ce fichier est la SEULE source d'avancement des sprints : les fiches dans
+# docs/backlog/*.md décrivent une feature (pourquoi, ce qu'on veut voir,
+# quand c'est fini), elles ne portent aucun statut de sprint ni de livraison.
+# On modifie ce fichier via le skill /backlog (planification, priorisation,
+# vérification) ou à la main pour un ajustement ponctuel.
+# scripts/verifier_backlog.py vérifie ce fichier mécaniquement, en local et
+# en CI (règles statiques toujours, comparaison contre une base git avec
+# --base pour empêcher un retour en arrière ou un remaniement furtif d'un
+# sprint déjà figé/en cours).
+
+[[sprint]]
+numero = 10
+statut = "en_cours"
+titre = "Ouverture du dépôt et restructuration"
+
+[[sprint.element]]
+chantier = "ouverture"
+statut = "en_cours"
+
+[[sprint]]
+numero = 11
+statut = "fige"
+titre = "Trois gestes quotidiens du cycliste"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-heure-depart-du-jour"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-trois-boucles-retenues"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-partage-gpx-boucle-libre"
+statut = "prevu"
+
+[[sprint]]
+numero = 12
+statut = "fige"
+titre = "Le cycliste décide de ses données, le mainteneur administre sans ssh"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-choix-conservation-fichiers-bruts"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-demande-invitation-et-admin"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-calibration-provisoire"
+statut = "prevu"
+
+[[sprint]]
+numero = 13
+statut = "esquisse"
+titre = "Importer par lien, relief, comptes"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-import-par-lien-strava-garmin"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-relief-demande"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-connexion-par-lien-et-mot-de-passe-oublie"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-zone-rouge-reglages"
+statut = "prevu"
+
+[[sprint]]
+numero = 14
+statut = "esquisse"
+titre = "Mesurer sur l'historique et sur les invités"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-facteur-compteur-mesure"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-26-feature-valeurs-par-defaut-mesurees-sur-invites"
+statut = "prevu"

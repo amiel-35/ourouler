@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Annuler un run dépassé seulement sur une PR : jamais sur un push à main/prod.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   secrets:
@@ -44,6 +45,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
@@ -62,6 +65,32 @@ jobs:
       # tolérées, gelées dans pyright_ligne_de_base.json ; toute erreur
       # nouvelle fait échouer ce pas (AGENTS.md, CONTRIBUTING.md).
       - run: uv run python scripts/pyright_ligne_de_base.py
+
+      # Base de comparaison : la branche cible sur une PR ; sur un push (main
+      # comme prod), le commit d'avant le push, sauf branche toute neuve (before
+      # nul) où l'on compare à origin/main. Une base introuvable fait échouer.
+      # --commits : chaque commit de base..HEAD qui touche sprints.toml est
+      # vérifié contre son premier parent (un diff = un commit).
+      - name: Vérifier le backlog
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BRANCHE_CIBLE: ${{ github.base_ref }}
+          AVANT: ${{ github.event.before }}
+        run: |
+          REF_NULLE=0000000000000000000000000000000000000000
+          if [ "$EVENEMENT" = "pull_request" ]; then
+            base="origin/$BRANCHE_CIBLE"
+          elif [ "$EVENEMENT" = "push" ]; then
+            if [ "$AVANT" = "$REF_NULLE" ] || [ -z "$AVANT" ]; then
+              base="origin/main"
+            else
+              base="$AVANT"
+            fi
+          else
+            base="origin/main"
+          fi
+          echo "Base de comparaison du backlog : $base"
+          uv run python scripts/verifier_backlog.py --commits "$base"
 
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
