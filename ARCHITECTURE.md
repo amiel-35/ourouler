@@ -5,7 +5,7 @@ l'écart entre les deux. Il ne porte volontairement aucun compte de lignes :
 un chiffre recopié à la main se périme au premier commit ; `wc -l` et
 `tests/test_architecture.py` disent l'état du jour. La doctrine qui justifie
 ces choix est dans [`doctrine_architecture.md`](doctrine_architecture.md) ;
-le plan de remise en ordre, dans [`docs/ouverture_plan.md`](docs/ouverture_plan.md).
+le plan de remise en ordre, dans [`docs/journal/ouverture_plan.md`](docs/journal/ouverture_plan.md).
 
 ## 1. Vue d'ensemble
 
@@ -245,7 +245,7 @@ nouvelle apparaît, quand une exception ne sert plus ou quand elle a dépassé
 sa date. La table est vide aujourd'hui.
 
 **Le chemin**, dans l'ordre du tableau de
-[`docs/ouverture_plan.md`](docs/ouverture_plan.md) §6. Chaque étape garde les
+[`docs/journal/ouverture_plan.md`](docs/journal/ouverture_plan.md) §6. Chaque étape garde les
 sorties de référence, le contrat OpenAPI et les tests identiques, et retire
 les exceptions qu'elle rend inutiles.
 

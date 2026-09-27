@@ -1,6 +1,6 @@
 /** Lot 14 — un seul point d'accès au réseau.
  *
- * `docs/ouverture_plan.md` §7 : « Seul `api/client.ts` appelle `fetch`… ».
+ * `docs/journal/ouverture_plan.md` §7 : « Seul `api/client.ts` appelle `fetch`… ».
  * N'importe quel autre fichier qui parlerait directement au réseau
  * contournerait la frontière que `api/client.ts` est censée être — le
  * contrat des réponses, les trois codes fabriqués par le front
@@ -29,7 +29,7 @@ function fichiersSources(dossier: string): string[] {
   return resultats;
 }
 
-describe("un seul point d'accès au réseau (docs/ouverture_plan.md §7)", () => {
+describe("un seul point d'accès au réseau (docs/journal/ouverture_plan.md §7)", () => {
   // Le trafic applicatif seulement : les tuiles de carte, chargées par Leaflet
   // (`composants/Carte.tsx`), sont l'exception documentée dans
   // docs/services_externes.md.

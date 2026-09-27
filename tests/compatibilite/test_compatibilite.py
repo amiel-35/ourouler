@@ -1,7 +1,7 @@
 """Filet 0d : les formats persistés, relus et réécrits à l'identique.
 
 Trois promesses, pour que la restructuration du plan d'ouverture
-(`docs/ouverture_plan.md`, §1 D5 et §4 « 0d ») ne puisse pas casser les
+(`docs/journal/ouverture_plan.md`, §1 D5 et §4 « 0d ») ne puisse pas casser les
 données d'un cycliste sans qu'un test rougisse :
 
 1. **Relire.** Chaque échantillon figé dans `echantillons/` — écrit par le code

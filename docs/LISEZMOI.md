@@ -38,9 +38,9 @@ mesure) est dans [`journal/`](journal/LISEZMOI.md).
 
 - [`demarche.md`](demarche.md) — comment ourouler s'est construit, avec quels
   outils, ce que l'expérience a appris.
-- [`ouverture_plan.md`](ouverture_plan.md) — le plan en cours de la phase de
-  nettoyage précédant l'ouverture du dépôt (actif jusqu'à sa clôture, puis
-  rejoint `journal/`).
+- [`journal/ouverture_plan.md`](journal/ouverture_plan.md) — le plan de
+  l'ouverture du dépôt et de sa restructuration (sprint 10, clos en 0.11.0),
+  et son [bilan](journal/sprints/sprint-10-bilan.md).
 
 ## Ailleurs dans le dépôt
 
