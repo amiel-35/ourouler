@@ -27,7 +27,7 @@ pr = 118
 
 [[sprint]]
 numero = 11
-statut = "en_cours"
+statut = "clos"
 titre = "Trois gestes quotidiens du cycliste"
 derogations = ["27/09/2026 : anomalie retour navigateur ajoutée à la demande du mainteneur"]
 
@@ -38,7 +38,8 @@ pr = 123
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-trois-boucles-retenues"
-statut = "en_cours"
+statut = "livre"
+pr = 124
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-partage-gpx-boucle-libre"
