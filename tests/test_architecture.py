@@ -203,6 +203,7 @@ MODULES: dict[str, str] = {
     "ourouler.services.comparer": "services",
     "ourouler.services.comptes": "services",
     "ourouler.services.demandes": "services",
+    "ourouler.services.derive": "services",
     "ourouler.services.contexte": "services",
     "ourouler.services.activites": "services",
     "ourouler.services.apprentissage": "services",

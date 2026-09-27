@@ -77,6 +77,7 @@ from ourouler.physique.echantillonnage import (
 from ourouler.physique.groupe import (
     PART_DISTANCE_GROUPE,
     detecter_groupe,
+    groupe_des_echantillons,
 )
 from ourouler.physique.modele import (
     RHO_DEFAUT,
@@ -84,9 +85,13 @@ from ourouler.physique.modele import (
     puissance_requise,
 )
 from ourouler.physique.validation import (
+    SortieDerivee,
     Validation,
+    deriver_sortie,
+    simuler_derivee,
     simuler_sortie,
     valider,
+    valider_derivees,
 )
 
 #: Bornes de l'ajustement.
@@ -435,7 +440,7 @@ PRECISION_CDA_M2 = 0.002
 
 def erreur_temps(sorties: Sequence[SortieCalibration], p: Parametres) -> float | None:
     """Erreur relative absolue moyenne du temps en mouvement simulé, sur ces sorties."""
-    return valider([(s.activite, s.vent) for s in sorties], p).mae
+    return valider_derivees([s.derivee for s in sorties], p).mae
 
 
 def chercher_cda_sur_sorties(
@@ -650,14 +655,15 @@ def mesurer_porte_a_porte(
     """
     mesure = MesurePorteAPorte(seuil_groupe=seuil_groupe)
     for s in sorties:
-        rejeu = simuler_sortie(s.activite, s.vent, p)
+        d = s.derivee
+        rejeu = simuler_derivee(d, p)
         if rejeu is None:
             continue
         simulation, mouvement = rejeu
-        ecoule = float(s.activite.duree_s or 0.0)
+        ecoule = float(d.duree_ecoulee_s or 0.0)
         if simulation.temps_s <= 0 or ecoule <= 0:
             continue
-        _, part = detecter_groupe(s.activite, p, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
+        _, part = part_de_groupe(s, p, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
         mesure.sorties.append(
             RatioSortie(
                 jour=s.jour.isoformat() if s.jour else "",
@@ -726,18 +732,46 @@ def motif_multisport(activite: Activite | None) -> str | None:
 
 @dataclass
 class SortieCalibration:
-    """Une sortie prête à calibrer : son enregistrement et l'archive météo du jour."""
+    """Une sortie prête à calibrer : son enregistrement et l'archive météo du jour —
+    ou, pour un compte qui ne garde pas ses fichiers d'origine, seulement ce
+    qu'on en a dérivé à l'import (`derivee`, voir `SortieCalibration.depuis_derivee`)."""
 
-    activite: Activite
+    activite: Activite | None = None
     vent: list[HeureArchive] = field(default_factory=list)
     identifiant: str = ""
+    _derivee: SortieDerivee | None = field(default=None, repr=False)
+
+    @classmethod
+    def depuis_derivee(cls, derivee: SortieDerivee, identifiant: str = "") -> SortieCalibration:
+        """Une sortie dont le fichier d'origine n'existe plus : seul le dérivé stocké reste."""
+        return cls(activite=None, identifiant=identifiant, _derivee=derivee)
+
+    @property
+    def derivee(self) -> SortieDerivee:
+        """Ce que la calibration lit de cette sortie — dérivé une fois, à la première demande.
+
+        Toujours par ce chemin, même quand `activite` est là (fichier gardé,
+        ou mode personnel) : la calibration ne lit donc jamais directement la
+        trace, et le résultat est **identique**, avec ou sans le fichier
+        d'origine, par construction — c'est la même fonction de dérivation
+        qui produit les deux.
+        """
+        if self._derivee is None:
+            if self.activite is None:
+                raise ErreurUtilisateur("calibration : sortie sans enregistrement ni dérivé")
+            self._derivee = deriver_sortie(self.activite, self.vent)
+        return self._derivee
 
     @property
     def jour(self) -> date | None:
+        if self.activite is None:
+            return self.derivee.jour
         return self.activite.debut.date() if self.activite.debut else None
 
     @property
     def nom(self) -> str:
+        if self.activite is None:
+            return self.derivee.nom or self.identifiant
         return str(self.activite.meta.get("nom") or self.activite.fichier or self.identifiant)
 
 
@@ -772,6 +806,24 @@ class RapportCalibration:
     repli_solo: str = ""
     """Non vide quand trop peu de sorties passaient `part_groupe_max` : dit
     sur quoi le CdA a été cherché à la place."""
+
+
+def part_de_groupe(
+    sortie: SortieCalibration, p: Parametres, *, ftp_w: float, vitesse_min_kmh: float
+) -> tuple[bool, float]:
+    """`detecter_groupe` d'une sortie à calibrer, fichier gardé ou pas.
+
+    Passe par `detecter_groupe` (nom du module, donc substituable — voir
+    `tests/test_physique_calibration.py`) quand la trace est encore là, et
+    par le dérivé sinon : les deux calculent la même chose sur les mêmes
+    échantillons, `echantillonner` et `SortieDerivee.echantillons_qualifies`
+    partageant la même qualification (`echantillonnage._qualifier`).
+    """
+    if sortie.activite is not None:
+        return detecter_groupe(sortie.activite, p, sortie.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
+    return groupe_des_echantillons(
+        sortie.derivee.echantillons_qualifies(ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh), p
+    )
 
 
 def sorties_minimum(part_validation: float) -> int:
@@ -854,8 +906,7 @@ def calibrer_en_deux_passes(
     # toujours un identifiant, donc c'était sans effet sur elle ; un appelant
     # de bibliothèque, lui, perdait des échantillons.
     par_sortie = [
-        echantillonner(s.activite, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
-        for s in apprentissage
+        s.derivee.echantillons_qualifies(ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh) for s in apprentissage
     ]
     tous = [e for liste in par_sortie for e in liste]
     motifs: dict[str, int] = {}
@@ -870,9 +921,7 @@ def calibrer_en_deux_passes(
     gardees: list[int] = []
     parts: dict[int, float] = {}
     for rang, s in enumerate(apprentissage):
-        en_groupe, part = detecter_groupe(
-            s.activite, p1, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
-        )
+        en_groupe, part = part_de_groupe(s, p1, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
         parts[rang] = part
         if en_groupe:
             groupes.append((s.nom, part))
@@ -901,9 +950,8 @@ def calibrer_en_deux_passes(
         passe2 = ajuster_sur_sorties(passe2, candidates, restants or tous)
         p_temps = passe2.parametres()
         for rang in gardees:
-            s = apprentissage[rang]
-            _, parts[rang] = detecter_groupe(
-                s.activite, p_temps, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+            _, parts[rang] = part_de_groupe(
+                apprentissage[rang], p_temps, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
             )
         rangs_solo = [rang for rang in gardees if parts[rang] < part_groupe_max]
         if len(rangs_solo) < SORTIES_MIN_SOLO:
@@ -921,12 +969,10 @@ def calibrer_en_deux_passes(
             passe2 = ajuster_sur_sorties(passe2, solo, restants or tous)
     p2 = passe2.parametres()
 
-    validation = valider([(s.activite, s.vent) for s in validation_sorties], p2)
+    validation = valider_derivees([s.derivee for s in validation_sorties], p2)
     groupes_test = []
     for s in validation_sorties:
-        en_groupe, part = detecter_groupe(
-            s.activite, p2, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
-        )
+        en_groupe, part = part_de_groupe(s, p2, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
         if en_groupe:
             groupes_test.append((s.nom, part))
 
@@ -950,3 +996,41 @@ def calibrer_en_deux_passes(
         part_groupe_max=part_groupe_max,
         repli_solo=repli_solo,
     )
+
+
+#: Re-exports historiques (`services.comparer`, les tests, et les modules
+#: adverses qui patchent `calibration.detecter_groupe` ou appellent
+#: `calibration.valider`) — gardés ici même quand ce module ne les appelle
+#: plus lui-même directement, depuis que `SortieCalibration.derivee` fait
+#: passer `calibrer_en_deux_passes` par `physique.validation` et
+#: `physique.groupe`.
+__all__ = [
+    "Ajustement",
+    "Echantillon",
+    "Incertitudes",
+    "MesurePorteAPorte",
+    "RapportCalibration",
+    "RatioSortie",
+    "SortieCalibration",
+    "SortieDerivee",
+    "Validation",
+    "ajuster_sur_sorties",
+    "calibrer",
+    "calibrer_en_deux_passes",
+    "chercher_cda_sur_sorties",
+    "deriver_sortie",
+    "detecter_groupe",
+    "echantillonner",
+    "erreur_temps",
+    "groupe_des_echantillons",
+    "masse_totale",
+    "mesurer_porte_a_porte",
+    "motif_multisport",
+    "part_de_groupe",
+    "partager",
+    "simuler_derivee",
+    "simuler_sortie",
+    "sorties_minimum",
+    "valider",
+    "valider_derivees",
+]

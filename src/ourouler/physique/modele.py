@@ -518,6 +518,39 @@ def simuler(
     (`FENETRE_ALTITUDE` pas) avant d'être dérivé en pente ; sans ce lissage,
     le bruit de l'altimètre fabriquerait des rampes qui n'existent pas.
     """
+    return simuler_profil(profil_simulation(trace, vent), puissance_w, p)
+
+
+@dataclass(frozen=True)
+class ProfilSimulation:
+    """Ce que `simuler` lit d'un tracé, et rien d'autre : une pente et un vent de face par pas.
+
+    Extrait pour la fiche « choix de garder ou d'effacer ses fichiers
+    d'origine » : un compte qui a choisi de ne pas les garder n'a plus la
+    trace après l'import, et la calibration rejoue pourtant chaque sortie
+    plusieurs fois. Ce profil suffit à la rejouer **exactement** —
+    `simuler(trace)` n'est plus que `simuler_profil(profil_simulation(trace))`
+    — sans une seule coordonnée : ni latitude, ni longitude, ni cap. Le vent
+    de face y est déjà résolu (projeté sur le cap du pas), ce qui dispense de
+    garder le cap.
+
+    `pentes[i]` et `vents_face_ms[i]` valent pour le pas `i` des bornes que
+    `_bornes_pas(distance_m)` redonne à l'identique — sauf quand `longueurs`
+    est donné : le profil est alors **dans le désordre** (dérivé stocké,
+    `services/derive.py`), chaque pas porte sa longueur, et la simulation les
+    somme sans les situer. Le temps total ne dépend pas de l'ordre ; une
+    puissance qui varie le long du parcours, si — elle est refusée sur un tel
+    profil (`simuler_profil`).
+    """
+
+    distance_m: float
+    pentes: tuple[float, ...]
+    vents_face_ms: tuple[float, ...]
+    longueurs: tuple[float, ...] | None = None
+
+
+def profil_simulation(trace: Trace, vent: Callable[[float, float], float] | None = None) -> ProfilSimulation:
+    """Le profil (pente, vent de face) de `trace`, pas par pas. Voir `ProfilSimulation`."""
     points = trace.points
     if len(points) < 2:
         raise ErreurUtilisateur("simuler : tracé de moins de deux points, il n'y a rien à parcourir")
@@ -528,22 +561,67 @@ def simuler(
 
     bornes = _bornes_pas(total)
     altitudes = moyenne_glissante([_altitude(points, distances, d) for d in bornes], FENETRE_ALTITUDE)
+    pentes: list[float] = []
+    vents: list[float] = []
+    for i in range(len(bornes) - 1):
+        longueur = bornes[i + 1] - bornes[i]
+        if longueur <= 0:
+            # Pas dégénéré, sauté par la simulation : sa place est gardée
+            # pour que les indices restent ceux des bornes.
+            pentes.append(0.0)
+            vents.append(0.0)
+            continue
+        pentes.append((altitudes[i + 1] - altitudes[i]) / longueur)
+        milieu = (bornes[i] + bornes[i + 1]) / 2
+        cap = _cap_a(points, distances, milieu)
+        vent_face = vent(milieu, cap) if vent is not None else 0.0
+        if vent_face is None or not math.isfinite(vent_face):
+            vent_face = 0.0
+        vents.append(float(vent_face))
+    return ProfilSimulation(distance_m=total, pentes=tuple(pentes), vents_face_ms=tuple(vents))
+
+
+def simuler_profil(
+    profil: ProfilSimulation,
+    puissance_w: float | Callable[[float], float],
+    p: Parametres,
+) -> Simulation:
+    """La simulation de `simuler`, sur un profil déjà extrait du tracé."""
+    total = profil.distance_m
+    if not (math.isfinite(total) and total > 0):
+        raise ErreurUtilisateur("simuler : tracé de longueur nulle")
+    if profil.longueurs is not None:
+        if callable(puissance_w):
+            raise ErreurUtilisateur(
+                "simuler : un profil dans le désordre ne se rejoue qu'à puissance constante"
+            )
+        if not (len(profil.longueurs) == len(profil.pentes) == len(profil.vents_face_ms)):
+            raise ErreurUtilisateur("simuler : profil incohérent avec sa longueur")
+        pas = list(zip(profil.longueurs, profil.pentes, profil.vents_face_ms, strict=True))
+        cumul = 0.0
+        etapes = []
+        for longueur, pente, vent_face in pas:
+            etapes.append((cumul, cumul + longueur, pente, vent_face))
+            cumul += longueur
+    else:
+        bornes = _bornes_pas(total)
+        if len(profil.pentes) != len(bornes) - 1 or len(profil.vents_face_ms) != len(bornes) - 1:
+            raise ErreurUtilisateur("simuler : profil incohérent avec sa longueur")
+        etapes = [
+            (bornes[i], bornes[i + 1], profil.pentes[i], profil.vents_face_ms[i])
+            for i in range(len(bornes) - 1)
+        ]
     puissance = puissance_w if callable(puissance_w) else (lambda _d, _p=float(puissance_w): _p)
 
     v_max_descente = V_MAX_DESCENTE_KMH / 3.6
     temps_total = 0.0
     par_segment: list[tuple[float, float, float, float]] = []
     plafonnes = bloques = 0
-    for i in range(len(bornes) - 1):
-        longueur = bornes[i + 1] - bornes[i]
+    for debut, fin, pente, vent_face in etapes:
+        longueur = fin - debut
         if longueur <= 0:
             continue
-        pente = (altitudes[i + 1] - altitudes[i]) / longueur
-        milieu = (bornes[i] + bornes[i + 1]) / 2
-        cap = _cap_a(points, distances, milieu)
-        vent_face = vent(milieu, cap) if vent is not None else 0.0
-        if vent_face is None or not math.isfinite(vent_face):
-            vent_face = 0.0
+        milieu = (debut + fin) / 2
         v = vitesse_regime(float(puissance(milieu)), pente, vent_face, p)
         if pente < 0 and v > v_max_descente:
             v = v_max_descente
@@ -553,7 +631,7 @@ def simuler(
             bloques += 1
         t = longueur / v
         temps_total += t
-        par_segment.append((bornes[i + 1], pente, v * 3.6, t))
+        par_segment.append((fin, pente, v * 3.6, t))
 
     return Simulation(
         temps_s=temps_total,
