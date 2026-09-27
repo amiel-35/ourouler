@@ -8,6 +8,12 @@
  * panne nommée jamais confondue avec « ce navigateur ne sait pas partager »,
  * panne remise à zéro quand on change de candidate, et le garde-fou sur une
  * candidate qui n'est pas la retenue.
+ *
+ * Depuis la correction du 27/09/2026 (iPhone Safari, `NotAllowedError`), le
+ * GPX est récupéré **avant** le clic, dès que `BoutonsGpx` s'affiche : les
+ * tests stubbent donc `fetch` avant le rendu (plus au clic), et attendent
+ * que le bouton passe de « Préparation du fichier… » à « Envoyer vers mon
+ * compteur » avant de cliquer.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +31,27 @@ function reponseGpxOk(): Response {
   } as unknown as Response;
 }
 
+function reponsePanneServeur(code: string, message: string, statut: number): Response {
+  const reponsePanne = panne(code, message, statut);
+  return {
+    ok: false,
+    status: statut,
+    text: async () => JSON.stringify(reponsePanne.charge),
+  } as unknown as Response;
+}
+
+/** Installe `navigator.share`/`canShare` factices pour un test. */
+function stubPartage(
+  canShareImpl: (donnees: { files: File[] }) => boolean,
+  shareImpl: (donnees: { files: File[]; title?: string }) => Promise<void>,
+) {
+  const canShare = vi.fn(canShareImpl);
+  const share = vi.fn(shareImpl);
+  Object.defineProperty(navigator, "canShare", { value: canShare, configurable: true });
+  Object.defineProperty(navigator, "share", { value: share, configurable: true });
+  return { canShare, share };
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -33,51 +60,111 @@ afterEach(() => {
 });
 
 describe("le partage GPX d'une boucle libre", () => {
-  it("pointe le GPX de la boucle, avec le lien de téléchargement inchangé", () => {
+  it("pointe le GPX de la boucle, avec le lien de téléchargement inchangé", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     const reponse = boucle();
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
     const lien = screen.getByText("Télécharger le GPX").closest("a")!;
     expect(lien.getAttribute("href")).toBe(reponse.donnees.gpx!.url);
     expect(lien.getAttribute("download")).toBe(reponse.donnees.gpx!.nom);
     expect(lien.getAttribute("class")).toBe("bouton");
-    expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
     rendu.unmount();
   });
 
-  it("simule un partage réussi avec le fichier GPX", async () => {
+  it("désactive le bouton d'envoi tant que le fichier n'est pas prêt", async () => {
+    let resoudre: (reponse: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>((r) => (resoudre = r))),
+    );
     const reponse = boucle();
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
-    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
+    const bouton = screen.getByText("Préparation du fichier…").closest("button") as HTMLButtonElement;
+    expect(bouton.disabled).toBe(true);
+
+    resoudre(reponseGpxOk());
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
+    const boutonPret = screen.getByText("Envoyer vers mon compteur").closest("button") as HTMLButtonElement;
+    expect(boutonPret.disabled).toBe(false);
+
+    rendu.unmount();
+  });
+
+  it("appelle le partage sans attendre le réseau au clic : le GPX est déjà récupéré", async () => {
+    const fetchMock = vi.fn(reponseGpxOk);
+    vi.stubGlobal("fetch", fetchMock);
+    const reponse = boucle();
+    const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+
+    // Le fichier est récupéré dès l'affichage du bouton, pas au clic.
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
     let fichiersPartages: File[] = [];
-    const canShare = vi.fn(() => true);
-    const share = vi.fn(async (donnees: { files: File[] }) => {
-      fichiersPartages = donnees.files;
-    });
-    Object.defineProperty(navigator, "canShare", { value: canShare, configurable: true });
-    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    const { share } = stubPartage(
+      () => true,
+      async (donnees) => {
+        fichiersPartages = donnees.files;
+      },
+    );
 
     const utilisateur = userEvent.setup();
     await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
 
-    await waitFor(() => expect(fichiersPartages).toHaveLength(1));
+    // Aucun appel réseau supplémentaire au clic.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(fichiersPartages).toHaveLength(1);
     expect(fichiersPartages[0].name).toBe(reponse.donnees.gpx!.nom);
     expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
 
     rendu.unmount();
   });
 
-  it("laisse le lien de téléchargement quand le navigateur ne sait pas partager de fichier", async () => {
+  it("essaie application/octet-stream quand canShare refuse application/gpx+xml", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     const reponse = boucle();
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
 
-    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
-    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    const typesEssayes: string[] = [];
+    let fichierPartage: File | null = null;
+    stubPartage(
+      (donnees) => {
+        typesEssayes.push(donnees.files[0].type);
+        return donnees.files[0].type === "application/octet-stream";
+      },
+      async (donnees) => {
+        fichierPartage = donnees.files[0];
+      },
+    );
 
     const utilisateur = userEvent.setup();
     await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
 
-    await waitFor(() => expect(alerte).toHaveBeenCalled());
+    expect(typesEssayes).toEqual(["application/gpx+xml", "application/octet-stream"]);
+    expect(fichierPartage).not.toBeNull();
+    expect(fichierPartage!.type).toBe("application/octet-stream");
+    expect(fichierPartage!.name).toBe(reponse.donnees.gpx!.nom);
+
+    rendu.unmount();
+  });
+
+  it("laisse le lien de téléchargement quand aucun type MIME n'est accepté", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
+    const reponse = boucle();
+    const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
+
+    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    // Pas de `navigator.share` : le navigateur ne sait pas partager du tout.
+
+    const utilisateur = userEvent.setup();
+    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+
+    expect(alerte).toHaveBeenCalled();
     expect(alerte.mock.calls[0][0]).toMatch(/Ce navigateur ne sait pas partager de fichier/);
     // Le lien natif reste là, inchangé, pour ce cas-là.
     expect(screen.getByText("Télécharger le GPX")).toBeTruthy();
@@ -85,27 +172,72 @@ describe("le partage GPX d'une boucle libre", () => {
     rendu.unmount();
   });
 
-  it("affiche le message nommé de l'API, jamais « ce navigateur ne sait pas partager »", async () => {
+  it("n'affiche rien quand le cycliste ferme la feuille de partage (AbortError)", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     const reponse = boucle();
-    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
 
-    const reponsePanne = panne(
-      "generation_introuvable",
-      "cette génération n'est plus en mémoire — relancer la recherche",
-      404,
+    stubPartage(
+      () => true,
+      async () => {
+        throw new DOMException("Share canceled", "AbortError");
+      },
     );
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: false,
-        status: 404,
-        text: async () => JSON.stringify(reponsePanne.charge),
-      })),
-    );
+    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
 
     const utilisateur = userEvent.setup();
-    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
     await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+
+    // Laisse le temps au `.catch()` de la promesse de partage de s'exécuter.
+    await new Promise((resoudre) => setTimeout(resoudre, 0));
+
+    expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
+    expect(alerte).not.toHaveBeenCalled();
+    rendu.unmount();
+  });
+
+  it("affiche un message distinct — pas l'alerte — quand le partage est refusé (NotAllowedError)", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
+    const reponse = boucle();
+    const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy());
+
+    stubPartage(
+      () => true,
+      async () => {
+        throw new DOMException("Not allowed", "NotAllowedError");
+      },
+    );
+    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    const utilisateur = userEvent.setup();
+    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Le partage a été refusé par le navigateur/)).toBeTruthy(),
+    );
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(alerte).not.toHaveBeenCalled();
+    expect(screen.getByText("Télécharger le GPX")).toBeTruthy();
+
+    rendu.unmount();
+  });
+
+  it("affiche le message nommé de l'API, jamais « ce navigateur ne sait pas partager » (panne au chargement)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        reponsePanneServeur(
+          "generation_introuvable",
+          "cette génération n'est plus en mémoire — relancer la recherche",
+          404,
+        ),
+      ),
+    );
+    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    const reponse = boucle();
+    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
     await waitFor(() =>
       expect(
@@ -121,19 +253,15 @@ describe("le partage GPX d'une boucle libre", () => {
   });
 
   it("nomme le serveur injoignable plutôt que de laisser fuir le texte de l'exception réseau", async () => {
-    const reponse = boucle();
-    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
-
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
         throw new TypeError("Failed to fetch");
       }),
     );
-
-    const utilisateur = userEvent.setup();
     const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
-    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+    const reponse = boucle();
+    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
     await waitFor(() =>
       expect(
@@ -144,7 +272,23 @@ describe("le partage GPX d'une boucle libre", () => {
     expect(alerte).not.toHaveBeenCalled();
   });
 
-  it("remet la panne à zéro quand on change de candidate, plutôt que de la laisser réapparaître", async () => {
+  it("remet la panne à zéro quand on change de candidate, plutôt que de la laisser réapparaître toute seule", async () => {
+    // `BoutonsGpx` disparaît complètement pour une candidate qui n'est pas
+    // la retenue (voir plus bas) : y revenir le remonte, ce qui relance la
+    // récupération du GPX. Le premier essai échoue tout de suite ; le
+    // second (au retour sur la retenue) reste délibérément en suspens dans
+    // ce test, pour vérifier que la panne est bien effacée **au clic**,
+    // sans attendre l'issue d'un nouvel essai encore en cours.
+    let essais = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        essais += 1;
+        if (essais === 1) return Promise.reject(new TypeError("Failed to fetch"));
+        return new Promise<Response>(() => undefined);
+      }),
+    );
+    vi.spyOn(window, "alert").mockImplementation(() => undefined);
     const reponse = boucle();
     reponse.donnees.candidates.push({
       ...reponse.donnees.candidates[0],
@@ -153,27 +297,17 @@ describe("le partage GPX d'une boucle libre", () => {
     });
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new TypeError("Failed to fetch");
-      }),
-    );
-    vi.spyOn(window, "alert").mockImplementation(() => undefined);
-    const utilisateur = userEvent.setup();
-
-    // La candidate retenue échoue en tentant l'envoi.
-    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
     await waitFor(() =>
       expect(screen.getByText("L'envoi vers votre compteur a échoué.")).toBeTruthy(),
     );
 
-    // On regarde la candidate 2 (pas de GPX pour elle)…
+    const utilisateur = userEvent.setup();
+    // On regarde la candidate 2 (pas de bouton d'envoi pour elle).
     await utilisateur.click(screen.getByRole("button", { name: /Boucle 2/ }));
     expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
 
-    // … puis on revient sur la retenue : l'ancienne panne ne doit pas
-    // réapparaître toute seule.
+    // … puis on revient sur la retenue : l'ancienne panne ne réapparaît pas
+    // toute seule, sans nouvel essai.
     await utilisateur.click(screen.getByRole("button", { name: /Boucle 1/ }));
     expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
 
@@ -181,6 +315,7 @@ describe("le partage GPX d'une boucle libre", () => {
   });
 
   it("ne propose ni bouton d'envoi ni GPX quand une autre candidate que la retenue est sélectionnée", async () => {
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     const reponse = boucle();
     // Une seconde candidate, non retenue, pour sélectionner autre chose que
     // celle dont le GPX est prêt.
@@ -195,6 +330,7 @@ describe("le partage GPX d'une boucle libre", () => {
     await utilisateur.click(screen.getByRole("button", { name: /Boucle 2/ }));
 
     expect(screen.queryByText("Envoyer vers mon compteur")).toBeNull();
+    expect(screen.queryByText("Préparation du fichier…")).toBeNull();
     expect(screen.queryByText("Télécharger le GPX")).toBeNull();
     expect(
       screen.getByText("Le GPX prêt est celui de la boucle retenue, pas de celle-ci."),
