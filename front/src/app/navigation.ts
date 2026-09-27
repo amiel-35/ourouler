@@ -110,6 +110,14 @@ export const ONGLETS: { cle: Onglet; nom: string }[] = [
   { cle: "reglages", nom: "Réglages" },
 ];
 
+/** Un onglet connu de l'application — jamais déduit d'une simple présence
+ * de champ. Sert à valider ce qui vient de l'extérieur (l'adresse, une
+ * entrée d'historique) avant de le poser dans l'état React : `setOnglet`
+ * n'a jamais le droit de recevoir autre chose qu'un `Onglet` des quatre. */
+export function estOnglet(valeur: unknown): valeur is Onglet {
+  return typeof valeur === "string" && ONGLETS.some((o) => o.cle === valeur);
+}
+
 /** L'onglet demandé par l'URL (`?onglet=reglages`), lu **une fois**, au
  * démarrage — même patron que `paginaDepuisUrl`. Le lien « Le relier dans les
  * réglages » pose ce paramètre : sans cette lecture, une ouverture directe de
@@ -117,6 +125,110 @@ export const ONGLETS: { cle: Onglet; nom: string }[] = [
  * Une clé absente ou inconnue garde le défaut plutôt que d'échouer. */
 export function ongletDepuisUrl(): Onglet {
   const valeur = new URLSearchParams(window.location.search).get("onglet");
-  const trouve = ONGLETS.find((o) => o.cle === valeur);
-  return trouve ? trouve.cle : "aujourdhui";
+  return estOnglet(valeur) ? valeur : "aujourdhui";
+}
+
+/**
+ * Ce que porte chaque entrée d'historique du navigateur — décision du
+ * mainteneur du 27/09/2026 (`docs/backlog/2026-09-27-bug-retour-navigateur-quitte-l-appli.md`) :
+ * **l'onglet est dans l'adresse** (`/?onglet=...`), les **résultats**
+ * (propositions, détail, boucles) sont des étapes d'historique **sans
+ * adresse propre** — un rechargement y ramène par l'onglet, jamais par eux.
+ */
+export interface EtatHistorique {
+  onglet: Onglet;
+  vue: Vue;
+}
+
+/**
+ * Change d'onglet : une adresse différente, une entrée d'historique de
+ * plus. **Ne pousse rien si l'onglet visé est déjà l'onglet actif** — sinon
+ * un rechargement, un clic répété ou l'arrivée sur l'onglet par défaut
+ * empileraient des entrées qui ne changent rien, et un seul retour ne
+ * suffirait plus à sortir de l'onglet.
+ */
+export function pousserOnglet(actif: Onglet, cible: Onglet): void {
+  if (cible === actif) return;
+  const etat: EtatHistorique = { onglet: cible, vue: { genre: "onglet" } };
+  window.history.pushState(etat, "", `/?onglet=${cible}`);
+}
+
+/**
+ * Entre dans un écran de résultats — formulaire → propositions/boucles,
+ * liste → détail d'une proposition : une entrée d'historique de plus, mais
+ * la **même adresse** (les résultats n'ont pas d'adresse propre). Un retour
+ * navigateur la dépile et retombe sur l'écran précédent (le formulaire,
+ * rempli comme avant, ou la liste) sans le moindre appel réseau — les
+ * résultats déjà obtenus restent dans `Resultat`/`etat/memoire.ts`, `popstate`
+ * ne fait que les rafficher.
+ */
+export function pousserVue(onglet: Onglet, vue: Vue): void {
+  const etat: EtatHistorique = { onglet, vue };
+  window.history.pushState(etat, "", window.location.pathname + window.location.search);
+}
+
+/**
+ * Remplace l'entrée courante par une nouvelle vue de résultats — même
+ * adresse, comme `pousserVue`, mais **sans** entrée de plus. Sert quand
+ * l'entrée courante est déjà des résultats du même genre : « Chercher plus
+ * loin » (`surElargir`, `Propositions.tsx`) relance `chercher` alors que
+ * l'écran affiche déjà des propositions — repousser en empilerait une
+ * seconde, et un seul retour ne suffirait plus à quitter les résultats vers
+ * le formulaire (relecture du 27/09/2026).
+ */
+export function remplacerVue(onglet: Onglet, vue: Vue): void {
+  const etat: EtatHistorique = { onglet, vue };
+  window.history.replaceState(etat, "", window.location.pathname + window.location.search);
+}
+
+/**
+ * Entre dans une vue de résultats — pousse une entrée de plus, sauf si
+ * l'entrée courante en est déjà une du même genre (voir `remplacerVue`).
+ * `vueActuelle` est la vue affichée **avant** cet appel : c'est elle qui dit
+ * si on entre pour la première fois ou si on ne fait que raffiner ce qui
+ * est déjà là.
+ */
+export function entrerDansResultats(onglet: Onglet, vueActuelle: Vue, vueCible: Vue): void {
+  if (vueActuelle.genre === vueCible.genre) {
+    remplacerVue(onglet, vueCible);
+  } else {
+    pousserVue(onglet, vueCible);
+  }
+}
+
+/**
+ * Pose l'état courant sur l'entrée d'historique **sans en ajouter** —
+ * `replaceState`, comme `paginaDepuisUrl` le fait déjà pour `/entrer` et
+ * `/reinitialiser`. Sert deux fois : normaliser l'adresse au démarrage (pour
+ * que `history.state` porte déjà la forme que `popstate` attend), et
+ * resynchroniser l'entrée courante quand on quitte des résultats vers
+ * l'onglet qui les a produits sans pousser de nouvelle entrée (l'onglet
+ * était déjà l'onglet actif — voir `pousserOnglet`).
+ */
+export function remplacerVersOnglet(onglet: Onglet): void {
+  const etat: EtatHistorique = { onglet, vue: { genre: "onglet" } };
+  window.history.replaceState(etat, "", `/?onglet=${onglet}`);
+}
+
+/**
+ * Le seul geste qui change d'onglet, où qu'il parte dans l'application
+ * (barre d'onglets, écran d'échec, lien « Demander » d'un secours) — pose
+ * l'historique avant l'état React, jamais l'inverse : sans quoi l'entrée
+ * courante resterait sur une vue de résultats après un changement d'onglet
+ * qui ne passe pas par `pousserOnglet` (l'onglet visé déjà actif), et un
+ * retour navigateur retrouverait cette vue au lieu de l'onglet affiché.
+ */
+export function changerOnglet(
+  actif: Onglet,
+  cible: Onglet,
+  setOnglet: (onglet: Onglet) => void,
+  setVue: (vue: Vue) => void,
+): void {
+  if (cible === actif) {
+    remplacerVersOnglet(cible);
+  } else {
+    pousserOnglet(actif, cible);
+  }
+  setOnglet(cible);
+  setVue({ genre: "onglet" });
 }

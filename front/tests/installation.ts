@@ -42,6 +42,20 @@ beforeEach(() => {
   } catch {
     /* pas de stockage : les écrans doivent marcher quand même */
   }
+  // Depuis que le retour navigateur pousse de vraies entrées d'historique
+  // (`app/navigation.ts`, fiche du 27/09/2026), un test qui change d'onglet
+  // ou entre dans des résultats change l'adresse réelle de jsdom — et jsdom
+  // garde la même fenêtre d'un test à l'autre, dans le même fichier.
+  // `App`/`ApplicationPrincipale` lisent cette adresse **au montage**
+  // (`ongletDepuisUrl`, `paginaDepuisUrl`) : sans cette remise à zéro,
+  // l'onglet ou la page laissés par un test fuiraient dans le suivant —
+  // exactement le genre de fuite que ce fichier empêche déjà pour
+  // `localStorage` et `fetch`. Certains fichiers de test (lecture de
+  // fichiers, contrat OpenAPI) tournent sous l'environnement `node`, sans
+  // `window` du tout : ce nettoyage ne les concerne pas.
+  if (typeof window !== "undefined") {
+    window.history.replaceState(null, "", "/");
+  }
 });
 
 afterEach(() => {
