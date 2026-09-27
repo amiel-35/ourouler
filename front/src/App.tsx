@@ -34,6 +34,7 @@ import { useNavigationHistorique } from "./app/useNavigationHistorique";
 import {
   ongletDepuisUrl,
   paginaDepuisUrl,
+  pousserVue,
   type Onglet,
   type SeanceDeposee,
   type Vue,
@@ -89,10 +90,6 @@ function ApplicationPrincipale() {
    */
   const [sessionPerdue, setSessionPerdue] = useState(false);
 
-  // L'historique du navigateur (onglet dans l'adresse, résultats en
-  // entrées sans adresse propre) — voir `useNavigationHistorique.ts`.
-  const allerVersOnglet = useNavigationHistorique(onglet, setOnglet, setVue);
-
   const systeme = useRessource(() => api.systeme(), []);
   const profil = useRessource(() => api.profil(), []);
   const zones = useRessource(() => api.zones(), []);
@@ -116,9 +113,13 @@ function ApplicationPrincipale() {
     if (!profil.valeur || assistantDejaImpose.current) return;
     assistantDejaImpose.current = true;
     if (profil.valeur.donnees.assistant_recommande) {
+      // Une entrée d'historique, comme toute entrée dans l'assistant
+      // (`Contenu.tsx`, `entrerVue`) : un retour depuis l'assistant d'un
+      // nouvel invité ramène à l'onglet, pas hors de l'application.
+      pousserVue(onglet, { genre: "assistant" });
       setVue({ genre: "assistant" });
     }
-  }, [profil.valeur]);
+  }, [profil.valeur, onglet]);
 
   const budgetDe = useCallback(
     (operation: string) => systeme.valeur?.budgets.find((b) => b.operation === operation) ?? null,
@@ -142,7 +143,14 @@ function ApplicationPrincipale() {
     joursMemorises,
     setJoursMemorises,
     chercher,
-  } = useRecherche({ jour, onglet, fichierSeance, zonesCourantes, budgetDe, setVue });
+  } = useRecherche({ jour, onglet, vue, fichierSeance, zonesCourantes, budgetDe, setVue });
+
+  // L'historique du navigateur (onglet dans l'adresse, résultats en
+  // entrées sans adresse propre) — voir `useNavigationHistorique.ts`. Après
+  // `useRecherche` : il lui faut `enCalcul` et `setErreurCalcul`, pour
+  // ignorer un retour/avance pendant un calcul et refermer l'écran d'échec
+  // sur les suivants.
+  const allerVersOnglet = useNavigationHistorique(onglet, setOnglet, setVue, enCalcul !== null, setErreurCalcul);
 
   // Intervals se branche via l'assistant ou Réglages sans que `jour` bouge :
   // sans ce rechargement, la séance et la semaine restent sur leur premier
@@ -236,6 +244,7 @@ function ApplicationPrincipale() {
         }}
         allerVersDepot={() => {
           setErreurCalcul(null);
+          pousserVue(onglet, { genre: "importer", jour: demande.jour });
           setVue({ genre: "importer", jour: demande.jour });
         }}
         changerOnglet={allerVersOnglet}

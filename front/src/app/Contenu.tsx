@@ -20,6 +20,7 @@ import { Assistant } from "../ecrans/Assistant";
 import { EnAttendantHistorique } from "./EnAttendantHistorique";
 import {
   changerOnglet,
+  entrerDansResultats,
   ONGLETS,
   pousserVue,
   type Onglet,
@@ -82,6 +83,25 @@ export function Contenu(props: ContenuProps): JSX.Element {
   // par défaut : c'est aussi le seul onglet possible avant tout profil.
   const versOnglet = ONGLETS.find((o) => o.cle === onglet)?.nom ?? "Aujourd'hui";
 
+  // Assistant, dépôt, analyse : une entrée d'historique de plus, pour que
+  // le retour y ramène à l'onglet plutôt que de quitter l'appli.
+  function entrerVue(cible: Vue) {
+    pousserVue(onglet, cible);
+    setVue(cible);
+  }
+
+  // « Modifier la demande » : le formulaire Demander rempli. Retour
+  // d'historique seulement si Demander est déjà l'onglet actif ; sinon on y
+  // pousse plutôt, avec au moins le jour de ces résultats si besoin.
+  function versFormulaireDemande() {
+    if (onglet === "demander") {
+      window.history.back();
+      return;
+    }
+    if (resultat && resultat.jour !== demande.jour) setDemande({ ...demande, jour: resultat.jour });
+    changerOnglet(onglet, "demander", setOnglet, setVue);
+  }
+
   if (vue.genre === "assistant") {
     return (
       <Assistant
@@ -103,7 +123,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           setFichierSeance({ identifiant, jour: vue.jour, nom: seance.nom })
         }
         surChercher={() => chercher({ mode: "seance", jour: vue.jour })}
-        surAnalyser={() => setVue({ genre: "analyser", jour: vue.jour })}
+        surAnalyser={() => entrerVue({ genre: "analyser", jour: vue.jour })}
         vers={versOnglet}
         surRetour={() => setVue({ genre: "onglet" })}
       />
@@ -121,9 +141,8 @@ export function Contenu(props: ContenuProps): JSX.Element {
       <Propositions
         reponse={reponse}
         choisie={parDefaut}
-        // Le passage à une proposition est une entrée d'historique de plus
-        // (même adresse) : un retour navigateur doit repasser par la liste,
-        // pas sauter tout droit au formulaire.
+        // Une entrée d'historique de plus, même adresse : un retour
+        // navigateur repasse par la liste, pas droit au formulaire.
         surChoix={(numero) => {
           pousserVue(onglet, { genre: "detail", numero });
           setVue({ genre: "detail", numero });
@@ -133,13 +152,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           setVue({ genre: "detail", numero: parDefaut });
         }}
         surElargir={() => chercher({ candidates: 8 })}
-        // « Modifier la demande » et le retour navigateur doivent mener au
-        // même état (fiche du 27/09/2026) : un vrai retour d'historique,
-        // pas une reconstruction manuelle qui empilerait une entrée de
-        // plus. `pousserVue`, au moment de la recherche, garantit qu'il y a
-        // toujours quelque chose à retrouver là-dessous — le formulaire,
-        // rempli comme avant.
-        surRetour={() => window.history.back()}
+        surRetour={versFormulaireDemande}
       />
     );
   }
@@ -158,7 +171,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
     );
   }
   if (vue.genre === "boucles" && resultat?.boucle) {
-    return <Boucles reponse={resultat.boucle} surRetour={() => window.history.back()} />;
+    return <Boucles reponse={resultat.boucle} surRetour={versFormulaireDemande} />;
   }
   if (onglet === "aujourdhui") {
     if (seanceDuJour.erreur) {
@@ -171,7 +184,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           secours={
             <EnAttendantHistorique
               surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
-              surDeposer={() => setVue({ genre: "importer", jour })}
+              surDeposer={() => entrerVue({ genre: "importer", jour })}
             />
           }
         />
@@ -198,12 +211,12 @@ export function Contenu(props: ContenuProps): JSX.Element {
               seance: seanceDuJour.valeur?.donnees ?? null,
               jour,
             });
-            pousserVue(onglet, { genre: "propositions" });
+            entrerDansResultats(onglet, vue, { genre: "propositions" });
             setVue({ genre: "propositions" });
           }
         }}
         surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
-        surDeposer={() => setVue({ genre: "importer", jour })}
+        surDeposer={() => entrerVue({ genre: "importer", jour })}
       />
     );
   }
@@ -218,7 +231,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
           secours={
             <EnAttendantHistorique
               surDemander={() => changerOnglet(onglet, "demander", setOnglet, setVue)}
-              surDeposer={() => setVue({ genre: "importer", jour })}
+              surDeposer={() => entrerVue({ genre: "importer", jour })}
             />
           }
         />
@@ -248,10 +261,10 @@ export function Contenu(props: ContenuProps): JSX.Element {
             seance: quand === jour ? (seanceDuJour.valeur?.donnees ?? null) : null,
             jour: quand,
           });
-          pousserVue(onglet, { genre: "propositions" });
+          entrerDansResultats(onglet, vue, { genre: "propositions" });
           setVue({ genre: "propositions" });
         }}
-        surDeposer={() => setVue({ genre: "importer", jour })}
+        surDeposer={() => entrerVue({ genre: "importer", jour })}
       />
     );
   }
@@ -276,7 +289,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
       zones={zonesCourantes}
       surProfil={setProfilCourant}
       surZones={setZonesCourantes}
-      surRefaireInstallation={() => setVue({ genre: "assistant" })}
+      surRefaireInstallation={() => entrerVue({ genre: "assistant" })}
       // Repart à `/connexion` plutôt que de tenter de remettre l'état de
       // cette instance à zéro : après une déconnexion volontaire, rien de
       // ce que le cycliste faisait n'a de raison de survivre.

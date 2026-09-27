@@ -9,8 +9,8 @@ import type { Budget, Zones } from "../api/types";
 import { retenirSortie, sortieRetenue, type SortieMemorisee } from "../etat/memoire";
 import { demandeInitiale, heureDepartResolue, type Demande } from "../ecrans/Demander";
 import {
+  entrerDansResultats,
   fichierPourLaRecherche,
-  pousserVue,
   type Onglet,
   type Resultat,
   type SeanceDeposee,
@@ -35,15 +35,20 @@ export interface Recherche {
 export function useRecherche(params: {
   jour: string;
   /** L'onglet actif au moment de l'appel — porté par l'entrée d'historique
-   * poussée quand la recherche aboutit (`pousserVue`), pour qu'un retour
-   * navigateur retrouve le formulaire d'où elle est partie. */
+   * poussée quand la recherche aboutit (`entrerDansResultats`), pour qu'un
+   * retour navigateur retrouve le formulaire d'où elle est partie. */
   onglet: Onglet;
+  /** La vue affichée au moment de l'appel — dit si on entre dans les
+   * résultats pour la première fois (on pousse) ou si on y est déjà
+   * (« Chercher plus loin » depuis les propositions : on remplace, voir
+   * `entrerDansResultats`). */
+  vue: Vue;
   fichierSeance: SeanceDeposee | null;
   zonesCourantes: Zones | null;
   budgetDe: (operation: string) => Budget | null;
   setVue: (vue: Vue) => void;
 }): Recherche {
-  const { jour, onglet, fichierSeance, zonesCourantes, budgetDe, setVue } = params;
+  const { jour, onglet, vue, fichierSeance, zonesCourantes, budgetDe, setVue } = params;
 
   const [demande, setDemande] = useState<Demande>(demandeInitiale);
   const [resultat, setResultat] = useState<Resultat | null>(null);
@@ -108,10 +113,11 @@ export function useRecherche(params: {
         setJoursMemorises((connus) =>
           connus.includes(finale.jour) ? connus : [...connus, finale.jour],
         );
-        // Une recherche qui aboutit pousse une entrée d'historique — même
-        // adresse, la vue seule change (voir `pousserVue`) : un retour
-        // navigateur retrouve le formulaire tel qu'il était, sans recalcul.
-        pousserVue(onglet, { genre: "propositions" });
+        // Une recherche qui aboutit entre dans les résultats — une entrée
+        // d'historique de plus la première fois, la même remplacée si on y
+        // est déjà (« Chercher plus loin ») : un retour navigateur retrouve
+        // le formulaire tel qu'il était, sans recalcul, en un seul pas.
+        entrerDansResultats(onglet, vue, { genre: "propositions" });
         setVue({ genre: "propositions" });
       } else {
         // `boucle` balaie tout l'horizon sans direction, comme `sortie`
@@ -130,7 +136,7 @@ export function useRecherche(params: {
           depart: finale.depart ?? undefined,
         });
         setResultat({ sortie: null, boucle: reponse, seance: null, jour: finale.jour });
-        pousserVue(onglet, { genre: "boucles" });
+        entrerDansResultats(onglet, vue, { genre: "boucles" });
         setVue({ genre: "boucles" });
       }
     } catch (cause) {

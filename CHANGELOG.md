@@ -38,11 +38,13 @@ partir des PR.
 ### Corrigé
 
 - Le bouton retour du navigateur, depuis les résultats d'une recherche
-  (propositions, boucles, détail d'une proposition) ou depuis un autre
-  onglet, ramène désormais au bon écran — le formulaire rempli comme avant,
-  ou l'onglet précédent — au lieu de quitter l'application. « Modifier la
-  demande » fait le même geste, sans empiler une entrée d'historique de
-  plus ; avancer retrouve les mêmes résultats sans recalcul.
+  (propositions, boucles, détail d'une proposition), l'assistant, un dépôt
+  de séance ou un autre onglet, ramène désormais au bon écran — le
+  formulaire rempli comme avant, ou l'onglet précédent — au lieu de quitter
+  l'application ; avancer retrouve les mêmes résultats sans recalcul.
+  « Modifier la demande » mène toujours au formulaire Demander rempli,
+  même en repartant des propositions rouvertes depuis Aujourd'hui ou Ma
+  semaine, et sans jamais empiler une entrée d'historique de plus.
 
 ## [0.11.0] — 2026-09-27
 
