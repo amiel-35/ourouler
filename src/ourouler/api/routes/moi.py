@@ -119,7 +119,7 @@ def etat_conservation_fichiers(ctx: Ctx, qui: Qui) -> dict:
         "proprietaire": str(qui),
         "donnees": {
             "garder": choix.garder if choix is not None else True,
-            "depuis": choix.depuis.isoformat() if choix is not None else None,
+            "depuis": choix.depuis.isoformat() if choix is not None and choix.depuis is not None else None,
             "nombre_fichiers": nombre,
         },
     }
@@ -149,6 +149,8 @@ def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservation
     fichiers_effaces = 0
     if not corps.garder:
         fichiers_effaces = _cache(config, qui, conserver_brut=False).effacer_bruts()
+    # `definir_conservation_du_proprietaire` pose toujours `now()` : jamais `None` ici.
+    assert choix.depuis is not None
     return {
         "proprietaire": str(qui),
         "donnees": {

@@ -225,7 +225,9 @@ class ChoixConservation:
     """
 
     garder: bool
-    depuis: datetime
+    #: `None` si personne n'a jamais posé ce choix explicitement — voir
+    #: `migrations/0003_conservation_fichiers.sql`.
+    depuis: datetime | None
 
 
 @dataclass(frozen=True)

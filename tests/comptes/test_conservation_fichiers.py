@@ -37,6 +37,9 @@ def test_l_etat_par_defaut_est_garder(url_base, tmp_path):
     donnees = reponse.json()["donnees"]
     assert donnees["garder"] is True
     assert donnees["nombre_fichiers"] == 0
+    # Personne n'a jamais posé ce choix : pas de date fictive prise à la
+    # création du compte (`migrations/0003_conservation_fichiers.sql`).
+    assert donnees["depuis"] is None
 
 
 def test_passer_a_ne_pas_garder_efface_les_fichiers_deja_deposes(url_base, tmp_path):

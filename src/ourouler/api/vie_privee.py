@@ -147,7 +147,7 @@ def construire_export(
                 {
                     "garder": choix_conservation.garder if choix_conservation is not None else True,
                     "depuis": choix_conservation.depuis.isoformat()
-                    if choix_conservation is not None
+                    if choix_conservation is not None and choix_conservation.depuis is not None
                     else None,
                 },
                 ensure_ascii=False,

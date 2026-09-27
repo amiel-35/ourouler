@@ -11,9 +11,15 @@
 -- avec un défaut, aucune ligne existante à retoucher. Elle disparaît avec le
 -- compte : `comptes` n'a pas de `ON DELETE CASCADE` à poser, c'est la ligne
 -- elle-même qui part (`DepotComptes.supprimer_compte_du_proprietaire`).
+--
+-- `conserver_fichiers_bruts_le` reste **sans défaut, donc `NULL`** pour un
+-- compte qui n'a jamais touché ce réglage : elle horodate le moment où la
+-- personne a posé un choix (`DepotComptes.definir_conservation_du_proprietaire`,
+-- toujours à `now()`), pas la création du compte — un compte inchangé garde
+-- le défaut « garder » sans qu'une date fictive laisse croire à un geste.
 
 ALTER TABLE comptes
     ADD COLUMN IF NOT EXISTS conserver_fichiers_bruts BOOLEAN NOT NULL DEFAULT true;
 
 ALTER TABLE comptes
-    ADD COLUMN IF NOT EXISTS conserver_fichiers_bruts_le TIMESTAMPTZ NOT NULL DEFAULT now();
+    ADD COLUMN IF NOT EXISTS conserver_fichiers_bruts_le TIMESTAMPTZ;
