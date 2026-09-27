@@ -509,7 +509,12 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon). "
         "S'exclut de --vent : on choisit sa direction, ou on la laisse déduire du vent",
     )
-    p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
+    p.add_argument(
+        "--candidates",
+        type=int,
+        help="nombre de boucles proposées, un point de départ (défaut : config) — le serveur "
+        "l'élargit lui-même (8, puis 12) si moins de trois boucles distinctes en sortent",
+    )
     # La question d'orientation au vent, posée **avant** la recherche.
     # « peu-importe » est le défaut **et une réponse valable** : elle
     # retombe sur les propositions contrastées. Ce n'est donc pas un réglage

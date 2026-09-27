@@ -12,20 +12,24 @@ Bouchons partagés : `outils_sortie_commande.py`.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
 import pytest
 from outils_sortie_commande import (
+    brouter_identique_qui_compte,
     brouter_qui_compte,
     lancer,
     moteur_brouter_identique,
+    moteur_brouter_qui_casse,
 )
 
 from ourouler.services.sortie import (
     PALIERS_RELANCE_CANDIDATES,
     _paliers_candidates,
 )
+from ourouler.sortie import contraste
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
@@ -122,8 +126,106 @@ def test_la_relance_ne_depasse_jamais_le_dernier_palier(tmp_path: Path, monkeypa
     # Un client qui rend toujours le même anneau compterait ses appels, mais
     # `brouter_qui_compte` reste sur le bouchon varié : ce test vérifie le
     # plafond même dans le cas favorable, où la relance s'arrête tôt. Le cas
-    # défavorable (aucune boucle disjointe) est couvert par le test
-    # précédent, sans compteur — l'essentiel s'y vérifie sur le motif rendu.
+    # défavorable (aucune boucle disjointe) est couvert par le test suivant.
     lancer(tmp_path, monkeypatch, brouter=client, candidates=1, json=True)
     capsys.readouterr()
     assert compteur["appels"] <= appels_pour(1) + appels_pour(8) + appels_pour(12)
+
+
+def test_le_plafond_essaie_exactement_trois_paliers_et_pas_plus(tmp_path: Path, monkeypatch, capsys):
+    """Le cas défavorable, chiffré : trois paliers essayés, ni plus ni moins,
+    et un nombre d'appels BRouter borné — pas juste plausible, mesuré.
+
+    Mesuré le 27/09/2026 avec le bouchon à anneau identique (aucun palier ne
+    peut jamais produire une deuxième boucle qui diffère de la première) :
+    **32 appels BRouter** pour `candidates=1`, soit `_paliers_candidates(1)
+    == [1, 8, 12]` — trois essais complets, la relance n'abandonne pas plus
+    tôt et ne continue pas au-delà. Le chiffre a baissé de 42 (mesure du
+    27/09/2026 à la relecture) à 32 depuis que la relance réutilise les
+    azimuts déjà connus (recherche libre) au lieu de les redemander à
+    chaque palier — la réutilisation, pas le plafond, a changé ; si elle
+    change encore, ce test le dira.
+    """
+    from ourouler.boucle.candidates import appels_pour
+
+    client, compteur = brouter_identique_qui_compte()
+    lancer(tmp_path, monkeypatch, brouter=client, candidates=1, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert len(charge["propositions"]) == 1, "aucune deuxième boucle n'est possible avec cet anneau"
+    assert compteur["appels"] == 32
+    assert compteur["appels"] <= appels_pour(1) + appels_pour(8) + appels_pour(12)
+
+
+# --- relecture du 27/09/2026 : une panne pendant une relance ne perd rien -------
+
+
+def test_une_panne_reseau_pendant_une_relance_garde_le_palier_precedent(tmp_path: Path, monkeypatch, capsys):
+    """Reproduit le défaut signalé en relecture : un bouchon qui répond
+    normalement trois fois puis tombe en panne (HTTP 500), avec
+    `candidates=1`. Avant ce correctif, la `ErreurConnecteur` de la relance
+    (huit candidates, palier suivant) jetait le résultat déjà valide du
+    premier palier — la commande devait alors réussir là où `main` répondait
+    encore. Après : le résultat du premier palier est gardé, avec un
+    avertissement lisible plutôt qu'un résultat perdu pour une panne
+    passagère.
+    """
+    client = moteur_brouter_qui_casse(apres_appels=3)
+    code = lancer(tmp_path, monkeypatch, brouter=client, candidates=1, json=True)
+    sortie = capsys.readouterr()
+    assert code == 0
+    charge = json.loads(sortie.out)
+    assert len(charge["propositions"]) >= 1
+    assert "la relance s'est arrêtée" in sortie.err
+    assert "panne" in sortie.err or "500" in sortie.err or "BRouter" in sortie.err
+
+
+def test_une_panne_reseau_au_tout_premier_essai_se_propage_normalement(tmp_path: Path, monkeypatch):
+    """Rien à quoi se rabattre : une panne dès le premier essai reste une
+    panne, exactement comme avant toute relance — ce n'est pas au premier
+    échec qu'il faut inventer un résultat."""
+    from ourouler.noyau.erreurs import ErreurConnecteur
+
+    client = moteur_brouter_qui_casse(apres_appels=0)
+    with pytest.raises(ErreurConnecteur):
+        lancer(tmp_path, monkeypatch, brouter=client, candidates=1, json=True)
+
+
+# --- relecture du 27/09/2026 : le meilleur palier gagne, jamais le dernier -----
+
+
+def test_un_palier_plus_large_qui_retient_moins_ne_remplace_pas_le_meilleur(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Reproduit le second défaut signalé : plus de candidates ne garantit
+    pas plus de boucles retenues — une candidate ajoutée par un palier plus
+    large peut devenir la tête du tri et resserrer `_meilleur_groupe` autour
+    d'elle, avec moins de compagnes assez disjointes qu'avant.
+
+    `contraste.choisir` est ici contrôlé (pas la géométrie, qui resterait
+    fragile à contrivé) : le premier palier retient deux boucles, un
+    résultat déjà bon ; les paliers suivants, avec plus de candidates, n'en
+    retiennent plus qu'une — le défaut que ce test surveille. Le résultat
+    final doit rester celui du premier palier.
+    """
+    appels = {"n": 0}
+    choisir_reel = contraste.choisir
+
+    def choisir_controlee(propositions, **kwargs):
+        appels["n"] += 1
+        selection = choisir_reel(propositions, **kwargs)
+        if appels["n"] == 1:
+            return dataclasses.replace(selection, retenues=selection.retenues[:2])
+        return dataclasses.replace(selection, retenues=selection.retenues[:1])
+
+    monkeypatch.setattr("ourouler.services.sortie.contraste.choisir", choisir_controlee)
+    # `candidates=2` : deux azimuts opposés, disjoints par construction avec
+    # le bouchon par défaut — le premier palier retient réellement ses deux
+    # candidates avant même le contrôle, ce que `choisir_controlee` se
+    # contente de figer.
+    lancer(tmp_path, monkeypatch, candidates=2, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert len(charge["propositions"]) == 2, (
+        "le palier à deux retenues doit être gardé, pas remplacé par un palier "
+        "plus large qui en retient moins"
+    )
+    assert appels["n"] >= 2, "le contrôle doit avoir vu au moins deux paliers pour prouver le choix"

@@ -42,10 +42,13 @@ def generer_sortie(
 ) -> dict:
     """La séance du jour posée sur une boucle : propositions, géométrie, blocs, tenue.
 
-    **Semi-synchrone** : le calcul se fait pendant la requête (4 à 6 secondes
-    mesurées), et la réponse porte `duree_ms` — ce que ça a réellement pris —
-    à côté de `budget` — ce que le front avait annoncé. Voir
-    `docs/journal/ux/api_contrat.md` pour ce que ce choix implique côté écran.
+    **Semi-synchrone** : le calcul se fait pendant la requête (4 à 10 secondes
+    le plus souvent, parfois davantage quand la recherche se relance
+    elle-même jusqu'à trois boucles retenues — sprint 11, 38,5 s mesurées
+    sur un départ et une direction défavorables), et la réponse porte
+    `duree_ms` — ce que ça a réellement pris — à côté de `budget` — ce que
+    le front avait annoncé. Voir `docs/journal/ux/api_contrat.md` pour ce
+    que ce choix implique côté écran.
 
     **Deux propositions au lieu de trois n'est pas une panne** :
     `motif_deux_propositions` porte l'explication, et la réponse reste un 200.

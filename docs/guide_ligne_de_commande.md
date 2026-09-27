@@ -205,8 +205,11 @@ chacune et rend :
 - **des propositions contrastées**, chacune meilleure sur un axe différent
   (la plus sèche, la meilleure pour les blocs, la plus calme, la plus
   proche de la durée prévue…), avec une phrase qui dit ce qui la
-  distingue. Quand les candidates ne se distinguent pas assez, il y en a
-  moins de trois, et la commande nomme les axes restés muets ;
+  distingue. `--candidates` n'est qu'un point de départ : si les candidates
+  ne se distinguent pas assez pour en retenir trois, la recherche se
+  relance elle-même avec plus de candidates avant de répondre. Ce n'est que
+  si trois boucles distinctes n'existent vraiment pas autour de ce départ
+  qu'il en reste moins de trois, et la commande nomme les axes restés muets ;
 - le **GPX du parcours réellement roulé**, demi-tours compris ;
 - la **tenue** à mettre, dans l'horizon de prévision ;
 - une **carte HTML de vérification** : le tracé, les blocs colorés à leur

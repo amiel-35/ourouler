@@ -48,10 +48,13 @@ from ourouler.commandes import executer_depuis_namespace
 _VERROU = threading.Lock()
 
 #: Combien de temps une requête attend son tour avant d'abandonner. Plus long
-#: que la génération la plus lente mesurée (6,0 s) : deux requêtes qui se
-#: suivent doivent passer, dix qui s'empilent doivent être refusées vite et
-#: proprement plutôt que de faire patienter le front sans rien dire.
-DELAI_ATTENTE_S = 15.0
+#: que la génération la plus lente mesurée : depuis la relance d'office de
+#: `sortie` (sprint 11, jusqu'à trois boucles retenues), 38,5 s mesurées sur
+#: le départ du mainteneur avec une direction défavorable (27/09/2026) — deux
+#: requêtes qui se suivent doivent passer, dix qui s'empilent doivent être
+#: refusées vite et proprement plutôt que de faire patienter le front sans
+#: rien dire.
+DELAI_ATTENTE_S = 60.0
 
 #: Le préfixe que le cœur met devant ses avertissements sur la sortie
 #: d'erreur. Retiré avant de les rendre : le front n'affiche pas le nom du
@@ -143,7 +146,8 @@ def executer_commande(
         raise ErreurApi(
             code="calcul_en_cours",
             message="un calcul est déjà en cours sur ce serveur — réessayer dans quelques "
-            "secondes ; une génération prend de 4 à 6 secondes",
+            "secondes ; une génération prend le plus souvent de 4 à 10 secondes, parfois "
+            "davantage quand la recherche se relance jusqu'à trois boucles retenues",
             statut=409,
         )
     # Chronométré **après** l'attente du verrou : la durée rendue est celle du
@@ -210,8 +214,14 @@ def avertissements_de(
 #: pour une sortie complète. Ils sont marqués « defaut » dans la réponse tant
 #: qu'ils ne sont pas remplacés par ce que ce serveur-ci a réellement mesuré
 #: — on ne fait pas passer une estimation pour une mesure.
+#:
+#: `sortie` est relevé à 9 000 ms depuis la relance d'office jusqu'à trois
+#: boucles retenues (sprint 11) : la mesure de départ (3,8 à 6,0 s) date d'une
+#: recherche à un seul essai. Ce n'est qu'un défaut d'animation, remplacé dès
+#: la première mesure réelle de ce serveur — pas le plafond du verrou
+#: (`DELAI_ATTENTE_S`), qui doit lui couvrir le pire cas, pas le cas courant.
 BUDGETS_DEFAUT_MS = {
-    "sortie": 6000,
+    "sortie": 9000,
     "boucle": 5000,
     "meteo": 2000,
     # Un point, une heure, un appel Open-Meteo — le poste le moins cher du
