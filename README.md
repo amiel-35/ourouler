@@ -77,10 +77,11 @@ uv run ourouler boucle --distance 60 --direction S --sortie boucle.gpx
 uv run ourouler sortie --heure-depart 09:30 --carte sortie.html
 ```
 
-Chaque commande accepte `--json`, et `uv run ourouler --help` les liste
-toutes.
+Les commandes de calcul acceptent `--json` (pas `ourouler api`, qui sert
+l'API), et `uv run ourouler --help` les liste toutes.
 
-L'interface web vit dans `front/` et ne parle qu'à l'API (`--extra dev`
+L'interface web vit dans `front/` et ne parle qu'à l'API, hormis les tuiles
+de carte qu'elle demande à OpenStreetMap. Pour la lancer (`--extra dev`
 installe aussi ce qu'il faut pour l'API) :
 
 ```bash

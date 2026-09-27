@@ -282,14 +282,19 @@ def _corps(reponse: Resultat | ErreurApi) -> dict:
     }
 
 
-def _differences(a: Any, b: Any, ou: str):
-    """Les chemins de clés où `a` et `b` diffèrent (types compris : `30` n'est pas `30.0`)."""
+def _differences(a: Any, b: Any, ou: str, cles_donnees: bool = False):
+    """Les chemins de clés où `a` et `b` diffèrent (types compris : `30` n'est pas `30.0`).
+
+    `cles_donnees` : les clés de ce dictionnaire sont des données (des noms de
+    vélos), masquées quelle que soit leur orthographe.
+    """
     if isinstance(a, dict) and isinstance(b, dict):
         if list(a) != list(b):
             yield f"{ou or '.'}{{clés}}"
         for cle in a:
             if cle in b:
-                yield from _differences(a[cle], b[cle], f"{ou}.{_segment(cle)}")
+                segment = "*" if cles_donnees else _segment(cle)
+                yield from _differences(a[cle], b[cle], f"{ou}.{segment}", cle in _PARENTS_DE_DONNEES)
         return
     if isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
@@ -318,6 +323,11 @@ def _segment(cle: Any) -> str:
 
 #: Un nom de champ du rendu : minuscules, chiffres et soulignés.
 _IDENTIFIANT = re.compile(r"[a-z_][a-z0-9_]*")
+
+#: Les champs du rendu dont les clés sont des noms de vélos (la comparaison
+#: de deux vélos, `rendu/comparaison.py`) : un nom tout en minuscules, « route »,
+#: passerait `_IDENTIFIANT`, il est donc masqué d'office sous ces champs.
+_PARENTS_DE_DONNEES = frozenset({"velos", "vitesse_mediane_kmh", "vitesse_kmh"})
 
 
 __all__ = [

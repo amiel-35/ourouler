@@ -69,8 +69,8 @@ changer sans que rien d'autre ne bouge. La moyenne compteur dit toujours si
 son facteur est mesuré ou supposé.
 
 **Le départ se saisit en quatre champs** (`src/composants/FormulaireAdresse.tsx`),
-pas en une ligne de texte : numéro, voie, code postal, commune, tous
-obligatoires : une adresse sans
+pas en une ligne de texte : numéro, voie, code postal, commune. Seul le
+numéro est facultatif (une place, un lieu-dit n'en ont pas) : une adresse sans
 commune rend cinq candidats dans cinq communes distinctes, séparés de deux
 millièmes de score, et le premier est arbitraire. Le point géocodé se
 **confirme à l'œil sur la carte** avant d'être retenu. « Utiliser ma position »
