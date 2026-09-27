@@ -20,6 +20,13 @@ partir des PR.
 
 ## [Non publié]
 
+## [0.11.0] — 2026-09-27
+
+### Modifié
+
+- Rien ne change à l'écran : le code est réorganisé, relu et documenté pour
+  accueillir des contributeurs (dépôt prêt à être ouvert).
+
 ### Retiré
 
 - La page du jour autonome hébergée (un conteneur qui générait une carte une
