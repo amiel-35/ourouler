@@ -49,42 +49,10 @@ A_VENIR: set[str] = set()
 #:   cités par leur nom, pas par un chemin du dépôt.
 #: - `docs/guide_ligne_de_commande.md` : `sorties/` est le dossier de sortie
 #:   par défaut de la ligne de commande, écrit au lancement, jamais commité.
-#: - `docs/ouverture_plan.md` : un plan antérieur à la phase de nettoyage
-#:   (rangement en `docs/decisions/`, jamais fait — voir `docs/journal/questions/`)
-#:   et des raccourcis vers des modules déjà déplacés ou renommés depuis, sous
-#:   un ancien chemin ou sans leur extension, assumés comme tels dans la prose ;
-#:   et `.claude/` (agents et `settings.json` de Claude Code), retiré du dépôt
-#:   et gardé en local, que le plan cite pour dire ce retrait.
 IGNORES: dict[str, frozenset[str]] = {
     "docs/guide_ligne_de_commande.md": frozenset({"sorties/"}),
     "docs/inviter.md": frozenset({"config.toml", "service.toml"}),
     "docs/services_externes.md": frozenset({"service.toml"}),
-    "docs/ouverture_plan.md": frozenset(
-        {
-            ".claude/",
-            ".claude/agents/",
-            "settings.json",
-            "docs/decisions/",
-            "docs/decisions/Qnn",
-            "docs/journal/questions/…#Qnn",
-            "front/.vite/deps/",
-            "physique/commande",
-            "services/calibrer",
-            "services/comptes",
-            "stockage/calibrations",
-            "tests/validation/",
-            "api/client.ts",
-            "api/routes.py",
-            "boucle/trace.py",
-            "cli.py",
-            "commande.py",
-            "boucle/commande.py",
-            "meteo/commande.py",
-            "physique/commande.py",
-            "sortie/commande.py",
-            "CLAUDE.local.md",
-        }
-    ),
 }
 
 #: Un chemin court est cherché à la racine, puis dans le paquet Python et le

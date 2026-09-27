@@ -543,7 +543,8 @@ def test_les_imports_type_checking_sont_nommes():
 def test_aucune_violation_nouvelle():
     nouvelles, _, _ = confronter(violations(tous_les_imports()), EXCEPTIONS, aujourd_hui())
     assert not nouvelles, (
-        "import interdit par le contrat de couches (docs/ouverture_plan.md §2) :\n  " + "\n  ".join(nouvelles)
+        "import interdit par le contrat de couches (docs/journal/ouverture_plan.md §2) :\n  "
+        + "\n  ".join(nouvelles)
     )
 
 
@@ -567,7 +568,7 @@ def test_aucun_reexport_ne_reste():
     assert REEXPORTS == {}
 
 
-#: `docs/ouverture_plan.md` §2 : « Le modèle physique pur […] n'importe ni
+#: `docs/journal/ouverture_plan.md` §2 : « Le modèle physique pur […] n'importe ni
 #: `Config`, ni cache, ni `Path`, ni `httpx`, ni `boucle` ; numpy est permis. »
 #: Préfixes interdits, bibliothèque standard et tierces comprises.
 INTERDITS_PHYSIQUE_PURE = (

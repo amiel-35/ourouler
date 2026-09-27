@@ -2,7 +2,7 @@
 /** Lot 14, puis lot 11 (25/09/2026) — les types du front vérifiés contre la
  * référence openapi.
  *
- * `docs/ouverture_plan.md` §7 : « les types sont vérifiés contre openapi ».
+ * `docs/journal/ouverture_plan.md` §7 : « les types sont vérifiés contre openapi ».
  * Sans dépendance nouvelle (ni générateur de types, ni analyseur TypeScript) :
  *
  * 1. une **table explicite** dit, pour chaque type du front qui a un

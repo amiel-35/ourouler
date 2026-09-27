@@ -1,7 +1,7 @@
 // @vitest-environment node
 /** Lot 14 — un composant fait 300 lignes au plus.
  *
- * `docs/ouverture_plan.md` §7 : « un composant fait 300 lignes au plus ».
+ * `docs/journal/ouverture_plan.md` §7 : « un composant fait 300 lignes au plus ».
  * Ce test relit chaque `.tsx` de `src/` et échoue au premier qui dépasse :
  * un écran qui grossit se découpe (un volet, une étape, une section par
  * fichier) plutôt que d'attendre une relecture pour s'en apercevoir.

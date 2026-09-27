@@ -17,12 +17,13 @@ ouverture = "docs/ouverture_plan.md"
 
 [[sprint]]
 numero = 10
-statut = "en_cours"
+statut = "clos"
 titre = "Ouverture du dépôt et restructuration"
 
 [[sprint.element]]
 chantier = "ouverture"
-statut = "en_cours"
+statut = "livre"
+pr = 118
 
 [[sprint]]
 numero = 11
