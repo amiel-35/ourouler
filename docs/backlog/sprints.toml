@@ -28,6 +28,7 @@ statut = "en_cours"
 numero = 11
 statut = "fige"
 titre = "Trois gestes quotidiens du cycliste"
+derogations = ["27/09/2026 : anomalie retour navigateur ajoutée à la demande du mainteneur"]
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-heure-depart-du-jour"
@@ -39,6 +40,10 @@ statut = "prevu"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-partage-gpx-boucle-libre"
+statut = "prevu"
+
+[[sprint.element]]
+fiche = "2026-09-27-bug-retour-navigateur-quitte-l-appli"
 statut = "prevu"
 
 [[sprint]]
