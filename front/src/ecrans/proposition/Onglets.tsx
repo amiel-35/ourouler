@@ -1,10 +1,8 @@
-/** Les morceaux du détail d'une proposition : ses chiffres, l'envoi du GPX, la tenue. */
+/** Les morceaux du détail d'une proposition : ses chiffres, le téléchargement du GPX, la tenue. */
 
 import type { Candidate, Proposition, Sortie } from "../../api/types";
-import type { PanneGpx } from "../../api/client";
 import { compteArrets, kmDepuisKm, nombre, pourcentage, visibleEnKm } from "../../api/formats";
 import { DureesDeSortie } from "../../composants/TempsEcoule";
-import { BoutonsGpx } from "../../composants/BoutonsGpx";
 
 export function ChiffresParcours({
   proposition,
@@ -60,28 +58,17 @@ export function ChiffresParcours({
   );
 }
 
-export function EnvoiGpx({
-  proposition,
-  erreurGpx,
-  surErreurGpx,
-}: {
-  proposition: Proposition;
-  erreurGpx: PanneGpx | null;
-  surErreurGpx: (panne: PanneGpx | null) => void;
-}) {
+export function LienGpx({ proposition }: { proposition: Proposition }) {
   return (
     <>
       {/* Chaque proposition porte **sa** trace, fabriquée au moment où on
           la demande (décision Q40 g) : avec un seul GPX, celui de la
-          proposition retenue, emporter « la plus sèche » enverrait la trace
-          de « la plus calme » au compteur. */}
+          proposition retenue, emporter « la plus sèche » téléchargerait la
+          trace de « la plus calme ». */}
       {proposition.gpx ? (
-        <BoutonsGpx
-          gpx={proposition.gpx}
-          erreur={erreurGpx}
-          surErreur={surErreurGpx}
-          classeLien="bouton fantome"
-        />
+        <a className="bouton fantome" href={proposition.gpx.url} download={proposition.gpx.nom}>
+          Télécharger le GPX
+        </a>
       ) : (
         <p className="mention">Aucun GPX n'est disponible pour ce parcours.</p>
       )}

@@ -20,13 +20,6 @@ partir des PR.
 
 ## [Non publié]
 
-### Ajouté
-
-- Sur l'écran d'une boucle libre, « Envoyer vers mon compteur » ouvre la
-  feuille de partage du téléphone avec le GPX de la boucle retenue — le
-  même geste que sur la proposition d'une sortie, jusqu'ici absent des
-  boucles libres. Le téléchargement reste disponible en dessous.
-
 ### Modifié
 
 - Quand une demande de parcours ne retient qu'une ou deux boucles, elle
@@ -42,7 +35,6 @@ partir des PR.
 
 ### Corrigé
 
-- « Envoyer vers mon compteur » ouvre la feuille de partage sur iPhone.
 - Le bouton retour du navigateur, depuis les résultats d'une recherche
   (propositions, boucles, détail d'une proposition), l'assistant, un dépôt
   de séance ou un autre onglet, ramène désormais au bon écran — le
@@ -51,6 +43,11 @@ partir des PR.
   « Modifier la demande » mène toujours au formulaire Demander rempli,
   même en repartant des propositions rouvertes depuis Aujourd'hui ou Ma
   semaine, et sans jamais empiler une entrée d'historique de plus.
+
+### Retiré
+
+- Le bouton « Envoyer vers mon compteur » : sur iPhone, Garmin Connect
+  n'apparaît pas dans le partage ; le GPX se télécharge.
 
 ## [0.11.0] — 2026-09-27
 
