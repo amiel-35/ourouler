@@ -33,7 +33,7 @@ derogations = ["27/09/2026 : anomalie retour navigateur ajoutée à la demande d
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-heure-depart-du-jour"
-statut = "prevu"
+statut = "en_cours"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-trois-boucles-retenues"
@@ -45,7 +45,7 @@ statut = "en_cours"
 
 [[sprint.element]]
 fiche = "2026-09-27-bug-retour-navigateur-quitte-l-appli"
-statut = "prevu"
+statut = "en_cours"
 
 [[sprint]]
 numero = 12
