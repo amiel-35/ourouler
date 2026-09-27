@@ -12,10 +12,22 @@
  * `new Date(annee, mois, jour, heures, minutes)` construit une date locale à
  * l'exécution, quel que soit ce fuseau, et c'est cette même date qui sert à
  * la fois à fabriquer l'horloge injectée et le `jour` attendu.
+ *
+ * Relu le 27/09/2026 : `heureDepartParDefaut` ne suffisait pas — l'ancien
+ * `demandeInitiale()` la figeait dans l'état une fois pour toutes, ce qui
+ * écrasait une heure saisie par le cycliste ou envoyait l'heure du jour
+ * courant à une recherche pour un autre jour (voir
+ * `tests/heure_depart_recherche.test.tsx`). `heureDepartResolue` répare
+ * ça : `demande.heure_depart` vaut `null` (le défaut, à résoudre à chaque
+ * usage) ou une chaîne saisie par le cycliste (à ne jamais recalculer).
  */
 
 import { describe, expect, it } from "vitest";
-import { demandeInitiale, heureDepartParDefaut } from "../src/ecrans/demander/demande";
+import {
+  demandeInitiale,
+  heureDepartParDefaut,
+  heureDepartResolue,
+} from "../src/ecrans/demander/demande";
 import { aujourdhui } from "../src/etat/ressource";
 
 /** Le AAAA-MM-JJ d'une date locale — même conversion que `aujourdhui()`. */
@@ -55,12 +67,26 @@ describe("heureDepartParDefaut", () => {
   });
 });
 
+describe("heureDepartResolue", () => {
+  it("résout au défaut du jour quand `heure_depart` est `null`", () => {
+    const maintenant = new Date(2026, 8, 25, 14, 37);
+    const jour = "2026-09-25";
+    expect(heureDepartResolue({ jour, heure_depart: null }, () => maintenant)).toBe("14:45");
+  });
+
+  it("rend la saisie du cycliste telle quelle, sans jamais la recalculer", () => {
+    const maintenant = new Date(2026, 8, 25, 14, 37);
+    const jour = "2026-09-25";
+    expect(heureDepartResolue({ jour, heure_depart: "16:30" }, () => maintenant)).toBe("16:30");
+  });
+});
+
 describe("demandeInitiale", () => {
-  it("pose heure_depart via heureDepartParDefaut, pour aujourd'hui, pas 09:00 en dur", () => {
-    const maintenant = new Date();
-    maintenant.setHours(20, 3, 0, 0);
-    const attendu = heureDepartParDefaut(aujourdhui(), () => maintenant);
-    expect(demandeInitiale(() => maintenant).heure_depart).toBe(attendu);
-    expect(demandeInitiale(() => maintenant).jour).toBe(aujourdhui());
+  it("pose `heure_depart: null` — le défaut du jour, pas une heure calculée une fois pour toutes", () => {
+    // Assertion en clair, pas via `heureDepartParDefaut` : c'est la
+    // distinction même que ce correctif introduit (le défaut se résout à
+    // l'usage, il ne se calcule plus à la création de l'état).
+    expect(demandeInitiale().heure_depart).toBe(null);
+    expect(demandeInitiale().jour).toBe(aujourdhui());
   });
 });

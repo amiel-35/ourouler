@@ -5,7 +5,7 @@
 import type { ErreurApi } from "../api/client";
 import { derniereLectureSeances } from "../etat/memoire";
 import { Echec, type Repli } from "../composants/Echec";
-import type { Demande } from "../ecrans/Demander";
+import { heureDepartResolue, type Demande } from "../ecrans/Demander";
 import { BarreOnglets } from "./BarreOnglets";
 import type { Onglet } from "./navigation";
 
@@ -58,7 +58,7 @@ export function EchecCalcul({
     <div className="coquille">
       <Echec
         erreur={erreur}
-        contexte={`${demande.jour} · départ ${demande.heure_depart}`}
+        contexte={`${demande.jour} · départ ${heureDepartResolue(demande)}`}
         replis={replis}
         dernierSucces={derniereLectureSeances()}
         reessayer={() => chercher()}

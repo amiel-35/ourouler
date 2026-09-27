@@ -90,6 +90,8 @@ function derniereRecherche(serveur: Serveur): Record<string, unknown> {
 
 describe("le fichier déposé et les recherches suivantes", () => {
   beforeEach(() => {
+    // Pile 9 h : `heure_depart` (nul par défaut, voir `demande.ts`) se
+    // résout sur cette horloge — la requête envoyée en dépend.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date(`${AUJOURDHUI}T09:00:00`));
   });

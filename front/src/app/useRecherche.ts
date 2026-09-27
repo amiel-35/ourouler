@@ -7,7 +7,7 @@ import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Budget, Zones } from "../api/types";
 import { retenirSortie, sortieRetenue, type SortieMemorisee } from "../etat/memoire";
-import { demandeInitiale, type Demande } from "../ecrans/Demander";
+import { demandeInitiale, heureDepartResolue, type Demande } from "../ecrans/Demander";
 import {
   fichierPourLaRecherche,
   type Resultat,
@@ -61,6 +61,10 @@ export function useRecherche(params: {
     setErreurCalcul(null);
     const operation = finale.mode === "seance" ? "sortie" : "boucle";
     setEnCalcul(budgetDe(operation) ?? null);
+    // Résolue ici, à l'instant du calcul — pas au moment où le champ a été
+    // affiché : un écran resté ouvert depuis 9 h et relancé à 14 h 37
+    // cherche à 14:45, pas à l'heure calculée à l'ouverture.
+    const heureDepart = heureDepartResolue(finale);
     try {
       if (finale.mode === "seance") {
         // **Un seul des deux champs part** (décision Q44) : l'API refuse `direction`
@@ -76,7 +80,7 @@ export function useRecherche(params: {
               : { vent: "peu-importe" };
         const reponse = await api.sortie({
           jour: finale.jour,
-          heure_depart: `${finale.jour}T${finale.heure_depart}`,
+          heure_depart: `${finale.jour}T${heureDepart}`,
           candidates: finale.candidates,
           ...orientation,
           depart: finale.depart ?? undefined,
@@ -111,7 +115,7 @@ export function useRecherche(params: {
             ((zonesCourantes?.valeurs_liees?.moyenne_compteur_kmh ?? 0) * finale.duree_min) / 60,
           ),
           direction: finale.modeDirection === "direction" ? finale.direction : undefined,
-          heure_depart: `${finale.jour}T${finale.heure_depart}`,
+          heure_depart: `${finale.jour}T${heureDepart}`,
           candidates: finale.candidates,
           depart: finale.depart ?? undefined,
         });

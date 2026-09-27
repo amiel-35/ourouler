@@ -115,7 +115,15 @@ export function Aujourdhui({
           type="time"
           value={heureDepart}
           onChange={(e) => surHeureDepart(e.target.value)}
-          style={{ font: "inherit", border: "none", background: "none", color: "inherit" }}
+          // Un soulignement pointillé, pas juste un texte : ce champ, à la
+          // différence du reste de l'écran, se modifie en un geste.
+          style={{
+            font: "inherit",
+            border: "none",
+            borderBottom: "1px dashed currentColor",
+            background: "none",
+            color: "inherit",
+          }}
         />
       </p>
 

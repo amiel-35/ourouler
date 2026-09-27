@@ -22,7 +22,17 @@ export const MESSAGE_VENT_INDISPONIBLE = "Le vent au départ n'est pas disponibl
 export interface Demande {
   mode: "seance" | "z2";
   jour: string;
-  heure_depart: string;
+  /**
+   * `null` = « le défaut du jour » : résolu à chaque affichage et à chaque
+   * recherche par `heureDepartParDefaut`, donc toujours à jour — un écran
+   * resté ouvert depuis 9 h et relancé à 14 h 37 cherche à 14:45, pas à
+   * l'heure calculée à l'ouverture. Une chaîne = saisie par le cycliste
+   * (`onChange` du champ) : elle ne bouge plus toute seule, ni en changeant
+   * de jour ni en cliquant « Aujourd'hui » — seul un nouveau geste du
+   * cycliste la change. Ce qui part à l'API (`heureDepartResolue`) reste
+   * toujours une chaîne résolue : le contrat ne change pas.
+   */
+  heure_depart: string | null;
   duree_min: number;
   /**
    * Le **premier choix** (décision Q44) : indépendant de `mode`, il décide lequel
@@ -72,12 +82,27 @@ export function heureDepartParDefaut(jour: string, maintenant: () => Date = () =
   return arrondieAuQuartHeureSuivant(maintenant_);
 }
 
-export function demandeInitiale(maintenant: () => Date = () => new Date()): Demande {
-  const jour = aujourdhui();
+/**
+ * L'heure de départ à afficher ou à envoyer à l'API : la saisie du cycliste
+ * si elle existe, sinon le défaut du jour — résolu à l'instant de l'appel,
+ * jamais mémorisé, pour que ce qui part à la recherche corresponde toujours
+ * à l'heure réelle (`maintenant`), même si l'écran est resté ouvert depuis
+ * un moment.
+ */
+export function heureDepartResolue(
+  demande: Pick<Demande, "jour" | "heure_depart">,
+  maintenant?: () => Date,
+): string {
+  return demande.heure_depart ?? heureDepartParDefaut(demande.jour, maintenant);
+}
+
+export function demandeInitiale(): Demande {
   return {
     mode: "seance",
-    jour,
-    heure_depart: heureDepartParDefaut(jour, maintenant),
+    jour: aujourdhui(),
+    // Le défaut du jour, pas une valeur calculée une fois pour toutes ici :
+    // voir `heure_depart` sur `Demande` et `heureDepartResolue`.
+    heure_depart: null,
     duree_min: 120,
     modeDirection: "peu-importe",
     vent: "peu-importe",
