@@ -16,6 +16,7 @@ from ourouler.api.routes.commun import (
     Qui,
     _cache,
     _config,
+    _conserver_brut,
     _message_occupe,
     _rembourser_quota,
     _service,
@@ -45,7 +46,8 @@ def etat_calibrations(ctx: Ctx, qui: Qui) -> dict:
     from ourouler.api import calibrations
 
     config = _config(ctx, qui)
-    donnees = calibrations.etat(config, _cache(config, qui), str(qui))
+    cache = _cache(config, qui, conserver_brut=_conserver_brut(ctx, qui))
+    donnees = calibrations.etat(config, cache, str(qui))
     if ctx.session.mode != MODE_PERSONNEL:
         donnees["quota"] = {
             "plafond": ctx.quotas_calibration.plafond,
@@ -97,7 +99,7 @@ def lancer_calibration(ctx: Ctx, qui: Qui, demande: DemandeCalibration) -> dict:
     from ourouler.api import calibrations, taches_fond
 
     config = _config(ctx, qui)
-    cache = _cache(config, qui)
+    cache = _cache(config, qui, conserver_brut=_conserver_brut(ctx, qui))
     velo = calibrations.verifier(
         config,
         demande.velo,
