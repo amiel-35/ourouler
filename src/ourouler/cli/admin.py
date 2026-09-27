@@ -59,6 +59,7 @@ def _commande_admin(args: argparse.Namespace, config: Config) -> int:
 
         from ourouler.api.admin import ParametresApplicationAdmin, creer_application_admin
         from ourouler.api.base_de_donnees import appliquer_migrations, ouvrir
+        from ourouler.api.demandes import DepotDemandes
         from ourouler.api.exploitation import parametres_admin, parametres_brevo_service, port_admin
     except ImportError as e:
         raise ErreurUtilisateur(
@@ -79,6 +80,16 @@ def _commande_admin(args: argparse.Namespace, config: Config) -> int:
         posees = appliquer_migrations(connexion)
         if posees:
             print(f"base des comptes : {len(posees)} migration(s) appliquée(s)", file=sys.stderr)
+        # RGPD, minimisation : une demande non traitée depuis plus de 30
+        # jours ne doit pas dormir en base entre deux démarrages de
+        # l'administration — voir `api.demandes.DUREE_CONSERVATION`. La même
+        # purge tourne aussi à chaque ouverture de la file
+        # (`DepotDemandes.en_attente`), mais un démarrage sans qu'on
+        # consulte l'écran (par exemple, une commande lancée puis arrêtée
+        # aussitôt) doit purger quand même.
+        from ourouler.services.demandes import purger_demandes_perimees
+
+        purger_demandes_perimees(depot=DepotDemandes(connexion))
 
     # Le relais SMTP est facultatif ici aussi : sans lui, « Accepter » émet
     # quand même l'invitation (même règle que `ourouler inviter --sans-courriel`),

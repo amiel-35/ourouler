@@ -103,6 +103,17 @@ consultations_meteo_par_jour = 100
 # dans celui-ci.
 alerte_destinataire = ""
 
+# Le débit du formulaire public, en mémoire du processus
+# (`api.demandes.LimiteAnonyme`) — même esprit que `[quotas]` plus haut,
+# pour un risque différent : un abus, pas un coût Open-Meteo.
+# `par_ip_par_jour` borne ce qu'une seule machine peut déposer par jour ;
+# `global_par_jour` borne ce que le formulaire peut coûter en alertes
+# courriel même réparti sur de nombreuses adresses IP (un botnet).
+# **Absentes, ou ce fichier absent : les défauts s'appliquent**
+# (`api.demandes.PAR_IP_PAR_JOUR_DEFAUT`, `api.demandes.GLOBAL_PAR_JOUR_DEFAUT`).
+par_ip_par_jour = 5
+global_par_jour = 100
+
 [admin]
 # Sprint 12, QP6 (25/09/2026, tranchée (c)) : l'administration
 # (`ourouler admin`) n'est jamais exposée sur Internet — elle n'écoute que

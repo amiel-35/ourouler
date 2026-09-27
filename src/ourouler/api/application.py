@@ -33,6 +33,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from ourouler import __version__
 from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
@@ -365,6 +366,20 @@ def creer_application(
     # Ajouté après, donc **extérieur** : les refus qui se savent sans le
     # corps (session, verrou, quota) passent avant qu'on en compte un octet.
     app.add_middleware(GardeAvantCorps)
+    # **Encore plus extérieur** : `Request.client.host` (lu par
+    # `api/routes/demandes.py` pour le débit par adresse IP du formulaire
+    # public) doit voir l'adresse **réelle** du visiteur, pas celle de
+    # Traefik, qui termine toutes les connexions en hébergé
+    # (`deploiement/api/README.md`). `ProxyHeadersMiddleware` réécrit
+    # `scope["client"]` depuis `X-Forwarded-For` — `trusted_hosts="*"` fait
+    # confiance à **qui se connecte**, ce qui est sûr précisément parce
+    # qu'aucun port n'est publié sur l'hôte (`docker-compose.api.coolify.yml`,
+    # `expose:` seulement) : personne d'autre que Traefik ne peut se
+    # connecter directement et forger cet en-tête. En mode personnel
+    # (`ourouler api`, connexion directe sans proxy), cette réécriture ne
+    # change rien : sans en-tête `X-Forwarded-For`, `scope["client"]`
+    # reste inchangé.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:

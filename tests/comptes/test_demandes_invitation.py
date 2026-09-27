@@ -122,8 +122,18 @@ def test_effacer_est_idempotent(depot_demandes: DepotDemandes):
     assert depot_demandes.en_attente() == []
 
 
-def test_en_attente_est_triee_par_date():
-    pass  # couvert indirectement : voir test_deposer_enregistre_la_demande (ordre trivial ici)
+def test_en_attente_est_triee_par_date(depot_demandes: DepotDemandes):
+    """Les plus anciennes en tête — l'administration les traite dans l'ordre d'arrivée."""
+    import time
+
+    depot_demandes.deposer("premiere@exemple.invalid", None)
+    time.sleep(0.01)
+    depot_demandes.deposer("deuxieme@exemple.invalid", None)
+    time.sleep(0.01)
+    depot_demandes.deposer("troisieme@exemple.invalid", None)
+
+    emails = [d.email for d in depot_demandes.en_attente()]
+    assert emails == ["premiere@exemple.invalid", "deuxieme@exemple.invalid", "troisieme@exemple.invalid"]
 
 
 # --- le service : déposer + alerte -------------------------------------------
@@ -362,3 +372,154 @@ def test_une_adresse_avec_saut_de_ligne_n_enregistre_rien_et_ne_casse_rien(url_b
     assert reponse.json() == {"donnees": {}}
     with ouvrir(url_base) as cx:
         assert DepotDemandes(cx).en_attente() == []
+
+
+# --- l'adresse IP réelle derrière Traefik (X-Forwarded-For) -------------------
+#
+# Relecture de sécurité : `Request.client.host` verrait l'IP de Traefik pour
+# **toutes** les requêtes sans `ProxyHeadersMiddleware`
+# (`api/application.py`) — cinq demandes de n'importe qui fermeraient le
+# formulaire pour tout le monde. Ces tests passent par l'application réelle
+# (`creer_application`, qui monte ce middleware), pas par un appel direct à
+# la route : c'est la garantie que le montage — pas seulement la lecture de
+# l'en-tête — fonctionne de bout en bout.
+
+
+def test_x_forwarded_for_est_bien_compte_sur_cette_adresse(url_base: str, monkeypatch: pytest.MonkeyPatch):
+    """Une requête avec `X-Forwarded-For: 9.9.9.9` épuise le plafond de **cette**
+    adresse, pas celui d'une autre IP inventée."""
+    from ourouler.api.routes import demandes as module_route
+
+    monkeypatch.setattr(module_route, "_LIMITE_PAR_IP", LimiteAnonyme(plafond=1))
+    app = _app(url_base)
+
+    premiere = _requete(
+        app,
+        "POST",
+        f"{PREFIXE}/demandes-invitation",
+        json={"adresse": "premiere-ip@exemple.invalid"},
+        headers={"X-Forwarded-For": "9.9.9.9"},
+    )
+    seconde = _requete(
+        app,
+        "POST",
+        f"{PREFIXE}/demandes-invitation",
+        json={"adresse": "seconde-ip@exemple.invalid"},
+        headers={"X-Forwarded-For": "9.9.9.9"},
+    )
+    assert premiere.status_code == seconde.status_code == 200
+
+    with ouvrir(url_base) as cx:
+        demandes = {d.email for d in DepotDemandes(cx).en_attente()}
+    # La première a été enregistrée, la seconde refusée (même IP forwardée,
+    # plafond à 1) — la preuve que l'IP forwardée a bien été comptée.
+    assert demandes == {"premiere-ip@exemple.invalid"}
+
+
+def test_deux_adresses_x_forwarded_for_differentes_ont_chacune_leur_compteur(
+    url_base: str, monkeypatch: pytest.MonkeyPatch
+):
+    """Deux IP forwardées différentes ne partagent pas le même compteur."""
+    from ourouler.api.routes import demandes as module_route
+
+    monkeypatch.setattr(module_route, "_LIMITE_PAR_IP", LimiteAnonyme(plafond=1))
+    app = _app(url_base)
+
+    premiere = _requete(
+        app,
+        "POST",
+        f"{PREFIXE}/demandes-invitation",
+        json={"adresse": "visiteur-un@exemple.invalid"},
+        headers={"X-Forwarded-For": "1.1.1.1"},
+    )
+    seconde = _requete(
+        app,
+        "POST",
+        f"{PREFIXE}/demandes-invitation",
+        json={"adresse": "visiteur-deux@exemple.invalid"},
+        headers={"X-Forwarded-For": "2.2.2.2"},
+    )
+    assert premiere.status_code == seconde.status_code == 200
+
+    with ouvrir(url_base) as cx:
+        demandes = {d.email for d in DepotDemandes(cx).en_attente()}
+    # Les deux sont enregistrées : deux IP différentes, chacune sous son
+    # propre plafond (1), ne se sont pas mutuellement bloquées.
+    assert demandes == {"visiteur-un@exemple.invalid", "visiteur-deux@exemple.invalid"}
+
+
+# --- purge RGPD des demandes non traitées (30 jours) --------------------------
+
+
+def test_purger_perimees_efface_les_demandes_trop_anciennes(depot_demandes: DepotDemandes):
+    """`maintenant` situe la coupure **entre** les deux dépôts — le milieu exact des deux
+    dates réelles, jamais une marge fixe : deux dépôts qui se suivent en base peuvent ne
+    différer que de quelques microsecondes, et une marge d'une seconde les confondrait
+    tous les deux du mauvais côté de la coupure.
+    """
+    from ourouler.api.demandes import DUREE_CONSERVATION
+
+    ancienne = depot_demandes.deposer("vieille-demande@exemple.invalid", None)
+    recente = depot_demandes.deposer("nouvelle-demande@exemple.invalid", None)
+    assert recente.cree_le > ancienne.cree_le, "les deux dépôts doivent être datés distinctement"
+
+    coupure = ancienne.cree_le + (recente.cree_le - ancienne.cree_le) / 2
+    maintenant = coupure + DUREE_CONSERVATION
+    efface = depot_demandes.purger_perimees(maintenant=maintenant)
+
+    assert efface == 1
+    restantes = {d.id for d in depot_demandes.en_attente()}
+    assert restantes == {recente.id}
+
+
+def test_purger_perimees_garde_les_demandes_encore_dans_le_delai(depot_demandes: DepotDemandes):
+    from ourouler.api.demandes import DUREE_CONSERVATION
+
+    demande = depot_demandes.deposer("juste-a-temps@exemple.invalid", None)
+    maintenant = demande.cree_le + DUREE_CONSERVATION - timedelta(seconds=1)
+
+    assert depot_demandes.purger_perimees(maintenant=maintenant) == 0
+    assert {d.id for d in depot_demandes.en_attente()} == {demande.id}
+
+
+def test_en_attente_purge_automatiquement_a_l_ouverture_de_la_file(depot_demandes: DepotDemandes):
+    """La purge se fait **à la lecture** — l'administration n'a rien à déclencher à part."""
+    from ourouler.api.demandes import DUREE_CONSERVATION
+
+    ancienne = depot_demandes.deposer("perimee-a-l-ouverture@exemple.invalid", None)
+    maintenant = ancienne.cree_le + DUREE_CONSERVATION + timedelta(seconds=1)
+
+    restantes = depot_demandes.en_attente(maintenant=maintenant)
+    assert restantes == []
+
+
+# --- les plafonds, réglables dans [demandes] de service.toml ------------------
+
+
+def test_les_plafonds_du_formulaire_sont_reglables_dans_service_toml(tmp_path):
+    from ourouler.api import exploitation
+
+    chemin = tmp_path / "service.toml"
+    chemin.write_text("[demandes]\npar_ip_par_jour = 3\nglobal_par_jour = 42\n", encoding="utf-8")
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    assert exploitation.demandes_par_ip_par_jour(environ) == 3
+    assert exploitation.demandes_global_par_jour(environ) == 42
+
+
+def test_les_plafonds_du_formulaire_absents_valent_les_defauts(tmp_path):
+    from ourouler.api import exploitation
+    from ourouler.api.demandes import GLOBAL_PAR_JOUR_DEFAUT, PAR_IP_PAR_JOUR_DEFAUT
+
+    environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
+    assert exploitation.demandes_par_ip_par_jour(environ) == PAR_IP_PAR_JOUR_DEFAUT
+    assert exploitation.demandes_global_par_jour(environ) == GLOBAL_PAR_JOUR_DEFAUT
+
+
+def test_limite_anonyme_epuise_ne_decompte_rien():
+    limite = LimiteAnonyme(plafond=1)
+    assert limite.epuise("x") is False
+    assert limite.autorise("x") is True
+    assert limite.epuise("x") is True
+    # `epuise` ne consomme rien : le rappeler ne change pas l'état.
+    assert limite.epuise("x") is True
+    assert limite.autorise("y") is True  # une autre clé n'est pas affectée

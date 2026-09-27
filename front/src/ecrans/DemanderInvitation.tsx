@@ -81,6 +81,10 @@ export function DemanderInvitation() {
         voulez, un mot — le mainteneur vous répondra par courriel s'il retient votre
         demande.
       </p>
+      <p className="mention">
+        Votre adresse et votre message ne servent qu'à traiter cette demande ; ils
+        sont effacés dès qu'elle est traitée, ou au bout de 30 jours.
+      </p>
       {panne ? <div className="encart alerte">{panne}</div> : null}
       <div className="champ">
         <label htmlFor="demande-adresse">Adresse</label>

@@ -77,8 +77,23 @@ def deposer_demande(
 
 
 def demandes_en_attente(*, depot: DepotDemandes) -> list[DemandeInvitation]:
-    """La file, telle que l'administration l'affiche."""
+    """La file, telle que l'administration l'affiche.
+
+    Purge d'abord les demandes de plus de 30 jours (`DepotDemandes.en_attente`,
+    RGPD — minimisation) : elles n'apparaissent donc jamais dans la liste rendue.
+    """
     return depot.en_attente()
+
+
+def purger_demandes_perimees(*, depot: DepotDemandes) -> int:
+    """Efface les demandes non traitées depuis plus de 30 jours — rend leur nombre.
+
+    Appelée au démarrage (`ourouler admin`, ou l'administration intégrée à
+    l'entrypoint) en plus de la purge automatique à l'ouverture de la file
+    (`demandes_en_attente`) — une file jamais consultée entre deux
+    démarrages ne doit pas non plus garder des adresses indéfiniment.
+    """
+    return depot.purger_perimees()
 
 
 def refuser_demande(identifiant: str, *, depot: DepotDemandes) -> bool:
@@ -129,5 +144,6 @@ __all__ = [
     "accepter_demande",
     "demandes_en_attente",
     "deposer_demande",
+    "purger_demandes_perimees",
     "refuser_demande",
 ]

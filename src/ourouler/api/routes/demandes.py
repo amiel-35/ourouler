@@ -26,13 +26,7 @@ import logging
 from fastapi import Request
 
 from ourouler.api import base_de_donnees, exploitation
-from ourouler.api.demandes import (
-    CLE_GLOBALE,
-    GLOBAL_PAR_JOUR_DEFAUT,
-    PAR_IP_PAR_JOUR_DEFAUT,
-    DepotDemandes,
-    LimiteAnonyme,
-)
+from ourouler.api.demandes import CLE_GLOBALE, DepotDemandes, LimiteAnonyme
 from ourouler.api.modeles import DemandeInvitationPublique
 from ourouler.api.routes.commun import Ctx, nouveau_routeur
 from ourouler.api.session import SessionParCookie
@@ -47,8 +41,26 @@ journal = logging.getLogger("ourouler.demandes")
 #: `api/taches_fond.VERROU` : un seul processus sert ce formulaire (même
 #: doctrine que `api/quotas.py`), et un test qui veut un compteur vierge
 #: réimporte le module ou avance l'horloge plutôt que de les reconstruire.
-_LIMITE_PAR_IP = LimiteAnonyme(plafond=PAR_IP_PAR_JOUR_DEFAUT)
-_LIMITE_GLOBALE = LimiteAnonyme(plafond=GLOBAL_PAR_JOUR_DEFAUT)
+#:
+#: Le plafond se lit une fois, à l'import du module (`[demandes]` de
+#: `service.toml`, `api/exploitation.py`) : c'est le même choix que
+#: `Quotas`, dont le plafond est fixé à la construction du `Contexte` par
+#: `application()`, pas relu à chaque requête.
+_LIMITE_PAR_IP = LimiteAnonyme(plafond=exploitation.demandes_par_ip_par_jour())
+_LIMITE_GLOBALE = LimiteAnonyme(plafond=exploitation.demandes_global_par_jour())
+
+
+def debit_global_epuise() -> bool:
+    """Vrai si le plafond global du formulaire public est atteint aujourd'hui.
+
+    Lue par l'administration (`api/admin.py`) pour l'afficher sur le tableau
+    de bord — seulement visible quand l'administration tourne dans le même
+    processus que l'API (voir la note sur les quotas et tâches de fond,
+    `api/admin.py`), puisque ce compteur, comme les autres, vit en mémoire
+    d'un seul processus.
+    """
+    return _LIMITE_GLOBALE.epuise(CLE_GLOBALE)
+
 
 #: La réponse rendue dans tous les cas — succès, honeypot rempli, débit
 #: dépassé, base absente. Une constante plutôt qu'une valeur recalculée à
@@ -109,8 +121,15 @@ def demander_invitation(ctx: Ctx, corps: DemandeInvitationPublique, requete: Req
                 destinataire_alerte=exploitation.adresse_alerte_demandes(),
                 parametres_brevo=exploitation.parametres_brevo_service(),
             )
-    except Exception:  # noqa: BLE001 — toute panne (adresse mal formée, alerte en échec,
+    except Exception as e:  # noqa: BLE001 — toute panne (adresse mal formée, alerte en échec,
         # base injoignable) reste **interne** : la réponse ne doit jamais varier
         # selon ce qui a raté, sans quoi elle redeviendrait un oracle.
-        journal.exception("demande d'invitation non enregistrée")
+        #
+        # **Jamais `journal.exception` ici** : elle imprimerait la trace, et
+        # `ErreurCompte` (`normaliser_email`) porte l'adresse **saisie** dans
+        # son message (`repr(brut)`) — l'écrire au journal ferait fuiter
+        # l'adresse d'un formulaire public dans les logs du serveur, la
+        # fuite même que ce module existe pour refuser. Seul le nom du type
+        # d'exception est journalisé, jamais son message ni sa trace.
+        journal.warning("demande d'invitation non enregistrée (%s)", type(e).__name__)
     return _REPONSE

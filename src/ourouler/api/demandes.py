@@ -43,6 +43,15 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 #: refuse une demande trop longue *avant* d'aller jusqu'à la base.
 LONGUEUR_MAX_MESSAGE = 500
 
+#: Combien de temps une demande non traitée reste en base avant d'être
+#: purgée d'elle-même — RGPD, minimisation : l'adresse et le message ne
+#: servent qu'à traiter la demande (les afficher dans l'administration,
+#: accepter ou refuser) ; au-delà d'un délai raisonnable sans décision du
+#: mainteneur, les garder ne sert plus ce but. **Trente jours** : assez pour
+#: qu'une absence de quelques semaines ne perde aucune demande réelle, assez
+#: court pour qu'une adresse abandonnée ne dorme pas en base indéfiniment.
+DUREE_CONSERVATION = timedelta(days=30)
+
 
 @dataclass(frozen=True)
 class DemandeInvitation:
@@ -94,12 +103,40 @@ class DepotDemandes:
         assert ligne is not None  # un INSERT sans ON CONFLICT rend toujours sa ligne
         return _demande(ligne)
 
-    def en_attente(self) -> list[DemandeInvitation]:
-        """La file, des plus anciennes aux plus récentes — ce que l'administration affiche."""
+    def en_attente(self, *, maintenant: datetime | None = None) -> list[DemandeInvitation]:
+        """La file, des plus anciennes aux plus récentes — ce que l'administration affiche.
+
+        **Purge d'abord les demandes trop anciennes** (`purger_perimees`) :
+        une demande non traitée depuis plus de `DUREE_CONSERVATION` (30
+        jours) n'apparaît donc jamais dans la liste rendue — elle a déjà été
+        effacée. C'est délibérément à la lecture, plutôt qu'une tâche de
+        fond séparée à faire tourner : la file n'a qu'un seul lecteur régulier
+        (l'administration), et chaque ouverture du tableau de bord est une
+        occasion suffisante de faire le ménage.
+        """
+        self.purger_perimees(maintenant=maintenant)
         lignes = self.cx.execute(
             "SELECT id, email, message, cree_le FROM demandes_invitation ORDER BY cree_le"
         ).fetchall()
         return [_demande(ligne) for ligne in lignes]
+
+    def purger_perimees(self, *, maintenant: datetime | None = None) -> int:
+        """Efface les demandes déposées il y a plus de `DUREE_CONSERVATION` — rend leur nombre.
+
+        Appelée par `en_attente` (à l'ouverture de la file) — voir sa
+        docstring — et par le démarrage du service
+        (`services.demandes.purger_demandes_perimees`, `entrypoint.py`), pour
+        qu'une file jamais consultée ne garde pas indéfiniment des adresses
+        que personne ne regardera plus. `maintenant` est injectable pour les
+        tests, comme partout ailleurs dans ce paquet (`comptes._instant`).
+        """
+        instant = maintenant if maintenant is not None else datetime.now(UTC)
+        with self.cx.transaction():
+            lignes = self.cx.execute(
+                "DELETE FROM demandes_invitation WHERE cree_le <= %s RETURNING id",
+                (instant - DUREE_CONSERVATION,),
+            ).fetchall()
+        return len(lignes)
 
     def par_id(self, identifiant: str) -> DemandeInvitation | None:
         """Une demande précise, ou `None` — pour l'écran « accepter/refuser cette demande »."""
@@ -185,6 +222,18 @@ class LimiteAnonyme:
             self._compteurs[cle_du_jour] = deja + 1
             return True
 
+    def epuise(self, cle: str) -> bool:
+        """Vrai si `cle` a déjà atteint le plafond aujourd'hui — sans rien décompter.
+
+        Sert à l'administration (`api/admin.py`) pour afficher que le
+        plafond global du formulaire est atteint, sans consommer un crédit
+        pour le savoir — même principe que `Quotas.refuser_si_epuise`.
+        """
+        maintenant = self.horloge()
+        cle_du_jour = (cle, maintenant.date())
+        with self._verrou:
+            return self._compteurs.get(cle_du_jour, 0) >= self.plafond
+
 
 #: La clé du compteur global (toutes adresses IP confondues) dans une
 #: `LimiteAnonyme` — un mot qu'aucune adresse IP ne peut jamais valoir.
@@ -206,6 +255,7 @@ GLOBAL_PAR_JOUR_DEFAUT = 100
 
 __all__ = [
     "CLE_GLOBALE",
+    "DUREE_CONSERVATION",
     "GLOBAL_PAR_JOUR_DEFAUT",
     "LONGUEUR_MAX_MESSAGE",
     "PAR_IP_PAR_JOUR_DEFAUT",

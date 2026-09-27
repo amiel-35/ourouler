@@ -146,6 +146,18 @@ def _lancer_administration_en_arriere_plan(app) -> None:
         )
         return
 
+    # RGPD, minimisation : purge les demandes non traitées depuis plus de
+    # 30 jours au démarrage — la même purge tourne aussi à chaque ouverture
+    # de la file par l'administration (`DepotDemandes.en_attente`), mais un
+    # conteneur qui redémarre souvent sans qu'on ouvre l'écran ne doit pas
+    # non plus les garder indéfiniment.
+    from ourouler.api import base_de_donnees
+    from ourouler.api.demandes import DepotDemandes
+    from ourouler.services.demandes import purger_demandes_perimees
+
+    with base_de_donnees.ouvrir(url_db) as connexion:
+        purger_demandes_perimees(depot=DepotDemandes(connexion))
+
     ctx = app.state.ourouler
     quotas = {
         "générations": ctx.quotas,
@@ -199,7 +211,20 @@ def main() -> None:
     app = application()
     _lancer_administration_en_arriere_plan(app)
     print(f"ourouler : API et front sur http://{HOTE}:{PORT} (sonde : /sante)", file=sys.stderr)
-    uvicorn.run(app, host=HOTE, port=PORT, log_level="info")
+    # `proxy_headers=True, forwarded_allow_ips="*"` : sans ça, uvicorn n'honore
+    # `X-Forwarded-For` que depuis 127.0.0.1, et `Request.client.host` (lu par
+    # `api/routes/demandes.py` pour le débit par adresse IP du formulaire
+    # public) voit alors l'IP de Traefik pour **toutes** les requêtes — cinq
+    # dépôts de n'importe qui épuiseraient le compteur pour tout le monde.
+    # `forwarded_allow_ips="*"` (« fais confiance à qui se connecte ») est sûr
+    # ici précisément parce que ce conteneur n'est joignable que par le réseau
+    # interne de Traefik : aucun port n'est publié sur l'hôte
+    # (`docker-compose.api.coolify.yml`, `expose:` seulement), donc personne
+    # d'autre que Traefik ne peut se connecter directement et forger cet
+    # en-tête. Sans ce réglage-ci ni ce conteneur-là (`ourouler api` en local,
+    # `HOTE` par défaut `127.0.0.1`), ce paramètre ne change rien puisque
+    # personne ne se connecte par un proxy.
+    uvicorn.run(app, host=HOTE, port=PORT, log_level="info", proxy_headers=True, forwarded_allow_ips="*")
 
 
 if __name__ == "__main__":

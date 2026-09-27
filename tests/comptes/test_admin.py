@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -119,6 +120,31 @@ def test_deconnexion_ferme_la_session(app_admin):
     assert reponse.status_code == 403
 
 
+def test_le_cookie_de_session_n_est_jamais_marque_secure(app_admin):
+    """Relecture de sécurité : cette application n'est jamais servie qu'en `http://`
+    (boucle locale, jamais de TLS ici) — un cookie `Secure` sur une origine `http://`
+    n'est simplement pas posé par certains navigateurs (Safari), ce qui produirait une
+    boucle de connexion silencieuse. `HttpOnly` et `SameSite=Strict` restent posés."""
+    reponse = _requete(
+        app_admin,
+        "POST",
+        "/admin/connexion",
+        data={"identifiant": IDENTIFIANT_ADMIN, "secret": SECRET_ADMIN},
+    )
+    assert reponse.status_code == 303
+    entete = reponse.headers.get("set-cookie", "")
+    assert "secure" not in entete.lower()
+    assert "httponly" in entete.lower()
+    assert "samesite=strict" in entete.lower()
+
+
+def test_les_pages_d_administration_refusent_l_incrustation_en_iframe(app_admin):
+    """`X-Frame-Options: DENY` — cette application n'a aucune raison d'être chargée
+    dans un `<iframe>`, et se protéger du clic-jacking coûte une ligne."""
+    reponse = _requete(app_admin, "GET", "/admin/connexion")
+    assert reponse.headers.get("x-frame-options") == "DENY"
+
+
 # --- CSRF ----------------------------------------------------------------------
 
 
@@ -188,6 +214,156 @@ def test_le_tableau_de_bord_masque_l_adresse_des_invitations_en_cours(app_admin,
     cookies = _connecter(app_admin)
     page = _requete(app_admin, "GET", "/admin/", cookies=cookies)
     assert "visible-en-clair@exemple.invalid" not in page.text
+
+
+def test_accepter_une_adresse_deja_titulaire_d_un_compte_n_est_pas_un_500(app_admin, url_base: str):
+    """`ErreurCompteExistant` est un refus **normal** (quelqu'un a demandé une invitation
+    alors qu'il a déjà un compte) — l'administration doit le dire dans un encart lisible,
+    pas planter avec un 500 : la demande reste dans la file, à traiter à la main."""
+    with ouvrir(url_base) as cx:
+        DepotComptes(cx).inviter("deja-un-compte@exemple.invalid")
+        DepotComptes(cx).activer(
+            DepotComptes(cx).invitations_en_cours()[0].jeton, "peuplier-silex-abricot-tonneau"
+        )
+        demande = DepotDemandes(cx).deposer("deja-un-compte@exemple.invalid", None)
+    cookies = _connecter(app_admin)
+    csrf = _csrf_de(_requete(app_admin, "GET", "/admin/", cookies=cookies).text)
+
+    reponse = _requete(
+        app_admin, "POST", f"/admin/demandes/{demande.id}/accepter", cookies=cookies, data={"csrf": csrf}
+    )
+    assert reponse.status_code == 200, reponse.text
+    assert "a déjà un compte" in reponse.text
+
+    with ouvrir(url_base) as cx:
+        # La demande refusée par `inviter()` reste dans la file : rien n'a
+        # été accepté avec succès, il ne faut donc pas la faire disparaître.
+        assert [d.id for d in DepotDemandes(cx).en_attente()] == [demande.id]
+
+
+def test_accepter_avec_un_relais_smtp_en_panne_n_est_pas_un_500(url_base: str):
+    """`ErreurCourriel` (relais SMTP en panne) est, elle aussi, un refus normal."""
+    from ourouler.api.courriel import ErreurCourriel, ParametresBrevo
+
+    class _ClientSMTPEnPanne:
+        def __init__(self, serveur: str, port: int) -> None:
+            del serveur, port
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc: object) -> bool:
+            return False
+
+        def starttls(self):
+            raise ErreurCourriel("simulation : relais SMTP en panne")
+
+        def login(self, *_a, **_k):  # pragma: no cover - jamais atteint
+            raise AssertionError
+
+        def send_message(self, *_a, **_k):  # pragma: no cover - jamais atteint
+            raise AssertionError
+
+    parametres_brevo = ParametresBrevo(
+        serveur="smtp.exemple.invalid",
+        port=587,
+        utilisateur="u",
+        mot_de_passe="p",
+        expediteur="e@exemple.invalid",
+        nom_expediteur="où rouler (essai)",
+    )
+    app_admin_avec_smtp = creer_application_admin(
+        ParametresApplicationAdmin(
+            url_comptes=url_base,
+            identifiant=ParametresAdmin(identifiant=IDENTIFIANT_ADMIN, secret=SECRET_ADMIN),
+            url_publique="https://exemple.invalid",
+            parametres_brevo=parametres_brevo,
+            fabrique_smtp=_ClientSMTPEnPanne,
+        )
+    )
+    with ouvrir(url_base) as cx:
+        demande = DepotDemandes(cx).deposer("smtp-en-panne@exemple.invalid", None)
+    cookies = _connecter(app_admin_avec_smtp)
+    csrf = _csrf_de(_requete(app_admin_avec_smtp, "GET", "/admin/", cookies=cookies).text)
+
+    reponse = _requete(
+        app_admin_avec_smtp,
+        "POST",
+        f"/admin/demandes/{demande.id}/accepter",
+        cookies=cookies,
+        data={"csrf": csrf},
+    )
+    assert reponse.status_code == 200, reponse.text
+    assert "panne" in reponse.text
+
+    with ouvrir(url_base) as cx:
+        # L'échec de l'envoi ne doit pas faire disparaître la demande de la file.
+        assert [d.id for d in DepotDemandes(cx).en_attente()] == [demande.id]
+
+
+# --- le journal des actions d'administration ------------------------------------
+
+
+def test_les_actions_sont_journalisees_sans_adresse_ni_secret(app_admin, url_base: str, caplog):
+    import logging
+
+    with ouvrir(url_base) as cx:
+        demande = DepotDemandes(cx).deposer("journalisee@exemple.invalid", None)
+    with caplog.at_level(logging.INFO, logger="ourouler.admin"):
+        _requete(
+            app_admin,
+            "POST",
+            "/admin/connexion",
+            data={"identifiant": IDENTIFIANT_ADMIN, "secret": "faux"},
+        )
+        cookies = _connecter(app_admin)
+        csrf = _csrf_de(_requete(app_admin, "GET", "/admin/", cookies=cookies).text)
+        _requete(
+            app_admin, "POST", f"/admin/demandes/{demande.id}/refuser", cookies=cookies, data={"csrf": csrf}
+        )
+
+    messages = " | ".join(caplog.messages)
+    assert "journalisee@exemple.invalid" not in messages
+    assert SECRET_ADMIN not in messages
+    assert "faux" not in messages
+    assert "connexion admin réussie" in messages
+    assert "connexion admin refusée" in messages
+    assert f"demande {demande.id} refusée" in messages
+
+
+# --- le plafond global du formulaire public, affiché sur le tableau de bord ------
+
+
+def test_le_plafond_global_atteint_s_affiche_sur_le_tableau_de_bord(
+    url_base: str, monkeypatch: pytest.MonkeyPatch
+):
+    """Visible seulement quand `quotas` est fourni (administration intégrée à
+    l'entrypoint) — voir `api.admin._section_debit_global`."""
+    from ourouler.api.demandes import LimiteAnonyme
+    from ourouler.api.routes import demandes as module_route
+
+    monkeypatch.setattr(module_route, "_LIMITE_GLOBALE", LimiteAnonyme(plafond=1))
+    module_route._LIMITE_GLOBALE.autorise(module_route.CLE_GLOBALE)  # épuise le plafond (1)
+
+    app_admin_avec_quotas = creer_application_admin(
+        ParametresApplicationAdmin(
+            url_comptes=url_base,
+            identifiant=ParametresAdmin(identifiant=IDENTIFIANT_ADMIN, secret=SECRET_ADMIN),
+            url_publique="https://exemple.invalid",
+            quotas={"générations": SimpleNamespace(plafond=20)},
+        )
+    )
+    cookies = _connecter(app_admin_avec_quotas)
+    page = _requete(app_admin_avec_quotas, "GET", "/admin/", cookies=cookies)
+    assert "plafond global" in page.text.lower()
+
+
+def test_le_plafond_global_non_atteint_ne_s_affiche_pas(app_admin):
+    """`app_admin` n'a pas de `quotas` fourni (mode `ourouler admin` seul) : aucune
+    mention du plafond global, atteint ou pas — la donnée n'est pas fiable dans ce mode."""
+    cookies = _connecter(app_admin)
+    page = _requete(app_admin, "GET", "/admin/", cookies=cookies)
+    assert "plafond global" not in page.text.lower()
 
 
 # --- suppression d'un compte, avec double confirmation --------------------------

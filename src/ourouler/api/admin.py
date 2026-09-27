@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import hmac
 import html
+import logging
 import secrets
 import threading
 from dataclasses import dataclass, field
@@ -50,11 +51,19 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ourouler.api import base_de_donnees
 from ourouler.api.comptes import Compte, DepotComptes
-from ourouler.api.courriel import ParametresBrevo
+from ourouler.api.courriel import FabriqueSMTP, ParametresBrevo
 from ourouler.api.demandes import DepotDemandes
 from ourouler.api.exploitation import ParametresAdmin
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.services.demandes import accepter_demande, demandes_en_attente, refuser_demande
+
+#: Le journal des **actions** d'administration — qui a accepté, refusé,
+#: supprimé quoi, et quand ; qui s'est connecté, avec succès ou pas.
+#: **Jamais une adresse, jamais un secret** : seuls des identifiants opaques
+#: (`demande.id`, `compte.identifiant`, déjà des chaînes hexadécimales sans
+#: signification) et le nom de l'action. Un incident sur ce journal ne doit
+#: rien apprendre de plus qu'« une action a eu lieu ».
+journal = logging.getLogger("ourouler.admin")
 
 #: Le port par défaut de l'administration — jamais celui de l'API (8000) :
 #: les deux ne doivent jamais pouvoir se confondre dans un réglage Coolify.
@@ -142,6 +151,11 @@ class ParametresApplicationAdmin:
     dossier_config: Path | None = None
     #: `{libellé: Quotas}` du processus de l'API — voir la note de module.
     quotas: dict[str, object] | None = None
+    #: Le client SMTP à injecter pour « Accepter » (`envoyer_invitation`,
+    #: `api/courriel.py`) — `None` (le défaut) vaut `smtplib.SMTP`, une vraie
+    #: connexion. Les tests de ce module y passent toujours un double : pas
+    #: de réseau dans les tests, comme partout ailleurs dans ce dépôt.
+    fabrique_smtp: FabriqueSMTP | None = None
 
 
 def _constant_time_egal(a: str, b: str) -> bool:
@@ -188,6 +202,9 @@ button {{ cursor: pointer; }}
 </html>"""
     reponse = HTMLResponse(contenu)
     reponse.headers["Cache-Control"] = "no-store"
+    # Cette application n'a aucune raison d'être chargée dans un `<iframe>` —
+    # se protéger du clic-jacking coûte une ligne, même derrière un tunnel SSH.
+    reponse.headers["X-Frame-Options"] = "DENY"
     return reponse
 
 
@@ -270,9 +287,35 @@ def _section_quotas(quotas: dict[str, object] | None) -> str:
     return f"<table><tr><th>Poste</th><th>Plafond</th></tr>{lignes}</table>"
 
 
-def _corps_tableau_de_bord(session: _SessionAdmin, demandes, invitations, comptes, quotas) -> str:
-    csrf = session.jeton_csrf
+def _section_debit_global(quotas_fournis: bool) -> str:
+    """Le plafond global du formulaire public, s'il est atteint aujourd'hui.
+
+    **Visible seulement quand `quotas_fournis` est vrai** (l'administration
+    tourne dans le même processus que l'API, voir `deploiement/api/entrypoint.py`)
+    — sinon le compteur relu ici serait celui d'un processus qui n'a jamais vu
+    le trafic public, et afficherait toujours « non atteint », à tort.
+    """
+    if not quotas_fournis:
+        return ""
+    from ourouler.api.routes import demandes as module_demandes
+
+    if not module_demandes.debit_global_epuise():
+        return ""
     return (
+        '<p class="alerte">Le plafond global du formulaire public de demande d\'invitation '
+        "est atteint aujourd'hui : les nouvelles demandes ne sont plus enregistrées, "
+        "silencieusement, jusqu'à minuit UTC.</p>"
+    )
+
+
+def _corps_tableau_de_bord(
+    session: _SessionAdmin, demandes, invitations, comptes, quotas, *, alerte: str | None = None
+) -> str:
+    csrf = session.jeton_csrf
+    encart_alerte = f'<p class="alerte">{html.escape(alerte)}</p>' if alerte else ""
+    return (
+        f"{encart_alerte}"
+        f"{_section_debit_global(quotas is not None)}"
         f"<h2>Demandes en attente</h2>{_section_demandes(demandes, csrf)}"
         f"<h2>Invitations en cours</h2>{_section_invitations(invitations)}"
         f"<h2>Comptes actifs</h2>{_section_comptes(comptes, csrf)}"
@@ -382,13 +425,29 @@ def _montrer_authentification(
             secret, attendu.secret
         )
         if not ok:
+            journal.warning("connexion admin refusée")
             reponse = _connexion_page("identifiant ou secret refusés")
             reponse.status_code = 401
             return reponse
+        journal.info("connexion admin réussie")
         jeton = sessions.ouvrir()
         reponse = RedirectResponse("/admin/", status_code=303)
         reponse.set_cookie(
-            NOM_COOKIE_ADMIN, jeton, httponly=True, secure=True, samesite="strict", path="/admin"
+            NOM_COOKIE_ADMIN,
+            jeton,
+            httponly=True,
+            # **`secure=False`, volontairement.** Cette application n'est
+            # jamais servie qu'en clair, sur la boucle locale
+            # (`127.0.0.1`, jamais un nom de domaine ni TLS) — voir la
+            # docstring de module et QP6. Un cookie `Secure` sur une origine
+            # `http://` n'est tout simplement pas posé par certains
+            # navigateurs (Safari, en particulier) : ça produirait une
+            # boucle de connexion silencieuse plutôt qu'un risque réel, le
+            # trafic ne quittant déjà jamais la machine (`docker exec`) ou
+            # un tunnel SSH déjà chiffré (`deploiement/api/README.md`).
+            secure=False,
+            samesite="strict",
+            path="/admin",
         )
         reponse.headers["Cache-Control"] = "no-store"
         return reponse
@@ -410,29 +469,47 @@ def creer_application_admin(parametres: ParametresApplicationAdmin) -> FastAPI:
     sessions = _Sessions()
     _montrer_authentification(app, sessions, parametres)
 
-    @app.get("/admin/")
-    def tableau_de_bord(requete: Request):
-        session = sessions.exiger(requete.cookies.get(NOM_COOKIE_ADMIN))
+    def _tableau_de_bord(session: _SessionAdmin, *, alerte: str | None = None) -> HTMLResponse:
+        """Relit la file, les invitations et les comptes, et rend la page — avec un
+        encart d'alerte facultatif (une action refusée, mais lisible, plutôt qu'un 500)."""
         with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
             demandes = demandes_en_attente(depot=DepotDemandes(cx))
             invitations = DepotComptes(cx).invitations_en_cours()
             comptes = DepotComptes(cx).comptes_actifs()
-        corps = _corps_tableau_de_bord(session, demandes, invitations, comptes, parametres.quotas)
+        corps = _corps_tableau_de_bord(
+            session, demandes, invitations, comptes, parametres.quotas, alerte=alerte
+        )
         return _page("Administration ourouler", corps)
+
+    @app.get("/admin/")
+    def tableau_de_bord(requete: Request):
+        session = sessions.exiger(requete.cookies.get(NOM_COOKIE_ADMIN))
+        return _tableau_de_bord(session)
 
     @app.post("/admin/demandes/{identifiant}/accepter")
     def accepter(identifiant: str, requete: Request, csrf: str = Form(...)):
         session = sessions.exiger(requete.cookies.get(NOM_COOKIE_ADMIN))
         sessions.verifier_csrf(session, csrf)
-        with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
-            accepter_demande(
-                identifiant,
-                depot_demandes=DepotDemandes(cx),
-                depot_comptes=DepotComptes(cx),
-                url_publique=parametres.url_publique,
-                parametres_brevo=parametres.parametres_brevo,
-                invite_par=parametres.invite_par,
-            )
+        try:
+            with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
+                accepter_demande(
+                    identifiant,
+                    depot_demandes=DepotDemandes(cx),
+                    depot_comptes=DepotComptes(cx),
+                    url_publique=parametres.url_publique,
+                    parametres_brevo=parametres.parametres_brevo,
+                    invite_par=parametres.invite_par,
+                    fabrique_smtp=parametres.fabrique_smtp,
+                )
+        except ErreurUtilisateur as e:
+            # **Un refus normal, pas un bug.** Une adresse déjà titulaire d'un compte
+            # (`ErreurCompteExistant`, quelqu'un a demandé alors qu'il a déjà accès) ou un
+            # relais SMTP en panne (`ErreurCourriel`) sont des refus **attendus** de
+            # `services.comptes.inviter`/`envoyer_invitation`, pas des bugs de
+            # l'administration — ils méritent un encart lisible, pas un 500.
+            journal.warning("demande %s : acceptation refusée (%s)", identifiant, type(e).__name__)
+            return _tableau_de_bord(session, alerte=str(e))
+        journal.info("demande %s acceptée", identifiant)
         return RedirectResponse("/admin/", status_code=303)
 
     @app.post("/admin/demandes/{identifiant}/refuser")
@@ -441,6 +518,7 @@ def creer_application_admin(parametres: ParametresApplicationAdmin) -> FastAPI:
         sessions.verifier_csrf(session, csrf)
         with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
             refuser_demande(identifiant, depot=DepotDemandes(cx))
+        journal.info("demande %s refusée", identifiant)
         return RedirectResponse("/admin/", status_code=303)
 
     @app.post("/admin/comptes/{identifiant}/supprimer")
@@ -452,14 +530,19 @@ def creer_application_admin(parametres: ParametresApplicationAdmin) -> FastAPI:
     ):
         session = sessions.exiger(requete.cookies.get(NOM_COOKIE_ADMIN))
         sessions.verifier_csrf(session, csrf)
-        with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
-            depot = DepotComptes(cx)
-            compte = next((c for c in depot.comptes_actifs() if c.identifiant == identifiant), None)
-            if compte is None:
-                return RedirectResponse("/admin/", status_code=303)
-            if confirmation != "oui":
-                return _page_confirmation_suppression(compte, session.jeton_csrf)
-            _supprimer_compte_reellement(depot, compte, parametres.dossier_config)
+        try:
+            with base_de_donnees.ouvrir(parametres.url_comptes) as cx:
+                depot = DepotComptes(cx)
+                compte = next((c for c in depot.comptes_actifs() if c.identifiant == identifiant), None)
+                if compte is None:
+                    return RedirectResponse("/admin/", status_code=303)
+                if confirmation != "oui":
+                    return _page_confirmation_suppression(compte, session.jeton_csrf)
+                _supprimer_compte_reellement(depot, compte, parametres.dossier_config)
+        except ErreurUtilisateur as e:
+            journal.warning("compte %s : suppression refusée (%s)", identifiant, type(e).__name__)
+            return _tableau_de_bord(session, alerte=str(e))
+        journal.info("compte %s supprimé", identifiant)
         return RedirectResponse("/admin/", status_code=303)
 
     return app
