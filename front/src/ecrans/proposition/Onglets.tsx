@@ -4,7 +4,7 @@ import type { Candidate, Proposition, Sortie } from "../../api/types";
 import type { PanneGpx } from "../../api/client";
 import { compteArrets, kmDepuisKm, nombre, pourcentage, visibleEnKm } from "../../api/formats";
 import { DureesDeSortie } from "../../composants/TempsEcoule";
-import { partager } from "../../composants/partager";
+import { BoutonsGpx } from "../../composants/BoutonsGpx";
 
 export function ChiffresParcours({
   proposition,
@@ -76,26 +76,12 @@ export function EnvoiGpx({
           proposition retenue, emporter « la plus sèche » enverrait la trace
           de « la plus calme » au compteur. */}
       {proposition.gpx ? (
-        <>
-          {erreurGpx ? (
-            <div className="encart alerte">
-              <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
-              <p className="mention" style={{ marginTop: "var(--espace-interne)", marginBottom: 0 }}>
-                Code de la panne : {erreurGpx.code}.
-              </p>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="bouton"
-            onClick={partager(proposition.gpx.url, proposition.gpx.nom, surErreurGpx)}
-          >
-            Envoyer vers mon compteur
-          </button>
-          <a className="bouton fantome" href={proposition.gpx.url} download={proposition.gpx.nom}>
-            Télécharger le GPX
-          </a>
-        </>
+        <BoutonsGpx
+          gpx={proposition.gpx}
+          erreur={erreurGpx}
+          surErreur={surErreurGpx}
+          classeLien="bouton fantome"
+        />
       ) : (
         <p className="mention">Aucun GPX n'est disponible pour ce parcours.</p>
       )}

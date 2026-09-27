@@ -13,9 +13,10 @@
  * discret, pour celui qui est sur un ordinateur — et c'est le seul recours
  * quand le navigateur ne sait pas partager de fichier.
  *
- * Le découpage du tracé est dans `proposition/traceVent.ts`, le partage
- * dans `../composants/partager.ts` (repris aussi par `ecrans/Boucles.tsx`),
- * les chiffres, l'envoi et la tenue dans `proposition/Onglets.tsx`.
+ * Le découpage du tracé est dans `proposition/traceVent.ts`, le bouton
+ * d'envoi et le lien de téléchargement dans `../composants/BoutonsGpx.tsx`
+ * (repris aussi par `ecrans/Boucles.tsx`), les chiffres et la tenue dans
+ * `proposition/Onglets.tsx`.
  */
 
 import { useState } from "react";

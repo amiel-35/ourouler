@@ -2,19 +2,35 @@
  * `tests/gpx_proposition.test.tsx`, qui couvre le même geste sur la
  * proposition d'une sortie.
  *
- * Réutilise `partager()` (`../src/composants/partager.ts`), déjà testé côté
- * proposition : ce fichier vérifie seulement que `Boucles.tsx` le branche
- * correctement — bouton en plus, lien de téléchargement inchangé, panne
- * nommée jamais confondue avec « ce navigateur ne sait pas partager », et le
- * garde-fou sur une candidate qui n'est pas la retenue.
+ * Réutilise `BoutonsGpx` (`../src/composants/BoutonsGpx.tsx`, lui-même
+ * construit sur `partager()`) : ce fichier vérifie que `Boucles.tsx` le
+ * branche correctement — bouton en plus, lien de téléchargement inchangé,
+ * panne nommée jamais confondue avec « ce navigateur ne sait pas partager »,
+ * panne remise à zéro quand on change de candidate, et le garde-fou sur une
+ * candidate qui n'est pas la retenue.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Boucles } from "../src/ecrans/Boucles";
 import { boucle } from "./fixtures";
 import { panne } from "./serveur";
+
+function reponseGpxOk(): Response {
+  return {
+    ok: true,
+    status: 200,
+    blob: async () => new Blob(["<gpx />"], { type: "application/gpx+xml" }),
+  } as unknown as Response;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  delete (navigator as { canShare?: unknown }).canShare;
+  delete (navigator as { share?: unknown }).share;
+});
 
 describe("le partage GPX d'une boucle libre", () => {
   it("pointe le GPX de la boucle, avec le lien de téléchargement inchangé", () => {
@@ -23,6 +39,7 @@ describe("le partage GPX d'une boucle libre", () => {
     const lien = screen.getByText("Télécharger le GPX").closest("a")!;
     expect(lien.getAttribute("href")).toBe(reponse.donnees.gpx!.url);
     expect(lien.getAttribute("download")).toBe(reponse.donnees.gpx!.nom);
+    expect(lien.getAttribute("class")).toBe("bouton");
     expect(screen.getByText("Envoyer vers mon compteur")).toBeTruthy();
     rendu.unmount();
   });
@@ -31,14 +48,7 @@ describe("le partage GPX d'une boucle libre", () => {
     const reponse = boucle();
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        blob: async () => new Blob(["<gpx />"], { type: "application/gpx+xml" }),
-      })),
-    );
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     let fichiersPartages: File[] = [];
     const canShare = vi.fn(() => true);
     const share = vi.fn(async (donnees: { files: File[] }) => {
@@ -54,9 +64,6 @@ describe("le partage GPX d'une boucle libre", () => {
     expect(fichiersPartages[0].name).toBe(reponse.donnees.gpx!.nom);
     expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
 
-    delete (navigator as { canShare?: unknown }).canShare;
-    delete (navigator as { share?: unknown }).share;
-    vi.unstubAllGlobals();
     rendu.unmount();
   });
 
@@ -64,14 +71,7 @@ describe("le partage GPX d'une boucle libre", () => {
     const reponse = boucle();
     const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        blob: async () => new Blob(["<gpx />"], { type: "application/gpx+xml" }),
-      })),
-    );
+    vi.stubGlobal("fetch", vi.fn(reponseGpxOk));
     const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
 
     const utilisateur = userEvent.setup();
@@ -82,8 +82,6 @@ describe("le partage GPX d'une boucle libre", () => {
     // Le lien natif reste là, inchangé, pour ce cas-là.
     expect(screen.getByText("Télécharger le GPX")).toBeTruthy();
 
-    alerte.mockRestore();
-    vi.unstubAllGlobals();
     rendu.unmount();
   });
 
@@ -114,12 +112,72 @@ describe("le partage GPX d'une boucle libre", () => {
         screen.getByText(/cette génération n'est plus en mémoire — relancer la recherche/),
       ).toBeTruthy(),
     );
+    // L'encart d'échec porte `role="alert"` : un lecteur d'écran l'annonce
+    // sans que le cycliste ait à le chercher.
+    expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByText("L'envoi vers votre compteur a échoué.")).toBeTruthy();
     expect(screen.getByText(/Code de la panne : generation_introuvable/)).toBeTruthy();
     expect(alerte).not.toHaveBeenCalled();
+  });
 
-    alerte.mockRestore();
-    vi.unstubAllGlobals();
+  it("nomme le serveur injoignable plutôt que de laisser fuir le texte de l'exception réseau", async () => {
+    const reponse = boucle();
+    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+
+    const utilisateur = userEvent.setup();
+    const alerte = vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/le serveur d'où rouler ne répond pas — vérifiez qu'il tourne/),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByText(/Failed to fetch/)).toBeNull();
+    expect(alerte).not.toHaveBeenCalled();
+  });
+
+  it("remet la panne à zéro quand on change de candidate, plutôt que de la laisser réapparaître", async () => {
+    const reponse = boucle();
+    reponse.donnees.candidates.push({
+      ...reponse.donnees.candidates[0],
+      numero: 2,
+      retenue: false,
+    });
+    const rendu = render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    vi.spyOn(window, "alert").mockImplementation(() => undefined);
+    const utilisateur = userEvent.setup();
+
+    // La candidate retenue échoue en tentant l'envoi.
+    await utilisateur.click(screen.getByText("Envoyer vers mon compteur"));
+    await waitFor(() =>
+      expect(screen.getByText("L'envoi vers votre compteur a échoué.")).toBeTruthy(),
+    );
+
+    // On regarde la candidate 2 (pas de GPX pour elle)…
+    await utilisateur.click(screen.getByRole("button", { name: /Boucle 2/ }));
+    expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
+
+    // … puis on revient sur la retenue : l'ancienne panne ne doit pas
+    // réapparaître toute seule.
+    await utilisateur.click(screen.getByRole("button", { name: /Boucle 1/ }));
+    expect(screen.queryByText("L'envoi vers votre compteur a échoué.")).toBeNull();
+
+    rendu.unmount();
   });
 
   it("ne propose ni bouton d'envoi ni GPX quand une autre candidate que la retenue est sélectionnée", async () => {

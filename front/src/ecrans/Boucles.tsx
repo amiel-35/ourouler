@@ -9,10 +9,11 @@
  * Comme pour une sortie, **un seul GPX est écrit** : celui de la candidate
  * retenue par le moteur. Le bouton d'envoi ne s'affiche que là.
  *
- * « Envoyer vers mon compteur » réutilise `partager()` (`composants/partager.ts`),
- * déjà écrit et testé pour l'écran de proposition d'une sortie
- * (`ecrans/proposition/Onglets.tsx`) : même fonction, même distinction entre
- * une panne du serveur et un navigateur qui ne sait pas partager de fichier.
+ * « Envoyer vers mon compteur » réutilise `BoutonsGpx` (`composants/BoutonsGpx.tsx`),
+ * partagé avec l'écran de proposition d'une sortie
+ * (`ecrans/proposition/Onglets.tsx`) : même bouton, même encart d'échec,
+ * même distinction entre une panne du serveur et un navigateur qui ne sait
+ * pas partager de fichier.
  */
 
 import { useState } from "react";
@@ -32,7 +33,7 @@ import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
 import { JaugePluie } from "../composants/JaugePluie";
-import { partager } from "../composants/partager";
+import { BoutonsGpx } from "../composants/BoutonsGpx";
 
 interface Props {
   reponse: Enveloppe<Boucle>;
@@ -114,7 +115,13 @@ export function Boucles({ reponse, surRetour }: Props) {
           <button
             type="button"
             className="carte-bouton"
-            onClick={() => setChoisie(candidate.numero)}
+            onClick={() => {
+              // La panne d'envoi appartient à la candidate affichée quand
+              // elle est survenue : en changer sans la vider ferait
+              // réapparaître un message qui ne concerne plus rien à l'écran.
+              setChoisie(candidate.numero);
+              setErreurGpx(null);
+            }}
             aria-pressed={candidate.numero === choisie}
           >
             <div className="bloc-tete">
@@ -190,26 +197,7 @@ export function Boucles({ reponse, surRetour }: Props) {
       </p>
 
       {boucle.gpx && active?.retenue ? (
-        <>
-          {erreurGpx ? (
-            <div className="encart alerte">
-              <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
-              <p className="mention" style={{ marginTop: "var(--espace-interne)", marginBottom: 0 }}>
-                Code de la panne : {erreurGpx.code}.
-              </p>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="bouton"
-            onClick={partager(boucle.gpx.url, boucle.gpx.nom, setErreurGpx)}
-          >
-            Envoyer vers mon compteur
-          </button>
-          <a className="bouton" href={boucle.gpx.url} download={boucle.gpx.nom}>
-            Télécharger le GPX
-          </a>
-        </>
+        <BoutonsGpx gpx={boucle.gpx} erreur={erreurGpx} surErreur={setErreurGpx} classeLien="bouton" />
       ) : boucle.gpx ? (
         <p className="mention">
           Le GPX prêt est celui de la boucle retenue, pas de celle-ci.
