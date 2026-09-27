@@ -14,8 +14,8 @@
  * quand le navigateur ne sait pas partager de fichier.
  *
  * Le découpage du tracé est dans `proposition/traceVent.ts`, le partage
- * dans `proposition/partager.ts`, les chiffres, l'envoi et la tenue dans
- * `proposition/Onglets.tsx`.
+ * dans `../composants/partager.ts` (repris aussi par `ecrans/Boucles.tsx`),
+ * les chiffres, l'envoi et la tenue dans `proposition/Onglets.tsx`.
  */
 
 import { useState } from "react";

@@ -4,7 +4,7 @@ import type { Candidate, Proposition, Sortie } from "../../api/types";
 import type { PanneGpx } from "../../api/client";
 import { compteArrets, kmDepuisKm, nombre, pourcentage, visibleEnKm } from "../../api/formats";
 import { DureesDeSortie } from "../../composants/TempsEcoule";
-import { partager } from "./partager";
+import { partager } from "../../composants/partager";
 
 export function ChiffresParcours({
   proposition,

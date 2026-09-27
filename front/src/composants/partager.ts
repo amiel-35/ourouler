@@ -1,6 +1,11 @@
-/** « Envoyer vers mon compteur » : le partage système du fichier GPX (décision Q5). */
+/** « Envoyer vers mon compteur » : le partage système du fichier GPX (décision Q5).
+ *
+ * Partagé par deux écrans — la proposition d'une sortie
+ * (`ecrans/proposition/Onglets.tsx`) et une boucle libre (`ecrans/Boucles.tsx`) —
+ * donc rangé ici plutôt que sous l'un des deux.
+ */
 
-import { type PanneGpx, recupererGpx } from "../../api/client";
+import { type PanneGpx, recupererGpx } from "../api/client";
 
 export function partager(url: string, nom: string, surEchec: (panne: PanneGpx | null) => void) {
   return async () => {

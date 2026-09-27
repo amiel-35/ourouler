@@ -20,6 +20,13 @@ partir des PR.
 
 ## [Non publié]
 
+### Ajouté
+
+- Sur l'écran d'une boucle libre, « Envoyer vers mon compteur » ouvre la
+  feuille de partage du téléphone avec le GPX de la boucle retenue — le
+  même geste que sur la proposition d'une sortie, jusqu'ici absent des
+  boucles libres. Le téléchargement reste disponible en dessous.
+
 ### Modifié
 
 - Les textes affichés (aide des réglages, écran d'entrée, légende du tri,
