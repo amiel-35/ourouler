@@ -8,10 +8,17 @@
  *
  * Comme pour une sortie, **un seul GPX est écrit** : celui de la candidate
  * retenue par le moteur. Le bouton d'envoi ne s'affiche que là.
+ *
+ * « Envoyer vers mon compteur » réutilise `BoutonsGpx` (`composants/BoutonsGpx.tsx`),
+ * partagé avec l'écran de proposition d'une sortie
+ * (`ecrans/proposition/Onglets.tsx`) : même bouton, même encart d'échec,
+ * même distinction entre une panne du serveur et un navigateur qui ne sait
+ * pas partager de fichier.
  */
 
 import { useState } from "react";
 import type { Boucle, Enveloppe } from "../api/types";
+import type { PanneGpx } from "../api/client";
 import {
   heure,
   kmDepuisKm,
@@ -26,6 +33,7 @@ import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
 import { JaugePluie } from "../composants/JaugePluie";
+import { BoutonsGpx } from "../composants/BoutonsGpx";
 
 interface Props {
   reponse: Enveloppe<Boucle>;
@@ -38,6 +46,7 @@ export function Boucles({ reponse, surRetour }: Props) {
   const [choisie, setChoisie] = useState<number | null>(retenue?.numero ?? null);
   const active = boucle.candidates.find((c) => c.numero === choisie) ?? null;
   const manque = meteoManquante(reponse.avertissements);
+  const [erreurGpx, setErreurGpx] = useState<PanneGpx | null>(null);
 
   if (boucle.candidates.length === 0) {
     return (
@@ -106,7 +115,13 @@ export function Boucles({ reponse, surRetour }: Props) {
           <button
             type="button"
             className="carte-bouton"
-            onClick={() => setChoisie(candidate.numero)}
+            onClick={() => {
+              // La panne d'envoi appartient à la candidate affichée quand
+              // elle est survenue : en changer sans la vider ferait
+              // réapparaître un message qui ne concerne plus rien à l'écran.
+              setChoisie(candidate.numero);
+              setErreurGpx(null);
+            }}
             aria-pressed={candidate.numero === choisie}
           >
             <div className="bloc-tete">
@@ -182,9 +197,7 @@ export function Boucles({ reponse, surRetour }: Props) {
       </p>
 
       {boucle.gpx && active?.retenue ? (
-        <a className="bouton" href={boucle.gpx.url} download={boucle.gpx.nom}>
-          Télécharger le GPX
-        </a>
+        <BoutonsGpx gpx={boucle.gpx} erreur={erreurGpx} surErreur={setErreurGpx} classeLien="bouton" />
       ) : boucle.gpx ? (
         <p className="mention">
           Le GPX prêt est celui de la boucle retenue, pas de celle-ci.
