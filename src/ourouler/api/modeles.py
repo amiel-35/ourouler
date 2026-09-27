@@ -314,6 +314,10 @@ class DemandeInvitationPublique(Modele):
         max_length=500,
         description="champ honeypot : doit rester vide, un formulaire humain ne le remplit jamais",
     )
+class DemandeConservationFichiers(Modele):
+    """Le choix de garder ou d'effacer ses fichiers d'origine — `PUT /moi/fichiers-origine`."""
+
+    garder: bool = Field(description="vrai pour garder ses fichiers d'origine, faux pour ne pas les garder")
 
 
 __all__ = [
@@ -321,6 +325,7 @@ __all__ = [
     "DemandeAnalyse",
     "DemandeBoucle",
     "DemandeChangementMotDePasse",
+    "DemandeConservationFichiers",
     "DemandeConnexion",
     "DemandeEntree",
     "DemandeInvitationPublique",

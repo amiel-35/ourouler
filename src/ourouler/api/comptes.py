@@ -215,6 +215,20 @@ class Compte:
 
 
 @dataclass(frozen=True)
+class ChoixConservation:
+    """Le choix de garder ou d'effacer ses fichiers d'origine, et depuis quand.
+
+    Fiche « choix de garder ou d'effacer ses fichiers d'origine » —
+    `migrations/0003_conservation_fichiers.sql`. `garder` vaut `True` par
+    défaut (Q67 révisée le 27/09/2026) : un compte qui n'a jamais touché ce
+    réglage garde ses fichiers, comme avant que ce choix existe.
+    """
+
+    garder: bool
+    depuis: datetime
+
+
+@dataclass(frozen=True)
 class Invitation:
     """Une invitation telle qu'elle vit en base, jeton compris.
 
@@ -798,6 +812,44 @@ class DepotComptes:
             return None
         return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
 
+    def choix_conservation_du_proprietaire(self, proprietaire: Proprietaire) -> ChoixConservation | None:
+        """Le choix de ce compte — ou `None` s'il n'a pas (encore) de compte lié.
+
+        Pour l'écran Réglages → Mon compte et pour `GET /moi/export`. `None`
+        se traite comme « garder » (le défaut) par l'appelant qui n'a besoin
+        que d'un booléen — `api/routes/commun._conserver_brut`.
+        """
+        ligne = self.cx.execute(
+            "SELECT c.conserver_fichiers_bruts, c.conserver_fichiers_bruts_le FROM comptes c "
+            "JOIN comptes_proprietaires cp ON cp.compte = c.id WHERE cp.proprietaire = %s",
+            (str(proprietaire),),
+        ).fetchone()
+        if ligne is None:
+            return None
+        return ChoixConservation(garder=ligne[0], depuis=ligne[1])
+
+    def definir_conservation_du_proprietaire(
+        self, proprietaire: Proprietaire, *, garder: bool
+    ) -> ChoixConservation:
+        """Pose le choix de ce compte, horodaté à maintenant. Lève `ErreurCompte` sans compte lié.
+
+        Toujours horodaté au moment de l'appel, même si le choix ne change
+        pas : redemander « ne pas garder » alors que c'est déjà le cas est
+        sans effet ailleurs (`api/vie_privee.py` n'efface rien de plus), mais
+        la date dit quand la personne a confirmé pour la dernière fois — utile
+        si elle doute d'avoir cliqué.
+        """
+        with self.cx.transaction():
+            ligne = self.cx.execute(
+                "UPDATE comptes SET conserver_fichiers_bruts = %s, conserver_fichiers_bruts_le = now() "
+                "WHERE id = (SELECT compte FROM comptes_proprietaires WHERE proprietaire = %s) "
+                "RETURNING conserver_fichiers_bruts, conserver_fichiers_bruts_le",
+                (garder, str(proprietaire)),
+            ).fetchone()
+        if ligne is None:
+            raise ErreurCompte(f"aucun compte lié au propriétaire {proprietaire!r}")
+        return ChoixConservation(garder=ligne[0], depuis=ligne[1])
+
     # -- ce qui est commun aux deux --------------------------------------------
 
     def proprietaire_du_compte(self, identifiant_compte: str) -> Proprietaire:
@@ -1062,6 +1114,7 @@ __all__ = [
     "OCTETS_JETON",
     "OCTETS_JETON_SESSION",
     "Acces",
+    "ChoixConservation",
     "Compte",
     "DepotComptes",
     "ErreurCompte",

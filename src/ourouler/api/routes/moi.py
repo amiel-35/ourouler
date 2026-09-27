@@ -7,10 +7,10 @@ from contextlib import contextmanager
 from fastapi.responses import Response
 
 from ourouler.api import base_de_donnees, vie_privee
-from ourouler.api.comptes import DepotComptes, ErreurMotDePasseActuelRefuse
+from ourouler.api.comptes import DepotComptes, ErreurCompte, ErreurMotDePasseActuelRefuse
 from ourouler.api.erreurs import ErreurApi, classer
-from ourouler.api.modeles import DemandeChangementMotDePasse
-from ourouler.api.routes.commun import Contexte, Ctx, Qui, nouveau_routeur
+from ourouler.api.modeles import DemandeChangementMotDePasse, DemandeConservationFichiers
+from ourouler.api.routes.commun import Contexte, Ctx, Qui, _cache, _config, nouveau_routeur
 from ourouler.api.session import SessionParCookie
 
 routeur = nouveau_routeur()
@@ -40,6 +40,8 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
     dont `vie_privee.construire_export` se sert, et c'est un réglage serveur,
     pas un profil.
     """
+    with _comptes_du_deploiement(ctx) as comptes:
+        choix = comptes.choix_conservation_du_proprietaire(qui) if comptes is not None else None
     try:
         archive = vie_privee.construire_export(
             qui,
@@ -47,6 +49,7 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
             fichiers=ctx.fichiers,
             journal=ctx.journal,
             dossier_cache=ctx.dossier_cache,
+            choix_conservation=choix,
         )
     except Exception as e:
         raise classer(e) from e
@@ -87,6 +90,72 @@ def mon_compte(ctx: Ctx, qui: Qui) -> dict:
     return {
         "proprietaire": str(qui),
         "donnees": {"email": compte.email if compte is not None else None},
+    }
+
+
+def _sans_comptes() -> ErreurApi:
+    return ErreurApi(
+        code="comptes_indisponibles",
+        message="ce déploiement ne gère pas de comptes — rien à changer",
+        statut=404,
+    )
+
+
+@routeur.get("/moi/fichiers-origine")
+def etat_conservation_fichiers(ctx: Ctx, qui: Qui) -> dict:
+    """Le choix de ce compte : garde-t-il ses fichiers d'origine, et combien en a-t-il ?
+
+    Pour Réglages → Mon compte : « Vous gardez vos fichiers d'origine
+    (N fichiers) » ou « Vous ne gardez pas vos fichiers d'origine ». `garder`
+    vaut `True` par défaut sur un déploiement sans base de comptes (mode
+    personnel) — il n'y a alors pas de choix à faire, les fichiers bruts du
+    cache local ne sont jamais effacés d'office.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        choix = comptes.choix_conservation_du_proprietaire(qui) if comptes is not None else None
+    config = _config(ctx, qui)
+    nombre = _cache(config, qui).nombre_bruts()
+    return {
+        "proprietaire": str(qui),
+        "donnees": {
+            "garder": choix.garder if choix is not None else True,
+            "depuis": choix.depuis.isoformat() if choix is not None else None,
+            "nombre_fichiers": nombre,
+        },
+    }
+
+
+@routeur.put("/moi/fichiers-origine")
+def definir_conservation_fichiers(ctx: Ctx, qui: Qui, corps: DemandeConservationFichiers) -> dict:
+    """Change le choix de ce compte. Passer à « ne pas garder » efface tout de suite ses fichiers.
+
+    **Immédiat et sans retour** : tous les fichiers d'origine du compte
+    (toutes sources) disparaissent dès cet appel — `Cache.effacer_bruts`.
+    L'écran doit avoir fait confirmer le coût avant d'appeler cette route ;
+    elle-même ne redemande rien. Revenir à « garder » ne vaut que pour les
+    imports suivants : les fichiers déjà effacés ne reviennent pas.
+
+    404 `comptes_indisponibles` sur un déploiement sans base de comptes : ce
+    choix n'a de sens que pour un compte du service.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        if comptes is None:
+            raise _sans_comptes()
+        try:
+            choix = comptes.definir_conservation_du_proprietaire(qui, garder=corps.garder)
+        except ErreurCompte as e:
+            raise _sans_comptes() from e
+    config = _config(ctx, qui)
+    fichiers_effaces = 0
+    if not corps.garder:
+        fichiers_effaces = _cache(config, qui, conserver_brut=False).effacer_bruts()
+    return {
+        "proprietaire": str(qui),
+        "donnees": {
+            "garder": choix.garder,
+            "depuis": choix.depuis.isoformat(),
+            "fichiers_effaces": fichiers_effaces,
+        },
     }
 
 

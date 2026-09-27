@@ -292,14 +292,50 @@ def _base_routes(config: Config, qui: Proprietaire):
         raise classer(e) from e
 
 
-def _cache(config: Config, qui: Proprietaire):
-    """Le cache d'activités **de ce propriétaire**. Même règle que `_base_routes`."""
+def _cache(config: Config, qui: Proprietaire, *, conserver_brut: bool = True):
+    """Le cache d'activités **de ce propriétaire**. Même règle que `_base_routes`.
+
+    `conserver_brut` : faux pour un compte qui a choisi de ne pas garder ses
+    fichiers d'origine (fiche « choix de garder ou d'effacer ses fichiers
+    d'origine ») — voir `_conserver_brut`. Seul l'import écrit ; les lectures
+    (calibration, inventaire) n'en dépendent pas, `Cache` sachant relire ce
+    qu'il a, qu'il ait ou non le fichier.
+    """
     from ourouler.activites.cache import Cache
 
     try:
-        return Cache(config.cache.dossier, proprietaire=str(qui))
+        return Cache(config.cache.dossier, proprietaire=str(qui), conserver_brut=conserver_brut)
     except Exception as e:
         raise classer(e) from e
+
+
+def _conserver_brut(ctx: Contexte, qui: Proprietaire) -> bool:
+    """Ce compte garde-t-il ses fichiers d'origine ? Vrai par défaut (Q67).
+
+    Lu sur `comptes.conserver_fichiers_bruts` — colonne posée par
+    `migrations/0003_conservation_fichiers.sql`. Un déploiement sans base de
+    comptes (mode personnel, ou hébergé sans `SessionParCookie`) n'a pas de
+    choix à lire : il garde toujours ses fichiers, comme aujourd'hui.
+    """
+    from ourouler.api import base_de_donnees
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.session import SessionParCookie
+
+    if not isinstance(ctx.session, SessionParCookie):
+        return True
+    try:
+        with base_de_donnees.ouvrir(ctx.session.url) as cx:
+            choix = DepotComptes(cx).choix_conservation_du_proprietaire(qui)
+    except Exception as e:
+        raise classer(e) from e
+    return True if choix is None else choix.garder
+
+
+def _client_archive(ctx: Contexte, config: Config):
+    """L'archive météo : celle des `Clients` (tests, service), sinon celle du cache du serveur."""
+    return _service(ctx, config, "archive") or ClientArchive(
+        chemin_cache=config.cache.dossier / NOM_CACHE_ARCHIVE
+    )
 
 
 def _service(ctx: Contexte, config: Config, nom: str) -> object | None:

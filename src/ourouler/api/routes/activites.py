@@ -13,7 +13,9 @@ from ourouler.api.routes.commun import (
     Ctx,
     Qui,
     _cache,
+    _client_archive,
     _config,
+    _conserver_brut,
     _message_occupe,
     _rembourser_quota,
     _verifier_quota,
@@ -37,7 +39,11 @@ def etat_import(ctx: Ctx, qui: Qui) -> dict:
     from ourouler.activites import import_archive
 
     config = _config(ctx, qui)
-    return {"proprietaire": str(qui), "donnees": import_archive.etat(_cache(config, qui))}
+    donnees = import_archive.etat(_cache(config, qui))
+    # Ce que l'écran dit au-dessus du dépôt : « on garde/ne garde pas vos
+    # fichiers » suit le choix du compte, pas seulement le mode.
+    donnees["fichiers_conserves"] = _conserver_brut(ctx, qui)
+    return {"proprietaire": str(qui), "donnees": donnees}
 
 
 @routeur.get("/activites/import/{id_job}")
@@ -109,7 +115,13 @@ def importer_activites(
         raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
 
     config = _config(ctx, qui)
-    cache = _cache(config, qui)
+    garder = _conserver_brut(ctx, qui)
+    cache = _cache(config, qui, conserver_brut=garder)
+    # Ce compte ne garde pas ses fichiers d'origine : le vent de chaque
+    # sortie se résout maintenant, tant que la trace est encore là — c'est le
+    # seul moment où l'on connaît son point de départ et le cap de chaque
+    # tronçon (`services/derive.py`).
+    client_archive = _client_archive(ctx, config) if not garder else None
 
     _verifier_quota(ctx, qui, ctx.quotas_import)
     try:
@@ -123,6 +135,7 @@ def importer_activites(
             str(qui),
             depots,
             au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_import),
+            client_archive=client_archive,
         )
     except imports_fond.ErreurImportEnCours as occupe:
         _rembourser_quota(ctx, qui, ctx.quotas_import)

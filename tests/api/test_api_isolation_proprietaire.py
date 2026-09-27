@@ -1345,6 +1345,13 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("POST", f"{PREFIXE_API}/moi/mot-de-passe"): {
             "json": {"mot_de_passe_actuel": "peu-importe", "nouveau_mot_de_passe": "peu-importe-aussi"}
         },
+        # Fiche « choix de garder ou d'effacer ses fichiers d'origine » :
+        # sous `SessionDEssai` (pas de vraie base de comptes), `GET` répond
+        # le défaut (« garder ») et `PUT` répond `comptes_indisponibles`
+        # (404) — même parti pris que `GET /moi` et `POST /moi/mot-de-passe`
+        # juste au-dessus : c'est le fil HTTP qui doit être éprouvé ici.
+        ("GET", f"{PREFIXE_API}/moi/fichiers-origine"): {},
+        ("PUT", f"{PREFIXE_API}/moi/fichiers-origine"): {"json": {"garder": False}},
         ("DELETE", f"{PREFIXE_API}/moi"): {},
     }
 
@@ -1861,4 +1868,12 @@ def test_un_historique_importe_par_a_n_est_ni_vu_ni_compte_chez_b(tmp_path):
     )
     assert depot_b.status_code == 202, depot_b.text
     fini_b = _attendre_import(client, PROPRIETAIRE_B, depot_b.json()["donnees"]["id"])
-    assert fini_b["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}
+    assert fini_b["rapport"] == {
+        "importees": 1,
+        "doublons": 0,
+        "ignorees": [],
+        "fichiers_conserves": True,
+        "derivees": 0,
+        "rafraichies": 0,
+        "sans_vent": 0,
+    }
