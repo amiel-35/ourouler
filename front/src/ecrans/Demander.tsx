@@ -29,12 +29,18 @@ import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 import { ChoixDirection, PointCardinal, PreferenceVent } from "./demander/ChampsDirection";
-import { minutesDe, texteDuree } from "./demander/demande";
+import { heureDepartParDefaut, minutesDe, texteDuree } from "./demander/demande";
 import type { Demande } from "./demander/demande";
 import { Estimation } from "./demander/Estimation";
 import { useMeteoDepart } from "./demander/useMeteoDepart";
 
-export { demandeInitiale, minutesDe, phraseEstimation, texteDuree } from "./demander/demande";
+export {
+  demandeInitiale,
+  heureDepartParDefaut,
+  minutesDe,
+  phraseEstimation,
+  texteDuree,
+} from "./demander/demande";
 export type { Demande } from "./demander/demande";
 
 interface Props {
@@ -182,7 +188,14 @@ export function Demander({
               type="button"
               key={jour}
               aria-pressed={demande.jour === jour}
-              onClick={() => changer({ jour })}
+              onClick={() =>
+                // « Aujourd'hui » (index 0) recalcule l'heure par défaut à
+                // chaque choix — sinon elle resterait gelée à ce qu'elle
+                // était au chargement de la page, ou à l'heure d'un autre
+                // jour qu'on quitte. « Demain »/« Après-demain » gardent
+                // l'heure telle quelle, comme avant.
+                changer(index === 0 ? { jour, heure_depart: heureDepartParDefaut(jour) } : { jour })
+              }
             >
               {["Aujourd'hui", "Demain", "Après-demain"][index]}
             </button>

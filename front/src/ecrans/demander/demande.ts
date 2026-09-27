@@ -36,11 +36,48 @@ export interface Demande {
   candidates: number;
 }
 
-export function demandeInitiale(): Demande {
+/** Le jour d'une date, en AAAA-MM-JJ — même règle que `aujourdhui()`
+ * (`etat/ressource.ts`), mais appliquée à l'horloge reçue plutôt qu'à
+ * l'horloge système, pour que `heureDepartParDefaut` reste testable sans
+ * dépendre de la machine ni du fuseau de la CI (qui tourne en UTC). */
+function jourDe(date: Date): string {
+  const decalage = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - decalage).toISOString().slice(0, 10);
+}
+
+/** L'heure locale d'une date, arrondie au quart d'heure supérieur,
+ * "HH:MM" — un quart d'heure déjà pile ne bouge pas, et un dépassement de
+ * minuit s'affiche tel quel (23:50 → 00:00), sans cas particulier. */
+function arrondieAuQuartHeureSuivant(date: Date): string {
+  const minutesTotales = date.getHours() * 60 + date.getMinutes();
+  const arrondi = Math.ceil(minutesTotales / 15) * 15;
+  const minutesDuJour = arrondi % (24 * 60);
+  const heures = Math.floor(minutesDuJour / 60);
+  const minutes = minutesDuJour % 60;
+  return `${String(heures).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * L'heure de départ par défaut (QP3, backlog « Séance du jour à l'heure
+ * réelle ») : le jour même, l'heure courante arrondie au quart d'heure
+ * suivant ; un autre jour, "09:00" comme avant.
+ *
+ * `maintenant` est l'horloge, injectable : les tests lui passent une date
+ * fixe plutôt que de dépendre de l'heure de la machine ou du fuseau de la
+ * CI (qui tourne en UTC), et restent donc déterministes.
+ */
+export function heureDepartParDefaut(jour: string, maintenant: () => Date = () => new Date()): string {
+  const maintenant_ = maintenant();
+  if (jour !== jourDe(maintenant_)) return "09:00";
+  return arrondieAuQuartHeureSuivant(maintenant_);
+}
+
+export function demandeInitiale(maintenant: () => Date = () => new Date()): Demande {
+  const jour = aujourdhui();
   return {
     mode: "seance",
-    jour: aujourdhui(),
-    heure_depart: "09:00",
+    jour,
+    heure_depart: heureDepartParDefaut(jour, maintenant),
     duree_min: 120,
     modeDirection: "peu-importe",
     vent: "peu-importe",

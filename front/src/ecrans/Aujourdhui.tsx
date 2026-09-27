@@ -33,6 +33,10 @@ interface Props {
   jour: string;
   seance: Seance | null;
   parcours: { obtenue_le: string; reponse: Enveloppe<Sortie> } | null;
+  /** L'heure de départ qui servira à la recherche (`heureDepartParDefaut`,
+   * `demander/demande.ts`) — le même état que celui de « Demander ». */
+  heureDepart: string;
+  surHeureDepart: (heure: string) => void;
   surGenerer: () => void;
   surOuvrir: () => void;
   surDemander: () => void;
@@ -43,6 +47,8 @@ export function Aujourdhui({
   jour,
   seance,
   parcours,
+  heureDepart,
+  surHeureDepart,
   surGenerer,
   surOuvrir,
   surDemander,
@@ -96,6 +102,22 @@ export function Aujourdhui({
           </div>
         ) : null}
       </div>
+
+      {/* Même champ que `Demander.tsx`, relié au même état
+          (`demande.heure_depart`) : la recherche du jour part de cette
+          heure-là, affichée et modifiable en un geste, plutôt que d'une
+          heure figée à 9 h invisible à l'écran (backlog « Séance du jour à
+          l'heure réelle »). */}
+      <p className="mention">
+        <label htmlFor="heure-depart">Départ à </label>
+        <input
+          id="heure-depart"
+          type="time"
+          value={heureDepart}
+          onChange={(e) => surHeureDepart(e.target.value)}
+          style={{ font: "inherit", border: "none", background: "none", color: "inherit" }}
+        />
+      </p>
 
       {manque ? <BandeauMeteoAbsente phrase={manque} /> : null}
 

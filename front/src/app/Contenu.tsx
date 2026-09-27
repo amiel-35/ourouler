@@ -176,6 +176,8 @@ export function Contenu(props: ContenuProps): JSX.Element {
         jour={jour}
         seance={seanceDuJour.valeur?.donnees ?? null}
         parcours={memoire}
+        heureDepart={demande.heure_depart}
+        surHeureDepart={(heure_depart) => setDemande({ ...demande, heure_depart })}
         surGenerer={() => chercher({ mode: "seance", jour })}
         surOuvrir={() => {
           if (memoire) {

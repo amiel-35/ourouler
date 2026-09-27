@@ -127,6 +127,8 @@ describe("Aujourdhui : la rose répond à « où rouler » avant d'avoir rien de
         jour="2026-09-18"
         seance={null}
         parcours={null}
+        heureDepart="09:00"
+        surHeureDepart={() => undefined}
         surGenerer={() => undefined}
         surOuvrir={() => undefined}
         surDemander={() => undefined}
@@ -145,6 +147,8 @@ describe("Aujourdhui : la rose répond à « où rouler » avant d'avoir rien de
         jour="2026-09-16"
         seance={null}
         parcours={{ obtenue_le: "2026-09-16T06:02:00+02:00", reponse }}
+        heureDepart="09:00"
+        surHeureDepart={() => undefined}
         surGenerer={() => undefined}
         surOuvrir={() => undefined}
         surDemander={() => undefined}
