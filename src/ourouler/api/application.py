@@ -654,7 +654,7 @@ def _refuser_une_base_partagee(brut: dict, variables: Mapping[str, str]) -> None
         fautifs.append(f"les variables {', '.join(depuis_env)}")
     raise ErreurConfig(
         "ce serveur est en mode hébergé et porte " + " et ".join(fautifs) + " — "
-        "ce sont des réglages perso pur (Q35, tiers 3 : depart, cycliste, velos, intervals, "
+        "ce sont des réglages perso pur (depart, cycliste, velos, intervals, "
         "historique_depuis), jamais hérités : ils seraient servis, ou imposés, à chaque "
         "personne invitée. Les retirer du fichier de configuration et de l'environnement du "
         "serveur — chaque cycliste renseigne les siens depuis l'assistant."

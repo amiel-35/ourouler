@@ -5259,7 +5259,7 @@
           "f27_jeu_n": 18.3,
           "f27_reference_n": 18.04,
           "jeu": "route amateur, haut de fourchette",
-          "mesure_sur": "le vélo de route du mainteneur, 25 sorties de validation",
+          "mesure_sur": "un vélo de route de référence, 25 sorties de validation",
           "mesuree": false,
           "source": "position redressée, pneus courants ; 0,36 est au bord haut de ce que les sources citent",
           "usage": "route"
@@ -5318,7 +5318,7 @@
       "Boucle depuis Point zéro — 30 km vers toutes directions, profil fastbike",
       "Départ mardi 8 septembre 2026 à 09h00 — 26,0 km/h (modèle, littérature) de 25,6 à 26,1 (heures de passage météo), sens préféré horaire",
       "Temps estimé par le modèle du RCR à 130 W, sur des valeurs de littérature — temps en mouvement, arrêts non modélisés",
-      "Catégorie « route amateur, haut de fourchette » — CdA 0,360 m², Crr 0,0060 ; littérature, non mesurée sur vous. Dérive mesurée sur le vélo de route du mainteneur, 25 sorties de validation : -0,8 min sur 2 h (F@27 18,30 N contre 18,04 N calibrés).",
+      "Catégorie « route amateur, haut de fourchette » — CdA 0,360 m², Crr 0,0060 ; littérature, non mesurée sur vous. Dérive mesurée sur un vélo de route de référence, 25 sorties de validation : -0,8 min sur 2 h (F@27 18,30 N contre 18,04 N calibrés).",
       "Pour un temps mesuré sur vous : `ourouler calibrer --velo RCR`.",
       "Météo modele_principal_test, second avis modele_second_test",
       "Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.",

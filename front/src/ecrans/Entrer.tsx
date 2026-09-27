@@ -128,9 +128,9 @@ export function Entrer({ jeton, surEntre, mode = "entrer" }: Props) {
         </p>
         <p className="mention">
           {mode === "reinitialiser"
-            ? "Il faut un nouveau lien : demandez au mainteneur d'en émettre un."
-            : "Si vous n'avez pas encore de compte, il faut une nouvelle invitation : le " +
-              "mainteneur seul peut en émettre une."}
+            ? "Il faut un nouveau lien : demandez à l'administrateur du service d'en émettre un."
+            : "Si vous n'avez pas encore de compte, il faut une nouvelle invitation : " +
+              "l'administrateur du service seul peut en émettre une."}
         </p>
       </section>
     );

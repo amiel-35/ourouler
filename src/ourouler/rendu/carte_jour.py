@@ -206,12 +206,11 @@ body {{ margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-se
 header {{ padding: 12px 16px 8px; }}
 h1 {{ font-size: 18px; margin: 0 0 2px; }}
 h2 {{ font-size: 13px; font-weight: 400; color: #555; margin: 0; }}
-/* Q20 d : le conteneur, sans borne de largeur, prenait toute la page — bien
-   plus large que haut (jusqu'à ~3:1 mesuré sur une fenêtre courante). Une
-   boucle de club est plutôt ronde : `fitBounds` cale alors le zoom sur la
-   hauteur et laisse filer la largeur, une vue de ~150 km pour des boucles
-   de ~18 km de diamètre (vérifié à l'œil, contrat de la mise en service
-   §1 d). `max-width: min(100%, 78vh)` borne le rapport largeur/hauteur à
+/* Sans borne de largeur, le conteneur prendrait toute la page — bien plus
+   large que haut (jusqu'à ~3:1 sur une fenêtre courante). Une boucle de
+   club est plutôt ronde : `fitBounds` calerait alors le zoom sur la
+   hauteur et laisserait filer la largeur, une vue de ~150 km pour des
+   boucles de ~18 km de diamètre. `max-width: min(100%, 78vh)` borne le rapport largeur/hauteur à
    78/52 = 1,5 quelle que soit la fenêtre — resserré sans dépendre de JS,
    et sans toucher `fitBounds` lui-même, qui reste correct. */
 #carte {{ height: 52vh; min-height: 300px; max-width: min(100%, 78vh); margin: 0 auto; }}
@@ -251,7 +250,7 @@ ul.legende-vent li {{ display: flex; align-items: center; }}
 .vent-swatch.vent-travers {{ color: #6b6b6b; }}
 /* Le sélecteur : une miniature par proposition, jamais un onglet — cliquer
    en allume une sans en cacher une autre. Empile à partir de ~480 px, la
-   page reste lisible à 400 px (point de vigilance du lot). */
+   page reste lisible à 400 px. */
 .carte-selecteur {{ display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 10px; }}
 .carte-item {{ flex: 1 1 230px; max-width: 360px; min-width: 0; border: 2px solid transparent;
                border-radius: 10px; padding: 8px; background: #fff; cursor: pointer;
@@ -260,8 +259,8 @@ ul.legende-vent li {{ display: flex; align-items: center; }}
 .carte-item.actif {{ border-color: #1b6ca8; box-shadow: 0 0 0 2px rgba(27,108,168,.35); }}
 /* `pointer-events: none` : la mini-carte est décorative (zoom, drag, clic
    Leaflet déjà coupés) et ne doit surtout pas avaler le clic qui sélectionne
-   la proposition — vérifié à la main (lot L5.4) : sans cette règle, cliquer
-   *sur* la miniature ne faisait rien, seul le texte en dessous marchait. */
+   la proposition : sans cette règle, cliquer *sur* la miniature ne ferait
+   rien, seul le texte en dessous marcherait. */
 .mini-carte {{ height: 120px; border-radius: 6px; background: #eef1f3; margin-bottom: 6px;
                pointer-events: none; }}
 .badge {{ display: inline-block; font: 700 11px system-ui, sans-serif; color: #fff; background: #666;
@@ -281,8 +280,7 @@ _PAGE_JOUR_SCRIPT = f"""const carte = L.map('carte');
 // Le cadrage se fait **avant** tout ajout de couche (tuiles comprises) :
 // un `L.map()` sans vue calcule des coordonnées de tuile `NaN` dès qu'on lui
 // ajoute une couche, avant que `fitBounds` n'ait rien fixé — erreur bénigne
-// mais réelle (« Invalid LatLng »), trouvée à la vérification manuelle du
-// lot L5.4 sur les vraies données. Les bornes englobent **toutes** les
+// mais réelle (« Invalid LatLng »). Les bornes englobent **toutes** les
 // propositions ; `L.latLngBounds` ne demande pas de carte pour exister.
 const limites = L.latLngBounds([]);
 for (const p of D.propositions) {{ for (const pt of p.trace) {{ limites.extend(pt); }} }}
@@ -314,9 +312,9 @@ function infoVent(f) {{
 
 // Une couche « riche » (blocs colorés, liaisons pleines, vent) par
 // proposition, construite une fois — visible seulement pour la sélection,
-// pleine de bout en bout (Q20 b : le pointillé ne sert plus à distinguer
-// un bloc d'une liaison, il ne vaut que pour « pas la sélection »). Ce qui
-// empêche le spaghetti (contrat §4.1) : une seule couche riche à la fois.
+// pleine de bout en bout (le pointillé ne distingue pas un bloc d'une
+// liaison, il ne vaut que pour « pas la sélection »). Ce qui empêche le
+// spaghetti : une seule couche riche à la fois.
 function construireRiche(p) {{
   const g = L.featureGroup();
   for (const l of p.liaisons) {{
@@ -343,8 +341,8 @@ function construireRiche(p) {{
 }}
 
 // La boucle complète de chaque proposition est **toujours** affichée
-// (Q20 a : avant ce correctif, elle manquait pour la sélection — la portion
-// au-delà d'un demi-tour n'était peinte par personne). Son style change
+// (sans quoi, pour la sélection, la portion au-delà d'un demi-tour ne
+// serait peinte par personne). Son style change
 // avec la sélection : fond plein sous les blocs pour la sélectionnée
 // (`D.couleurs.trace`, la même teinte que « ce que la séance ne parcourt
 // jamais » sur la carte simple), pointillé gris pour les autres
@@ -388,7 +386,7 @@ function selectionner(n) {{
 L.marker(D.propositions[0].depart).addTo(carte).bindPopup('Départ');
 // Le cadrage (plus haut, avant les tuiles) englobe **toutes** les
 // propositions, et ne bouge pas quand on change la sélection : c'est
-// justement la comparaison qu'une carte unique permet (contrat §4.1) — un
+// justement la comparaison qu'une carte unique permet — un
 // cadrage qui suivrait la sélection la briserait. Seule la taille se
 // revérifie, au chargement complet et au redimensionnement — le conteneur
 // peut avoir mesuré zéro avant que la mise en page ne soit faite.
@@ -434,8 +432,7 @@ window.addEventListener('load', miniCartes);
 
 // Le GPX de chaque proposition, en téléchargement : un `<a download>` dont
 // l'`href` est une URL `blob:`, ce qui marche aussi bien sur une page
-// ouverte par `file://` que servie — vérifié à la main (lot L5.4), pas
-// supposé. `TextDecoder` restitue l'UTF-8 du base64 (accents des libellés).
+// ouverte par `file://` que servie. `TextDecoder` restitue l'UTF-8 du base64 (accents des libellés).
 function b64VersUtf8(b64) {{
   const bin = atob(b64);
   const octets = Uint8Array.from(bin, function (c) {{ return c.charCodeAt(0); }});

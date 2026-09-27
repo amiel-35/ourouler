@@ -11,7 +11,7 @@
     "code": 0,
     "fichiers_ecrits": {
       "cache/sorties/sortie_20260908.gpx": "sha256:f860fee882f5b180",
-      "cache/sorties/sortie_20260908.html": "sha256:7d16e7d69c030a20"
+      "cache/sorties/sortie_20260908.html": "sha256:65b1187e2a5510bc"
     },
     "reseau": [
       "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T07:00&latitude=0.0000&longitude=0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
@@ -5854,7 +5854,7 @@
       "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un CdA et un Crr qui viennent de la littérature et n'ont pas été mesurés sur vous (`ourouler calibrer`).",
       "Météo : modèle modele_principal_test.",
       "Vent au départ 14 km/h de 45°. Question : `--vent retour-dos` pour rentrer avec, `--vent depart-dos` pour partir avec, `--vent travers` — ou rien, et les propositions ci-dessous répondent à votre place.",
-      "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; plus bas = mieux. La note additionne le terrain sous les blocs (vent de face compris depuis le sprint 5), le coût — faible et sans seuil — de chaque minute de retour au calme en trop, et la pénalité, elle très lourde, d'une séance amputée : rentrer plus tard est normal, ne pas rouler la séance ne l'est pas. À note égale à 15 % près, c'est la pluie cumulée qui décide (`tolerance_egalite`, config [seance]).",
+      "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; plus bas = mieux. La note additionne le terrain sous les blocs (vent de face compris), le coût — faible et sans seuil — de chaque minute de retour au calme en trop, et la pénalité, elle très lourde, d'une séance amputée : rentrer plus tard est normal, ne pas rouler la séance ne l'est pas. À note égale à 15 % près, c'est la pluie cumulée qui décide (`tolerance_egalite`, config [seance]).",
       "« blocs bien placés » : note du couloir sous 1,0 km équivalent, soit moins qu'un feu rouge.",
       "  n°   boucle  D+ boucle  parcours             temps  trafic   pluie  vent face  note placement  blocs bien placés  demi-tours",
       "→  1  33,9 km       48 m   45,5 km  1:42-1:54 / 1:40  5,1 km  0,0 mm       25 %            0,91                2/4           2",

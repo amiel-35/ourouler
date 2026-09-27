@@ -130,16 +130,15 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
 
     Idempotent : appeler cette route sur un propriétaire qui n'a rien laissé
     rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
-    les routes apprises, collectives (décision Q46) — est nommé
-    dans `donnees.conserve`, jamais tu.
+    les routes apprises, collectives — est nommé dans `donnees.conserve`,
+    jamais tu.
 
-    **Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`,
-    lot RGPD-compte) : `DepotComptes.supprimer_compte_du_proprietaire` efface
-    la ligne `comptes` liée, et la cascade du schéma révoque du même coup ses
-    invitations et ses sessions ouvertes — le mot de passe ne rouvre plus rien
-    après cet appel. En mode personnel ou hébergé sans base de comptes, il n'y
-    a pas de compte à fermer et `donnees.supprime` ne porte alors pas la clé
-    `"compte"`.
+    **Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`) :
+    `DepotComptes.supprimer_compte_du_proprietaire` efface la ligne `comptes`
+    liée, et la cascade du schéma révoque du même coup ses invitations et ses
+    sessions ouvertes — le mot de passe ne rouvre plus rien après cet appel.
+    En mode personnel ou hébergé sans base de comptes, il n'y a pas de compte
+    à fermer et `donnees.supprime` ne porte alors pas la clé `"compte"`.
 
     **Pas de `_config(ctx, qui)` ici non plus**, même
     raison qu'à l'export ci-dessus : l'idempotence promise par ce docstring

@@ -73,7 +73,7 @@ def importer_activites(
 ) -> dict:
     """Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals
     — un invité sans capteur y trouve déjà de la valeur (routes), un porteur de
-    capteur y trouve aussi son niveau (décision Q48, `docs/journal/questions/questions_mainteneur.md`).
+    capteur y trouve aussi son niveau.
 
     **202, pas 200** : une archive
     Strava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,
