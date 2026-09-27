@@ -29,6 +29,7 @@ import { EchecCalcul } from "./app/EchecCalcul";
 import { EcranAmorcage } from "./app/EcranAmorcage";
 import { Contenu } from "./app/Contenu";
 import { useRecherche } from "./app/useRecherche";
+import { heureDepartResolue } from "./ecrans/Demander";
 import {
   ongletDepuisUrl,
   paginaDepuisUrl,
@@ -208,7 +209,7 @@ function ApplicationPrincipale() {
           budget={enCalcul}
           contexte={`${demande.mode === "seance" ? "Votre séance" : "Endurance Z2"} · ${
             demande.jour
-          } · ${demande.heure_depart}`}
+          } · ${heureDepartResolue(demande)}`}
         />
       </div>
     );

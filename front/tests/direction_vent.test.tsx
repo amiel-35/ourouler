@@ -328,6 +328,8 @@ describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraig
   }
 
   beforeEach(() => {
+    // Pile 9 h : `heure_depart` (nul par défaut, voir `demande.ts`) se
+    // résout sur cette horloge — la requête envoyée en dépend.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date(`${AUJOURDHUI}T09:00:00`));
   });
@@ -412,6 +414,8 @@ describe("Q47 — Endurance Z2 balaie l'horizon sans direction, comme « Ma séa
   }
 
   beforeEach(() => {
+    // Pile 9 h : `heure_depart` (nul par défaut, voir `demande.ts`) se
+    // résout sur cette horloge — la requête envoyée en dépend.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date(`${AUJOURDHUI}T09:00:00`));
   });

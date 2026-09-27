@@ -114,6 +114,8 @@ describe("météo indisponible", () => {
         jour="2026-09-16"
         seance={null}
         parcours={{ obtenue_le: "2026-09-16T06:02:00+02:00", reponse }}
+        heureDepart="09:00"
+        surHeureDepart={() => undefined}
         surGenerer={() => undefined}
         surOuvrir={() => undefined}
         surDemander={() => undefined}
@@ -287,6 +289,8 @@ describe("l'écran d'un jour sans séance", () => {
         jour="2026-09-17"
         seance={null}
         parcours={null}
+        heureDepart="09:00"
+        surHeureDepart={() => undefined}
         surGenerer={() => undefined}
         surOuvrir={() => undefined}
         surDemander={() => undefined}

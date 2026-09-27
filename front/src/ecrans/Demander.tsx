@@ -29,12 +29,19 @@ import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 import { ChoixDirection, PointCardinal, PreferenceVent } from "./demander/ChampsDirection";
-import { minutesDe, texteDuree } from "./demander/demande";
+import { heureDepartResolue, minutesDe, texteDuree } from "./demander/demande";
 import type { Demande } from "./demander/demande";
 import { Estimation } from "./demander/Estimation";
 import { useMeteoDepart } from "./demander/useMeteoDepart";
 
-export { demandeInitiale, minutesDe, phraseEstimation, texteDuree } from "./demander/demande";
+export {
+  demandeInitiale,
+  heureDepartParDefaut,
+  heureDepartResolue,
+  minutesDe,
+  phraseEstimation,
+  texteDuree,
+} from "./demander/demande";
 export type { Demande } from "./demander/demande";
 
 interface Props {
@@ -72,7 +79,11 @@ export function Demander({
   // et sa carte prennent de la place, et la plupart des sorties partent du
   // départ habituel.
   const [ailleurs, setAilleurs] = useState(false);
-  const { vent, erreurVent, meteo, erreurMeteo } = useMeteoDepart(demande.jour, demande.heure_depart);
+  // Résolue à chaque rendu — jamais mémorisée : le défaut du jour reste à
+  // jour tant que le cycliste n'a rien saisi (voir `heure_depart` sur
+  // `Demande`).
+  const heureDepart = heureDepartResolue(demande);
+  const { vent, erreurVent, meteo, erreurMeteo } = useMeteoDepart(demande.jour, heureDepart);
 
   const liees = zones.valeurs_liees;
   const minutes =
@@ -81,7 +92,7 @@ export function Demander({
       : demande.duree_min;
   const distanceEstimee =
     liees === null ? null : (liees.moyenne_compteur_kmh * minutes) / 60;
-  const departIso = `${demande.jour}T${demande.heure_depart}:00`;
+  const departIso = `${demande.jour}T${heureDepart}:00`;
   const retour = heureDeRetour(departIso, minutes * 60);
 
   function changer(morceau: Partial<Demande>) {
@@ -182,6 +193,10 @@ export function Demander({
               type="button"
               key={jour}
               aria-pressed={demande.jour === jour}
+              // Ne touche jamais `heure_depart` : `null` (le défaut) se
+              // résout pour le nouveau jour tout seul (`heureDepartResolue`),
+              // et une saisie du cycliste n'a pas à disparaître parce qu'il
+              // a changé de jour puis y est revenu.
               onClick={() => changer({ jour })}
             >
               {["Aujourd'hui", "Demain", "Après-demain"][index]}
@@ -193,7 +208,7 @@ export function Demander({
           <input
             id="heure-depart"
             type="time"
-            value={demande.heure_depart}
+            value={heureDepart}
             onChange={(e) => changer({ heure_depart: e.target.value })}
             style={{ font: "inherit", border: "none", background: "none", color: "inherit" }}
           />

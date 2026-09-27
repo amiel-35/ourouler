@@ -22,7 +22,17 @@ export const MESSAGE_VENT_INDISPONIBLE = "Le vent au départ n'est pas disponibl
 export interface Demande {
   mode: "seance" | "z2";
   jour: string;
-  heure_depart: string;
+  /**
+   * `null` = « le défaut du jour » : résolu à chaque affichage et à chaque
+   * recherche par `heureDepartParDefaut`, donc toujours à jour — un écran
+   * resté ouvert depuis 9 h et relancé à 14 h 37 cherche à 14:45, pas à
+   * l'heure calculée à l'ouverture. Une chaîne = saisie par le cycliste
+   * (`onChange` du champ) : elle ne bouge plus toute seule, ni en changeant
+   * de jour ni en cliquant « Aujourd'hui » — seul un nouveau geste du
+   * cycliste la change. Ce qui part à l'API (`heureDepartResolue`) reste
+   * toujours une chaîne résolue : le contrat ne change pas.
+   */
+  heure_depart: string | null;
   duree_min: number;
   /**
    * Le **premier choix** (décision Q44) : indépendant de `mode`, il décide lequel
@@ -36,11 +46,63 @@ export interface Demande {
   candidates: number;
 }
 
+/** Le jour d'une date, en AAAA-MM-JJ — même règle que `aujourdhui()`
+ * (`etat/ressource.ts`), mais appliquée à l'horloge reçue plutôt qu'à
+ * l'horloge système, pour que `heureDepartParDefaut` reste testable sans
+ * dépendre de la machine ni du fuseau de la CI (qui tourne en UTC). */
+function jourDe(date: Date): string {
+  const decalage = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - decalage).toISOString().slice(0, 10);
+}
+
+/** L'heure locale d'une date, arrondie au quart d'heure supérieur,
+ * "HH:MM" — un quart d'heure déjà pile ne bouge pas, et un dépassement de
+ * minuit s'affiche tel quel (23:50 → 00:00), sans cas particulier. */
+function arrondieAuQuartHeureSuivant(date: Date): string {
+  const minutesTotales = date.getHours() * 60 + date.getMinutes();
+  const arrondi = Math.ceil(minutesTotales / 15) * 15;
+  const minutesDuJour = arrondi % (24 * 60);
+  const heures = Math.floor(minutesDuJour / 60);
+  const minutes = minutesDuJour % 60;
+  return `${String(heures).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * L'heure de départ par défaut (QP3, backlog « Séance du jour à l'heure
+ * réelle ») : le jour même, l'heure courante arrondie au quart d'heure
+ * suivant ; un autre jour, "09:00" comme avant.
+ *
+ * `maintenant` est l'horloge, injectable : les tests lui passent une date
+ * fixe plutôt que de dépendre de l'heure de la machine ou du fuseau de la
+ * CI (qui tourne en UTC), et restent donc déterministes.
+ */
+export function heureDepartParDefaut(jour: string, maintenant: () => Date = () => new Date()): string {
+  const maintenant_ = maintenant();
+  if (jour !== jourDe(maintenant_)) return "09:00";
+  return arrondieAuQuartHeureSuivant(maintenant_);
+}
+
+/**
+ * L'heure de départ à afficher ou à envoyer à l'API : la saisie du cycliste
+ * si elle existe, sinon le défaut du jour — résolu à l'instant de l'appel,
+ * jamais mémorisé, pour que ce qui part à la recherche corresponde toujours
+ * à l'heure réelle (`maintenant`), même si l'écran est resté ouvert depuis
+ * un moment.
+ */
+export function heureDepartResolue(
+  demande: Pick<Demande, "jour" | "heure_depart">,
+  maintenant?: () => Date,
+): string {
+  return demande.heure_depart ?? heureDepartParDefaut(demande.jour, maintenant);
+}
+
 export function demandeInitiale(): Demande {
   return {
     mode: "seance",
     jour: aujourdhui(),
-    heure_depart: "09:00",
+    // Le défaut du jour, pas une valeur calculée une fois pour toutes ici :
+    // voir `heure_depart` sur `Demande` et `heureDepartResolue`.
+    heure_depart: null,
     duree_min: 120,
     modeDirection: "peu-importe",
     vent: "peu-importe",

@@ -9,7 +9,7 @@ import { derniereLectureSeances, sortieRetenue, type SortieMemorisee } from "../
 import { Echec } from "../composants/Echec";
 import { Aujourdhui } from "../ecrans/Aujourdhui";
 import { MaSemaine } from "../ecrans/MaSemaine";
-import { Demander, type Demande } from "../ecrans/Demander";
+import { Demander, heureDepartResolue, type Demande } from "../ecrans/Demander";
 import { Importer } from "../ecrans/Importer";
 import { AnalyserParcours } from "../ecrans/AnalyserParcours";
 import { Propositions } from "../ecrans/Propositions";
@@ -176,6 +176,10 @@ export function Contenu(props: ContenuProps): JSX.Element {
         jour={jour}
         seance={seanceDuJour.valeur?.donnees ?? null}
         parcours={memoire}
+        // Résolue ici, pas mémorisée : le défaut du jour (`heure_depart ===
+        // null`) reste à jour tant que le cycliste n'a rien saisi.
+        heureDepart={heureDepartResolue(demande)}
+        surHeureDepart={(heure_depart) => setDemande({ ...demande, heure_depart })}
         surGenerer={() => chercher({ mode: "seance", jour })}
         surOuvrir={() => {
           if (memoire) {

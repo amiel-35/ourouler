@@ -54,6 +54,11 @@ partir des PR.
 - `ourouler api` lancé sans `--config` sert bien le fichier désigné par
   `OUROULER_CONFIG`, comme le reste de la commande, au lieu du fichier par
   défaut.
+- Sur « Aujourd'hui », le jour même, le parcours ne se cherche plus pour
+  9 h fixe : l'heure de départ proposée est l'heure courante arrondie au
+  quart d'heure suivant, affichée et modifiable en un geste — la météo, le
+  vent et la tenue suivent enfin le départ réel, pas une heure imaginaire du
+  matin.
 
 ## [0.10.0] — 2026-09-26
 
