@@ -406,6 +406,20 @@ export const api = {
   sortir: () => poster<DonneesSeules<Record<string, never>>>("/sortir", {}),
 
   /**
+   * `POST /demandes-invitation` : le formulaire public, sans compte. Rend toujours la
+   * même réponse (200, `{donnees: {}}`) — que l'adresse existe déjà ou non, qu'elle
+   * soit retenue ou pas ensuite : aucune fuite d'existence de compte
+   * (`api/routes/demandes.py`). `piege` est le champ honeypot, laissé vide par un
+   * formulaire humain (`ecrans/DemanderInvitation.tsx`).
+   */
+  demanderInvitation: (adresse: string, message: string, piege: string) =>
+    poster<DonneesSeules<Record<string, never>>>("/demandes-invitation", {
+      adresse,
+      message: message.trim() === "" ? null : message,
+      piege,
+    }),
+
+  /**
    * `POST /reinitialiser` : consomme un jeton de réinitialisation, pose le
    * nouveau mot de passe, ferme les autres sessions du compte, ouvre celle-ci. Émis
    * uniquement par `ourouler reinitialiser` (l'exploitant) — pas de « mot de passe

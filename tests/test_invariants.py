@@ -862,7 +862,12 @@ TABLES_TECHNIQUES = ("sqlite_master", "sqlite_temp_master")
 #: `sessions` (lot L7.2-C, 19/09/2026) : une session est retrouvée pour
 #: produire un `Proprietaire`, elle n'en appartient à aucun — même
 #: raisonnement que `comptes` et `invitations`.
-TABLES_IDENTITE = ("comptes", "invitations", "sessions")
+#:
+#: `demandes_invitation` (sprint 12, 27/09/2026) : une demande d'invitation
+#: déposée depuis le site public précède elle aussi tout propriétaire — c'est
+#: justement pour ne jamais apprendre si une adresse a déjà un compte que ce
+#: dépôt (`api/demandes.py`) ne consulte jamais `comptes` ni `proprietaire`.
+TABLES_IDENTITE = ("comptes", "invitations", "sessions", "demandes_invitation")
 
 #: Les seules fonctions dispensées de la clause, et la raison. Une migration
 #: **fabrique** la colonne : lui demander de filtrer dessus serait circulaire.

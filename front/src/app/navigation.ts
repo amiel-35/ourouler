@@ -18,7 +18,8 @@ export type Pagina =
   | { genre: "application" }
   | { genre: "entrer"; jeton: string }
   | { genre: "reinitialiser"; jeton: string }
-  | { genre: "connexion" };
+  | { genre: "connexion" }
+  | { genre: "demande-invitation" };
 
 export function paginaDepuisUrl(): Pagina {
   const chemin = window.location.pathname;
@@ -32,6 +33,7 @@ export function paginaDepuisUrl(): Pagina {
     return chemin === "/entrer" ? { genre: "entrer", jeton } : { genre: "reinitialiser", jeton };
   }
   if (chemin === "/connexion") return { genre: "connexion" };
+  if (chemin === "/demande-invitation") return { genre: "demande-invitation" };
   return { genre: "application" };
 }
 

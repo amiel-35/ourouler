@@ -167,3 +167,84 @@ def test_les_deux_plafonds_cohabitent_dans_le_meme_fichier(tmp_path: Path):
     environ = {"OUROULER_SERVICE": str(chemin)}
     assert exploitation.generations_par_jour(environ) == 3
     assert exploitation.consultations_meteo_par_jour(environ) == 9
+
+
+# --- sprint 12 : [admin] et [demandes] ----------------------------------------
+
+
+def test_parametres_admin_absente_vaut_none(tmp_path: Path):
+    environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
+    assert exploitation.parametres_admin(environ) is None
+
+
+def test_parametres_admin_incomplete_vaut_none(tmp_path: Path):
+    chemin = _service_toml(tmp_path, '[admin]\nidentifiant = "amiel"\n')  # secret manquant
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    assert exploitation.parametres_admin(environ) is None
+
+
+def test_parametres_admin_complete_est_rendue(tmp_path: Path):
+    chemin = _service_toml(tmp_path, '[admin]\nidentifiant = "amiel"\nsecret = "un-secret"\n')
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    parametres = exploitation.parametres_admin(environ)
+    assert parametres is not None
+    assert parametres.identifiant == "amiel"
+    assert parametres.secret == "un-secret"
+    assert "un-secret" not in repr(parametres)  # le repr masque le secret
+
+
+def test_port_admin_absente_vaut_le_defaut(tmp_path: Path):
+    from ourouler.api.admin import PORT_ADMIN_DEFAUT
+
+    environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
+    assert exploitation.port_admin(environ) == PORT_ADMIN_DEFAUT
+
+
+def test_port_admin_lue_dans_le_fichier(tmp_path: Path):
+    chemin = _service_toml(tmp_path, "[admin]\nport = 9123\n")
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    assert exploitation.port_admin(environ) == 9123
+
+
+def test_port_admin_invalide_refuse(tmp_path: Path):
+    chemin = _service_toml(tmp_path, '[admin]\nport = "beaucoup"\n')
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    with pytest.raises(ErreurConfig, match="port"):
+        exploitation.port_admin(environ)
+
+
+def test_adresse_alerte_demandes_absente_vaut_none(tmp_path: Path):
+    environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
+    assert exploitation.adresse_alerte_demandes(environ) is None
+
+
+def test_adresse_alerte_demandes_lue_dans_le_fichier(tmp_path: Path):
+    chemin = _service_toml(tmp_path, '[demandes]\nalerte_destinataire = "mainteneur@exemple.invalid"\n')
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    assert exploitation.adresse_alerte_demandes(environ) == "mainteneur@exemple.invalid"
+
+
+def test_parametres_brevo_service_absente_vaut_none(tmp_path: Path):
+    environ = {"OUROULER_SERVICE": str(tmp_path / "n-existe-pas.toml")}
+    assert exploitation.parametres_brevo_service(environ) is None
+
+
+def test_parametres_brevo_service_incomplete_vaut_none_sans_lever(tmp_path: Path):
+    """Contrairement à `ourouler inviter`, ce lecteur ne doit jamais lever : une section
+    [brevo] incomplète signifie « pas d'alerte », jamais un refus de démarrage de la route
+    publique de demande d'invitation."""
+    chemin = _service_toml(tmp_path, '[brevo]\nserveur = "exemple.invalid"\n')  # incomplète
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    assert exploitation.parametres_brevo_service(environ) is None
+
+
+def test_parametres_brevo_service_complete_est_rendue(tmp_path: Path):
+    chemin = _service_toml(
+        tmp_path,
+        '[brevo]\nserveur = "smtp.exemple.invalid"\nport = 587\nutilisateur = "u"\n'
+        'mot_de_passe = "p"\nexpediteur = "e@exemple.invalid"\nnom_expediteur = "où rouler"\n',
+    )
+    environ = {"OUROULER_SERVICE": str(chemin)}
+    parametres = exploitation.parametres_brevo_service(environ)
+    assert parametres is not None
+    assert parametres.serveur == "smtp.exemple.invalid"

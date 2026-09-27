@@ -429,6 +429,21 @@ ci-dessous disent ce qui en est appliqué.*
   guichet qui n'existera pas ; ce qui reste vrai d'elle, c'est que rien
   n'entre sans un geste du mainteneur.
 
+  **Révisé le 26/09/2026, sprint 12 : le formulaire public de demande
+  d'invitation est autorisé.** Ce n'est pas un retour sur la phrase du
+  18/09 — « pas de formulaire d'inscription, pas de demande d'accès » — car
+  ce formulaire-ci ne crée ni ne demande de compte : il dépose une **demande**
+  (`demandes_invitation`, `migrations/0003_demandes_invitation.sql`), qui
+  n'a aucun pouvoir sur les tables `comptes`/`invitations` et que rien
+  n'accepte automatiquement. Le principe qui compte n'a pas changé : **le
+  seul chemin vers un compte est un geste explicite du mainteneur.** Une
+  demande attend un clic « Accepter » dans l'administration
+  (`api/admin.py`), qui rejoue `services.comptes.inviter()` tel quel — la
+  même fonction qu'`ourouler inviter`, sans rien y ajouter ni le contourner.
+  Une demande refusée est effacée sans laisser de trace ; le formulaire ne
+  renvoie jamais une réponse qui varierait selon qu'une adresse a déjà un
+  compte (`api/routes/demandes.py`).
+
   Deux conséquences techniques, écrites au même moment parce qu'elles ne se
   rattrapent pas :
 

@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from ourouler import __version__
+from ourouler.cli.admin import ajouter_admin
 from ourouler.cli.comptes import (
     ajouter_invitations,
     ajouter_inviter,
@@ -62,6 +63,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_invitations(sous)
     ajouter_reinitialiser(sous)
     ajouter_retirer(sous)
+    ajouter_admin(sous)
     return p
 
 

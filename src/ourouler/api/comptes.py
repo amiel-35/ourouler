@@ -765,6 +765,21 @@ class DepotComptes:
             return None
         return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
 
+    def comptes_actifs(self) -> list[Compte]:
+        """Les comptes **actifs**, triés par date de création — pour l'administration.
+
+        N'expose jamais un compte inactif (invité mais pas encore activé) :
+        ceux-là n'ont pas encore de secret et n'ont rien à « supprimer » — ils
+        disparaissent tout seuls quand leur invitation expire et qu'une
+        nouvelle invitation les remplace.
+        """
+        lignes = self.cx.execute(
+            "SELECT id, email, actif, cree_le FROM comptes WHERE actif ORDER BY cree_le"
+        ).fetchall()
+        return [
+            Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3]) for ligne in lignes
+        ]
+
     def compte_du_proprietaire(self, proprietaire: Proprietaire) -> Compte | None:
         """Le compte lié à ce propriétaire — ou `None` (déploiement sans compte, ou orphelin).
 

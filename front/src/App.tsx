@@ -22,6 +22,7 @@ import { aujourdhui, useRessource } from "./etat/ressource";
 import { retenirLectureSeances, sortieRetenue } from "./etat/memoire";
 import { Attente } from "./composants/Attente";
 import { Connexion } from "./ecrans/Connexion";
+import { DemanderInvitation } from "./ecrans/DemanderInvitation";
 import { Entrer } from "./ecrans/Entrer";
 import { BarreOnglets } from "./app/BarreOnglets";
 import { BandeauSeanceDeposee } from "./app/BandeauSeanceDeposee";
@@ -70,6 +71,9 @@ export function App() {
   }
   if (pagina.genre === "connexion") {
     return <Connexion surConnecte={() => window.location.assign("/")} />;
+  }
+  if (pagina.genre === "demande-invitation") {
+    return <DemanderInvitation />;
   }
   return <ApplicationPrincipale />;
 }

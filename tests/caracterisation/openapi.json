@@ -437,6 +437,43 @@
         "title": "DemandeEntree",
         "type": "object"
       },
+      "DemandeInvitationPublique": {
+        "additionalProperties": false,
+        "description": "`POST /demandes-invitation` : le formulaire public, accessible sans compte.\n\nSprint 12, doctrine §10.2 (révisée le 26/09/2026) : ce formulaire ne crée\njamais de compte ni d'invitation — il dépose une demande, que le\nmainteneur accepte ou refuse depuis l'administration. La route rend la\n**même** réponse quelle que soit l'adresse, existante ou non\n(`api/routes/demandes.py`) : ce modèle ne doit donc jamais faire\napparaître, dans une erreur de validation, une différence selon\nl'adresse — seule sa **forme** (longueur, présence d'un `@`) est vérifiée\nici, jamais son existence.\n\n`piege` est le champ honeypot : un champ cocher/texte invisible pour un\nhumain (posé hors champ de vision par le front), qu'un robot de\nremplissage automatique remplit souvent quand même. Une valeur non vide\nne refuse pas la requête — refuser renseignerait un robot un peu\nattentif sur l'existence du piège — elle fait juste que la demande\nn'est **jamais enregistrée**, silencieusement (`services/demandes.py`).",
+        "properties": {
+          "adresse": {
+            "description": "l'adresse à inviter",
+            "maxLength": 320,
+            "title": "Adresse",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "un mot facultatif, texte brut, jamais interprété",
+            "title": "Message"
+          },
+          "piege": {
+            "default": "",
+            "description": "champ honeypot : doit rester vide, un formulaire humain ne le remplit jamais",
+            "maxLength": 500,
+            "title": "Piege",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adresse"
+        ],
+        "title": "DemandeInvitationPublique",
+        "type": "object"
+      },
       "DemandeReinitialisation": {
         "additionalProperties": false,
         "description": "Le jeton d'un lien de réinitialisation et le nouveau mot de passe choisi.\n\nMêmes champs, même forme que `DemandeEntree` — c'est le même mécanisme de jeton\n(`api/comptes.py`), une seule différence dans ce que sa consommation fait au compte\n(`DepotComptes.changer_mot_de_passe_par_jeton` au lieu d'`activer`). Un modèle séparé\nplutôt qu'une réutilisation de `DemandeEntree` : les deux corps de requête se\nressemblent aujourd'hui par coïncidence, pas par contrat — rien ne garantit qu'ils\nresteront identiques, et `POST /reinitialiser` a besoin de son propre modèle nommé\npour que /docs (le schéma publié) décrive chaque route pour ce qu'elle fait.",
@@ -3232,6 +3269,127 @@
           }
         },
         "summary": "Connexion"
+      }
+    },
+    "/api/v1/demandes-invitation": {
+      "post": {
+        "description": "Dépose une demande d'invitation. Toujours 200, toujours la même réponse.\n\nQuatre raisons de **ne rien enregistrer**, silencieusement, dans l'ordre où\nelles sont vérifiées (la moins chère d'abord) :\n\n1. le honeypot est rempli (`corps.piege`) — un humain ne le remplit jamais ;\n2. le débit par adresse IP est dépassé ;\n3. le débit global est dépassé ;\n4. ce déploiement n'a pas de base de comptes configurée — il n'y a nulle\n   part où ranger la demande.\n\nDans les quatre cas comme dans le succès, la réponse est `_REPONSE` : rien ne\ndistingue, de l'extérieur, un formulaire rempli par un robot d'un formulaire\naccepté.",
+        "operationId": "demander_invitation_api_v1_demandes_invitation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeInvitationPublique"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Demander Invitation Api V1 Demandes Invitation Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Demander Invitation"
       }
     },
     "/api/v1/entrer": {

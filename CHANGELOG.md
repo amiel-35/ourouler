@@ -26,6 +26,14 @@ partir des PR.
   vérification (moins de 20) se dit « provisoire », avec l'explication que
   ça peut encore bouger en important plus d'historique — sans rien changer
   au calcul ni au minimum de sorties pour calibrer.
+- Un écran public « Demander une invitation », accessible sans compte depuis
+  l'écran de connexion : laisser son adresse et, si on le veut, un mot. La
+  réponse est toujours la même, que l'adresse ait déjà un compte ou non, et
+  aucun courriel ne part vers le demandeur avant qu'une décision soit prise.
+- Une administration séparée (`ourouler admin`), jamais accessible depuis
+  Internet, pour accepter ou refuser les demandes d'invitation, gérer les
+  comptes actifs et les invitations en cours, et suivre les tâches de fond
+  et les quotas du jour.
 
 ### Modifié
 

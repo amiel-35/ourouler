@@ -241,6 +241,15 @@ const TABLE: Correspondance[] = [
   },
   {
     fichier: "api/client.ts",
+    ancre: '("/demandes-invitation", {',
+    schema: "DemandeInvitationPublique",
+    genre: "litteral",
+    sens: "requete",
+    champs: ["adresse", "message", "piege"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/client.ts",
     ancre: '("/moi/mot-de-passe", {',
     schema: "DemandeChangementMotDePasse",
     genre: "litteral",
