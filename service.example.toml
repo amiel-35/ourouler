@@ -89,3 +89,37 @@ nom_expediteur = "où rouler"
 # pas, il n'appelle Open-Meteo que depuis sa propre adresse IP.
 generations_par_jour = 20
 consultations_meteo_par_jour = 100
+
+[demandes]
+# Sprint 12 : le formulaire public « Demander une invitation »
+# (`POST /api/v1/demandes-invitation`) envoie une alerte au mainteneur à
+# chaque dépôt — `api/courriel.message_alerte_demande`, par le même relais
+# `[brevo]` ci-dessus. Sans cette clé, la demande est **quand même
+# enregistrée** (elle apparaît dans l'administration, `ourouler admin`) ;
+# seule l'alerte ne part pas, et le journal du serveur le dit.
+#
+# **Aucune valeur réelle ici** (aucune donnée personnelle dans le dépôt) :
+# c'est l'adresse du mainteneur, à poser dans le vrai `service.toml`, jamais
+# dans celui-ci.
+alerte_destinataire = ""
+
+[admin]
+# Sprint 12, QP6 (25/09/2026, tranchée (c)) : l'administration
+# (`ourouler admin`) n'est jamais exposée sur Internet — elle n'écoute que
+# sur 127.0.0.1, dans le conteneur, et se rejoint par un tunnel SSH puis
+# `docker exec` (`deploiement/api/README.md`). Elle a son propre identifiant,
+# **pas un compte cycliste** : un mot de passe de plus, distinct de celui de
+# n'importe quel compte, comparé en temps constant à l'appel
+# (`api/admin.py`).
+#
+# **Absente : l'administration ne démarre pas.** Ni en arrière-plan de
+# l'entrypoint du conteneur, ni via `ourouler admin` lancé à la main (qui
+# refuse alors avec un message qui nomme cette section) — rien à
+# authentifier sans elle serait une porte sans serrure.
+#
+# `port` : le port d'écoute, sur 127.0.0.1 uniquement — jamais celui de
+# l'API (8000), jamais déclaré dans `expose`/Traefik d'aucun fichier
+# compose. Facultatif, défaut 8001 (`api.admin.PORT_ADMIN_DEFAUT`).
+identifiant = ""
+secret = ""
+port = 8001

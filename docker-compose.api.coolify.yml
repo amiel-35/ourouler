@@ -115,6 +115,21 @@ services:
       - donnees:/data/cache
     expose:
       - "8000"
+    # **Jamais de port pour l'administration ici** (sprint 12, QP6,
+    # 25/09/2026, tranchée (c)) : elle n'écoute que sur 127.0.0.1, dans le
+    # conteneur, et ne doit jamais apparaître dans `expose:` ni recevoir de
+    # `SERVICE_FQDN_*` — Traefik ne doit jamais la voir. `docker exec` (voir
+    # `deploiement/api/README.md`) suffit à y accéder sans rien ouvrir ici.
+    #
+    # Une ligne comme celle-ci, commentée à dessein, resterait sûre si
+    # l'exploitant préfère un tunnel SSH direct plutôt que `docker exec` —
+    # elle ne publie que sur la boucle locale de l'**hôte**, jamais
+    # `0.0.0.0`, et n'ajoute aucun `expose:` ni variable Coolify :
+    #   ports:
+    #     - "127.0.0.1:8001:8001"
+    # Non appliquée par ce dépôt : à activer par le mainteneur, sur son
+    # serveur, s'il la choisit (AGENTS.md : aucune installation ni
+    # changement de service en production sans son accord explicite).
     restart: unless-stopped
 
 volumes:

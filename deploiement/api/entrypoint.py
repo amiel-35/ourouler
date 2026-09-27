@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import os
 import sys
+import threading
 
 #: Fichier de configuration TOML que l'API sert — même variable que
 #: `api/exploitation.VARIABLE_CONFIG`, ce script ne fait qu'écrire ce que
@@ -105,6 +106,76 @@ def _ecrire_service_depuis_environnement() -> None:
     print(f"secrets du service écrits depuis l'environnement : {CHEMIN_SERVICE}", flush=True)
 
 
+def _lancer_administration_en_arriere_plan(app) -> None:
+    """Démarre l'administration dans un **fil du même processus**, si `[admin]` est posée.
+
+    Sprint 12 : « l'entrypoint lance aussi `ourouler admin` en arrière-plan
+    quand la clé admin est présente dans `service.toml`, sinon rien. »
+
+    **Même processus, pas un sous-processus** — c'est le choix qui rend les
+    écrans « tâches de fond » et « quotas du jour » de l'administration
+    réellement vivants : ils lisent l'état de *ce* processus API
+    (`api.taches_fond.occupant()`, les compteurs de `app.state.ourouler`),
+    ce qu'un `ourouler admin` lancé à part (un second processus, pour un
+    accès manuel — voir `deploiement/api/README.md`) ne peut pas voir. Un
+    second `uvicorn.Server` dans un fil `daemon` partage l'interpréteur, donc
+    ces objets, sans rien recopier.
+
+    N'écoute **que** sur `127.0.0.1` — jamais posé dans `expose`/Traefik du
+    compose Coolify (`docker-compose.api.coolify.yml`) : c'est le point même
+    de QP6, pas une conséquence accessoire de ce choix.
+    """
+    from ourouler.api import exploitation
+    from ourouler.api.admin import ParametresApplicationAdmin, creer_application_admin
+
+    identifiant = exploitation.parametres_admin()
+    if identifiant is None:
+        print(
+            "ourouler : [admin] absente de service.toml — administration non démarrée",
+            file=sys.stderr,
+        )
+        return
+
+    url_db = exploitation.url_base_de_donnees()
+    url_pub = os.environ.get("OUROULER_URL_PUBLIQUE", "").strip()
+    if not url_db or not url_pub:
+        print(
+            "ourouler : [admin] posée mais OUROULER_DATABASE_URL ou OUROULER_URL_PUBLIQUE "
+            "absente — administration non démarrée",
+            file=sys.stderr,
+        )
+        return
+
+    ctx = app.state.ourouler
+    quotas = {
+        "générations": ctx.quotas,
+        "consultations météo": ctx.quotas_meteo,
+        "calibrations": ctx.quotas_calibration,
+        "imports": ctx.quotas_import,
+    }
+    admin_app = creer_application_admin(
+        ParametresApplicationAdmin(
+            url_comptes=url_db,
+            identifiant=identifiant,
+            url_publique=url_pub,
+            parametres_brevo=exploitation.parametres_brevo_service(),
+            quotas=quotas,
+        )
+    )
+    port = exploitation.port_admin()
+
+    import uvicorn
+
+    configuration = uvicorn.Config(admin_app, host="127.0.0.1", port=port, log_level="info")
+    serveur = uvicorn.Server(configuration)
+    fil = threading.Thread(target=serveur.run, name="admin", daemon=True)
+    fil.start()
+    print(
+        f"ourouler : administration sur http://127.0.0.1:{port}/admin/ (boucle locale uniquement)",
+        file=sys.stderr,
+    )
+
+
 def main() -> None:
     _ecrire_config_depuis_environnement()
     _ecrire_service_depuis_environnement()
@@ -126,6 +197,7 @@ def main() -> None:
     # (TOML invalide, `OUROULER_MODE` inconnu) doit faire échouer le
     # démarrage, pas une requête au hasard.
     app = application()
+    _lancer_administration_en_arriere_plan(app)
     print(f"ourouler : API et front sur http://{HOTE}:{PORT} (sonde : /sante)", file=sys.stderr)
     uvicorn.run(app, host=HOTE, port=PORT, log_level="info")
 

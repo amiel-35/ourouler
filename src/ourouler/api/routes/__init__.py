@@ -44,6 +44,7 @@ from fastapi import APIRouter
 from ourouler.api.routes import (
     activites,
     calibrations,
+    demandes,
     fichiers,
     generations,
     inventaire,
@@ -58,6 +59,7 @@ from ourouler.api.routes import (
 
 routeur = APIRouter()
 routeur.include_router(sessions.routeur)
+routeur.include_router(demandes.routeur)
 routeur.include_router(systeme.routeur)
 routeur.include_router(profil.routeur)
 routeur.include_router(meteo.routeur)

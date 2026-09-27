@@ -283,6 +283,39 @@ class DemandeChangementMotDePasse(Modele):
     nouveau_mot_de_passe: TexteUtile = Field(description="le mot de passe choisi à la place")
 
 
+class DemandeInvitationPublique(Modele):
+    """`POST /demandes-invitation` : le formulaire public, accessible sans compte.
+
+    Sprint 12, doctrine §10.2 (révisée le 26/09/2026) : ce formulaire ne crée
+    jamais de compte ni d'invitation — il dépose une demande, que le
+    mainteneur accepte ou refuse depuis l'administration. La route rend la
+    **même** réponse quelle que soit l'adresse, existante ou non
+    (`api/routes/demandes.py`) : ce modèle ne doit donc jamais faire
+    apparaître, dans une erreur de validation, une différence selon
+    l'adresse — seule sa **forme** (longueur, présence d'un `@`) est vérifiée
+    ici, jamais son existence.
+
+    `piege` est le champ honeypot : un champ cocher/texte invisible pour un
+    humain (posé hors champ de vision par le front), qu'un robot de
+    remplissage automatique remplit souvent quand même. Une valeur non vide
+    ne refuse pas la requête — refuser renseignerait un robot un peu
+    attentif sur l'existence du piège — elle fait juste que la demande
+    n'est **jamais enregistrée**, silencieusement (`services/demandes.py`).
+    """
+
+    adresse: TexteUtile = Field(max_length=320, description="l'adresse à inviter")
+    message: str | None = Field(
+        default=None,
+        max_length=500,
+        description="un mot facultatif, texte brut, jamais interprété",
+    )
+    piege: str = Field(
+        default="",
+        max_length=500,
+        description="champ honeypot : doit rester vide, un formulaire humain ne le remplit jamais",
+    )
+
+
 __all__ = [
     "ApercuZones",
     "DemandeAnalyse",
@@ -290,6 +323,7 @@ __all__ = [
     "DemandeChangementMotDePasse",
     "DemandeConnexion",
     "DemandeEntree",
+    "DemandeInvitationPublique",
     "DemandeReinitialisation",
     "DemandeSimulation",
     "DemandeSortie",

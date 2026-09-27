@@ -175,6 +175,41 @@ def message_reinitialisation(
     return message
 
 
+def message_alerte_demande(
+    *,
+    destinataire: str,
+    adresse_demandeur: str,
+    message_demandeur: str | None,
+    parametres: ParametresBrevo,
+) -> EmailMessage:
+    """Compose l'alerte au mainteneur : une demande d'invitation vient d'être déposée.
+
+    Même forme que `message_invitation` — texte simple, français, composé avec
+    `EmailMessage` et non par concaténation, pour la même raison : une adresse ou un
+    message hostiles ne doivent pas pouvoir glisser un en-tête de plus dans le message,
+    la composition échoue à la place. `message_demandeur` est du **texte brut**, jamais
+    interprété : ni HTML, ni Markdown, ce n'est qu'un « mot » facultatif recopié tel quel.
+    """
+    message = EmailMessage()
+    message["Subject"] = f"Nouvelle demande d'invitation : {adresse_demandeur}"
+    message["From"] = f"{parametres.nom_expediteur} <{parametres.expediteur}>"
+    try:
+        message["To"] = destinataire
+    except ValueError as e:
+        raise ErreurCourriel(f"adresse destinataire refusée par la composition du message : {e}") from e
+
+    mot = message_demandeur.strip() if message_demandeur else ""
+    message.set_content(
+        "Bonjour,\n\n"
+        f"Une demande d'invitation à où rouler vient d'être déposée depuis le site :\n\n"
+        f"Adresse : {adresse_demandeur}\n"
+        f"Message : {mot or '(aucun)'}\n\n"
+        "Accepter ou refuser cette demande se fait depuis l'administration du service.\n\n"
+        "— où rouler\n"
+    )
+    return message
+
+
 class ClientSMTP(Protocol):
     """Ce qu'un client SMTP doit savoir faire, pour être injecté ici ou doublé en test.
 
@@ -228,6 +263,7 @@ __all__ = [
     "FabriqueSMTP",
     "ParametresBrevo",
     "envoyer_invitation",
+    "message_alerte_demande",
     "message_invitation",
     "message_reinitialisation",
     "parametres_brevo_depuis_dict",
