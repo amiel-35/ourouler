@@ -600,6 +600,7 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
         import uvicorn
 
         from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application
+        from ourouler.api.exploitation import chemin_config
         from ourouler.api.session import SessionPersonnelle
     except ImportError as e:
         raise ErreurUtilisateur(
@@ -607,7 +608,9 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
         ) from e
 
     application = creer_application(
-        chemin_config=(args.config or CHEMIN_CONFIG_DEFAUT).expanduser(),
+        # Le même fichier que celui que `main()` vient de charger :
+        # `--config`, sinon `OUROULER_CONFIG`, sinon le défaut local.
+        chemin_config=(args.config or chemin_config()).expanduser(),
         dossier_donnees=config.cache.dossier / NOM_DOSSIER_DONNEES,
         # **Le mode personnel, dit et non deviné.** `ourouler api`
         # tourne sur la machine de son utilisateur : il n'y a qu'un cycliste,

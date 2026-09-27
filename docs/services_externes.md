@@ -146,8 +146,13 @@ qui l'exploite** (voir `AGENTS.md`). On propose, on attend.
 
 `~/.cache/ourouler` (configurable) : les fichiers bruts d'activité et un index
 SQLite (stdlib, pas d'ORM). C'est lui qui évite de redemander à Intervals ce
-qu'on a déjà, et c'est sur lui seul que travaillent les scripts de mesure de
-`scripts/validation/` — aucun d'eux ne sort sur le réseau.
+qu'on a déjà. Les scripts de mesure de `scripts/validation/` lisent ce cache,
+mais sept d'entre eux interrogent aussi les services qu'ils mesurent :
+Intervals (`arrets_bloc_recup`, `orientation_vent_retrospectif`,
+`terrain_retrospectif`, `vent_retrospectif`), l'archive Open-Meteo
+(`cda_position_retrospectif`, `orientation_vent_retrospectif`,
+`vent_retrospectif`) et BRouter (`arrets_bloc_recup`, `marqueurs_retrospectif`,
+`trafic_estime_retrospectif`). Ils se lancent à la main, jamais en test.
 
 ## Les archives d'export, mesurées sur de vraies données
 

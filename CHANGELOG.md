@@ -27,6 +27,12 @@ partir des PR.
   ni interface) n'est plus fournie : l'API et son interface web la
   remplacent.
 
+### Corrigé
+
+- `ourouler api` lancé sans `--config` sert bien le fichier désigné par
+  `OUROULER_CONFIG`, comme le reste de la commande, au lieu du fichier par
+  défaut.
+
 ## [0.10.0] — 2026-09-26
 
 ### Ajouté

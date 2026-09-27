@@ -30,6 +30,9 @@ function fichiersSources(dossier: string): string[] {
 }
 
 describe("un seul point d'accès au réseau (docs/ouverture_plan.md §7)", () => {
+  // Le trafic applicatif seulement : les tuiles de carte, chargées par Leaflet
+  // (`composants/Carte.tsx`), sont l'exception documentée dans
+  // docs/services_externes.md.
   it("aucun fichier hors api/client.ts n'appelle fetch(...) ou XMLHttpRequest", () => {
     const fautifs: string[] = [];
     for (const chemin of fichiersSources(RACINE_SRC)) {

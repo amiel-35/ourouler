@@ -139,6 +139,17 @@ def test_l_ecart_ne_cite_aucune_valeur_ni_cle_de_donnee():
     assert ".avertissements[0].message" in texte
 
 
+def test_un_nom_de_velo_en_minuscules_ne_sort_pas_non_plus():
+    """« route » ressemble à un nom de champ : sous un champ indexé par vélo, il est masqué quand même."""
+    ancien = _resultat({"vitesse_kmh": {"route": 30.1, "rcr": 31.0}, "velos": {"gravel": {"km": 1.0}}})
+    nouveau = _resultat({"vitesse_kmh": {"route": 30.2, "rcr": 31.0}, "velos": {"gravel": {"km": 2.0}}})
+    texte = json.dumps(ecart_entre(ancien, nouveau), ensure_ascii=False)
+    for nom in ("route", "rcr", "gravel"):
+        assert nom not in texte, nom
+    assert ".donnees.vitesse_kmh.*" in texte
+    assert ".donnees.velos.*.km" in texte
+
+
 @pytest.fixture
 def rejeu(monkeypatch: pytest.MonkeyPatch, fuseau_de_paris):
     """Le réseau rejoué et l'horloge figée du filet (`outils_caracterisation.preparer`)."""
