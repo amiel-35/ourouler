@@ -20,6 +20,13 @@ partir des PR.
 
 ## [Non publié]
 
+### Ajouté
+
+- Sur la fiche vélo, l'écart de calibration mesuré sur peu de sorties de
+  vérification (moins de 20) se dit « provisoire », avec l'explication que
+  ça peut encore bouger en important plus d'historique — sans rien changer
+  au calcul ni au minimum de sorties pour calibrer.
+
 ### Modifié
 
 - Quand une demande de parcours ne retient qu'une ou deux boucles, elle
