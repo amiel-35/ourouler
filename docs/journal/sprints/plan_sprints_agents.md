@@ -1832,7 +1832,7 @@ entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
 réconciliation « facteur compteur » ne sert plus qu'à dimensionner la
 distance.
 
-→ **Suivi (26/09/2026)** : pas de fiche — une mesure d'abord (B10). À rédiger par `/feature` ou `/bug` quand la mesure est faite.
+→ **Suivi (26/09/2026)** : pas de fiche — une mesure d'abord (B10). À rédiger par `/feature` ou `/anomalie` quand la mesure est faite.
 
 Backlog « la calibration sur import garde les sorties de club » (constat du
 25/09/2026, mesuré en clôture du sprint 9 ci-dessus, aucun sprint attribué) :
@@ -2175,7 +2175,7 @@ de tout entraînement futur) ce qui avait été conservé à ce titre.
 - mentions RGPD : base légale (consentement), finalité, durée, preuve du
   consentement horodatée.
 
-→ **Suivi (26/09/2026)** : pas de fiche — sujet technique, à rédiger par `/bug` s'il se reproduit.
+→ **Suivi (26/09/2026)** : pas de fiche — sujet technique, à rédiger par `/anomalie` s'il se reproduit.
 
 Backlog « `ourouler retirer` sur un serveur neuf » (constat de la répétition
 du retour arrière, 25/09/2026, préproduction) : tant qu'aucune personne ne
