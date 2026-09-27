@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Vérifie mécaniquement docs/backlog/sprints.toml.
 
-Outillage de dépôt (pas du cœur ourouler) : lu en local et en CI. Vérifie des
-règles statiques toujours (structure, cohérence des statuts, existence des
-fiches/chantiers référencés) et, avec --base ou --commits, des règles contre
-une version antérieure du fichier (via git) pour empêcher un remaniement
-furtif d'un sprint déjà figé/en cours et tout retour en arrière de statut.
+Outillage de dépôt (pas du cœur applicatif) : lu en local et en CI. Vérifie
+des règles statiques toujours (structure, cohérence des statuts, existence
+des fiches/chantiers référencés) et, avec --base ou --commits, des règles
+contre une version antérieure du fichier (via git) pour empêcher un
+remaniement furtif d'un sprint déjà figé/en cours et tout retour en arrière
+de statut.
 
 --base <ref> compare la version courante à <ref> en un seul bloc.
 --commits <ref> compare, pour chaque commit de <ref>..HEAD qui touche le
@@ -21,6 +22,7 @@ Usage :
     uv run python scripts/verifier_backlog.py --json
     uv run python scripts/verifier_backlog.py --base origin/main
     uv run python scripts/verifier_backlog.py --commits origin/main
+    uv run python scripts/verifier_backlog.py --version
 """
 
 from __future__ import annotations
@@ -36,19 +38,16 @@ from typing import Any
 
 CHEMIN_RELATIF_TOML = "docs/backlog/sprints.toml"
 
-# Chantiers connus : nom -> chemin relatif (depuis la racine du dépôt) du
-# fichier qui doit exister pour que le chantier soit considéré valide.
-CHANTIERS: dict[str, str] = {
-    "ouverture": "docs/ouverture_plan.md",
-}
+VERSION = "2026.09.26"
 
 STATUTS_SPRINT_VALIDES = {"esquisse", "fige", "en_cours", "clos"}
 STATUTS_ELEMENT_VALIDES = {"prevu", "en_cours", "livre", "abandonne"}
-CLES_RACINE_VALIDES = {"sprint"}
+CLES_RACINE_VALIDES = {"sprint", "chantiers"}
 CLES_SPRINT_VALIDES = {"numero", "statut", "titre", "derogations", "element"}
 CLES_ELEMENT_VALIDES = {"chantier", "fiche", "statut", "pr", "raison"}
 
-# Nom de fiche : minuscules, chiffres, tirets simples entre des mots.
+# Nom de fiche (et, même motif, nom de chantier) : minuscules, chiffres,
+# tirets simples entre des mots.
 MOTIF_FICHE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # Dérogation : « JJ/MM/AAAA : raison » (chiffres ASCII seulement).
 MOTIF_DEROGATION = re.compile(r"^(\d{2})/(\d{2})/(\d{4}) : (.*)$", re.DOTALL | re.ASCII)
@@ -374,6 +373,8 @@ def _valider_reference_fiche(fiche: Any, racine: Path, noms_fichiers: set[str], 
     chemin_fiche = racine / "docs" / "backlog" / nom_fichier
     if nom_fichier not in noms_fichiers:
         return [f"{ctx} fichier introuvable (nom exact, casse comprise) : {chemin_fiche}"]
+    if chemin_fiche.is_symlink():
+        return [f"{ctx} {chemin_fiche} est un lien symbolique (interdit)"]
 
     if ligne_type_fiche(chemin_fiche.read_text(encoding="utf-8")) is None:
         return [
@@ -383,15 +384,114 @@ def _valider_reference_fiche(fiche: Any, racine: Path, noms_fichiers: set[str], 
     return []
 
 
-def _valider_reference_chantier(chantier: Any, racine: Path, ctx: str) -> list[str]:
+def _valider_reference_chantier(chantier: Any, chantiers_valides: dict[str, str], ctx: str) -> list[str]:
     if not isinstance(chantier, str):
         return [f"{ctx} 'chantier' doit être une chaîne"]
-    if chantier not in CHANTIERS:
-        return [f"{ctx} chantier inconnu (absent de CHANTIERS) : {chantier!r}"]
-    chemin_chantier = racine / CHANTIERS[chantier]
+    if chantier not in chantiers_valides:
+        return [f"{ctx} chantier inconnu (absent de la table [chantiers]) : {chantier!r}"]
+    return []
+
+
+# --- Table [chantiers] à la racine -------------------------------------------
+
+
+def _segments_chemin(chemin: str) -> list[str]:
+    return chemin.split("/")
+
+
+def _racine_est_un_depot_git(racine: Path) -> bool:
+    if not racine.is_dir():
+        return False
+    toplevel = _git(racine, "rev-parse", "--show-toplevel")
+    if toplevel.returncode != 0:
+        return False
+    return Path(toplevel.stdout.strip()).resolve() == racine.resolve()
+
+
+def _entree_index_git(racine: Path, chemin: str) -> tuple[str, str] | None:
+    """(mode, chemin tel qu'indexé) pour `chemin` dans l'index git de `racine`,
+    ou None s'il n'y est pas suivi (jamais ajouté, ou ignoré). Le pathspec de
+    `git ls-files` est comparé littéralement (sensible à la casse, quel que
+    soit le système de fichiers), ce qui est exactement ce qu'on veut vérifier
+    ici : c'est délibéré, pas un aléa de plateforme."""
+    resultat = _git(racine, "ls-files", "-s", "--", chemin)
+    if resultat.returncode != 0 or not resultat.stdout.strip():
+        return None
+    ligne = resultat.stdout.strip().splitlines()[0]
+    entete, separateur, chemin_indexe = ligne.partition("\t")
+    champs = entete.split()
+    if not separateur or not champs:
+        return None
+    return champs[0], chemin_indexe
+
+
+def _valider_chemin_chantier(chemin: Any, racine: Path, ctx: str) -> list[str]:
+    """Un chemin de chantier doit être un fichier SUIVI par git (nom exact,
+    pas de lien symbolique) : la seule source de vérité est l'index git, pas
+    le système de fichiers — sur un système de fichiers insensible à la casse
+    (macOS), `Path.is_file()` accepterait une casse différente de celle
+    réellement suivie, avec un comportement qui diffère alors de la CI
+    (Linux). Hors dépôt git, c'est une violation : rien n'est vérifiable."""
+    if not isinstance(chemin, str):
+        return [f"{ctx} chemin doit être une chaîne"]
+    if not chemin:
+        return [f"{ctx} chemin vide"]
+    if not _est_imprimable_tolerant(chemin):
+        return [f"{ctx} chemin contient un caractère non imprimable"]
+    if chemin.startswith("/") or Path(chemin).is_absolute():
+        return [f"{ctx} chemin absolu interdit : {chemin!r}"]
+    segments = _segments_chemin(chemin)
+    if ".." in segments:
+        return [f"{ctx} chemin avec un segment '..' interdit : {chemin!r}"]
+    if ".git" in segments:
+        return [f"{ctx} chemin avec un segment '.git' interdit : {chemin!r}"]
+
+    if not _racine_est_un_depot_git(racine):
+        return [f"{ctx} hors dépôt git ({racine}) : impossible de vérifier que {chemin!r} y est suivi"]
+
+    entree = _entree_index_git(racine, chemin)
+    if entree is None:
+        return [f"{ctx} fichier non suivi par git (jamais ajouté, ou ignoré) : {chemin!r}"]
+    mode, chemin_indexe = entree
+    if chemin_indexe != chemin:
+        return [
+            f"{ctx} chemin qui ne correspond pas exactement à celui suivi par git "
+            f"(casse différente ?) : {chemin!r} indexé {chemin_indexe!r}"
+        ]
+    if mode == "120000":
+        return [f"{ctx} lien symbolique interdit : {chemin!r}"]
+
+    chemin_chantier = racine / chemin
     if not chemin_chantier.is_file():
         return [f"{ctx} fichier de chantier introuvable : {chemin_chantier}"]
     return []
+
+
+def _valider_table_chantiers(donnees: dict[str, Any], racine: Path) -> tuple[dict[str, str], list[str]]:
+    """Valide la table [chantiers] facultative : nom -> chemin relatif d'un
+    fichier qui doit exister. Retourne (chantiers valides, violations) ; un
+    chantier dont l'entrée est invalide n'apparaît pas dans le premier
+    élément (il sera donc aussi signalé 'inconnu' s'il est référencé)."""
+    if "chantiers" not in donnees:
+        return {}, []
+
+    table = donnees["chantiers"]
+    if not isinstance(table, dict):
+        return {}, ["[chantiers] doit être une table"]
+
+    chantiers_valides: dict[str, str] = {}
+    violations: list[str] = []
+    for nom, chemin in table.items():
+        ctx = f"[chantiers.{nom}]"
+        if not isinstance(nom, str) or not MOTIF_FICHE.match(nom):
+            violations.append(f"{ctx} nom de chantier invalide (attendu {MOTIF_FICHE.pattern})")
+            continue
+        violations_chemin = _valider_chemin_chantier(chemin, racine, ctx)
+        if violations_chemin:
+            violations.extend(violations_chemin)
+            continue
+        chantiers_valides[nom] = chemin
+    return chantiers_valides, violations
 
 
 def _violations_unicite(sprints: list[dict[str, Any]]) -> list[str]:
@@ -414,7 +514,11 @@ def _violations_unicite(sprints: list[dict[str, Any]]) -> list[str]:
 
 
 def _valider_element_statique(
-    element: Any, sprint: dict[str, Any], racine: Path, noms_fichiers: set[str]
+    element: Any,
+    sprint: dict[str, Any],
+    racine: Path,
+    noms_fichiers: set[str],
+    chantiers_valides: dict[str, str],
 ) -> list[str]:
     if not isinstance(element, dict):
         return [f"{_contexte(sprint.get('numero'), '?')} élément qui n'est pas une table"]
@@ -424,7 +528,7 @@ def _valider_element_statique(
     if "fiche" in element:
         violations.extend(_valider_reference_fiche(element["fiche"], racine, noms_fichiers, ctx))
     elif "chantier" in element:
-        violations.extend(_valider_reference_chantier(element["chantier"], racine, ctx))
+        violations.extend(_valider_reference_chantier(element["chantier"], chantiers_valides, ctx))
     return violations
 
 
@@ -582,9 +686,12 @@ def violations_statiques(donnees: dict[str, Any], racine: Path) -> list[str]:
     cles_racine_inconnues = set(donnees.keys()) - CLES_RACINE_VALIDES
     if cles_racine_inconnues:
         violations.append(
-            f"[fichier] clé(s) inconnue(s) à la racine (seule 'sprint' est permise) : "
-            f"{sorted(cles_racine_inconnues)}"
+            f"[fichier] clé(s) inconnue(s) à la racine (seules {sorted(CLES_RACINE_VALIDES)} sont "
+            f"permises) : {sorted(cles_racine_inconnues)}"
         )
+
+    chantiers_valides, violations_chantiers = _valider_table_chantiers(donnees, racine)
+    violations.extend(violations_chantiers)
 
     sprints = donnees.get("sprint", [])
     if not isinstance(sprints, list):
@@ -602,7 +709,9 @@ def violations_statiques(donnees: dict[str, Any], racine: Path) -> list[str]:
         violations.extend(_valider_cles_et_types_sprint(sprint, _contexte(sprint.get("numero"), None)))
         elements = sprint.get("element", [])
         for element in elements if isinstance(elements, list) else []:
-            violations.extend(_valider_element_statique(element, sprint, racine, noms_fichiers))
+            violations.extend(
+                _valider_element_statique(element, sprint, racine, noms_fichiers, chantiers_valides)
+            )
         for regle in REGLES_E:
             violations.extend(regle(sprint))
 
@@ -639,6 +748,57 @@ def _index_elements(sprint: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def _derogations(sprint: dict[str, Any]) -> list[Any]:
     valeur = sprint.get("derogations", [])
     return valeur if isinstance(valeur, list) else []
+
+
+def _chantiers(donnees: dict[str, Any]) -> dict[str, Any]:
+    valeur = donnees.get("chantiers", {})
+    return valeur if isinstance(valeur, dict) else {}
+
+
+def _chantiers_references(donnees: dict[str, Any], statuts_sprint: set[str] | None = None) -> set[str]:
+    """Noms de chantier référencés par au moins un élément, sur tout le
+    fichier ; si `statuts_sprint` est donné, restreint aux éléments d'un
+    sprint dont le statut y figure."""
+    references: set[str] = set()
+    sprints = donnees.get("sprint", [])
+    for sprint in sprints if isinstance(sprints, list) else []:
+        if not isinstance(sprint, dict):
+            continue
+        if statuts_sprint is not None and sprint.get("statut") not in statuts_sprint:
+            continue
+        for element in _elements(sprint):
+            chantier = element.get("chantier")
+            if isinstance(chantier, str):
+                references.add(chantier)
+    return references
+
+
+STATUTS_SPRINT_QUI_FIGENT_UN_CHANTIER = {"fige", "en_cours", "clos"}
+
+
+def _violations_chantiers_reference_geles(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
+    """Toute entrée de [chantiers] présente dans la base garde son chemin,
+    qu'elle soit référencée ou non (un chantier « dormant » ne peut pas non
+    plus être redirigé). Elle ne peut disparaître que si plus aucun élément
+    de la version courante ne la référence ET qu'elle n'était référencée par
+    aucun sprint fige/en_cours/clos de la base (un sprint esquisse ne fige
+    rien : un chantier qui n'y est mentionné que là peut encore disparaître)."""
+    chantiers_base = _chantiers(base)
+    chantiers_courant = _chantiers(courant)
+    references_courant = _chantiers_references(courant)
+    references_base_figees = _chantiers_references(base, STATUTS_SPRINT_QUI_FIGENT_UN_CHANTIER)
+
+    violations: list[str] = []
+    for nom, chemin_base in chantiers_base.items():
+        ctx = f"[chantiers.{nom}]"
+        if nom not in chantiers_courant:
+            if nom in references_courant or nom in references_base_figees:
+                violations.append(f"{ctx} chantier référencé a disparu de [chantiers] (présent dans la base)")
+            continue
+        chemin_courant = chantiers_courant[nom]
+        if chemin_courant != chemin_base:
+            violations.append(f"{ctx} chantier a changé de chemin : {chemin_base!r} -> {chemin_courant!r}")
+    return violations
 
 
 def _regle_g_transition_sprint(ctx: str, statut_base: Any, statut_courant: Any) -> list[str]:
@@ -853,6 +1013,7 @@ def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> lis
             violations.extend(_regle_g_nouveau_sprint_esquisse(f"[sprint {numero}]", sprint_courant))
 
     violations.extend(regle_g_transition_elements(base, courant))
+    violations.extend(_violations_chantiers_reference_geles(base, courant))
     return violations
 
 
@@ -1021,6 +1182,7 @@ def imprimer_etat(etat: dict[str, Any]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Vérifie docs/backlog/sprints.toml")
+    parser.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("--racine", type=Path, default=None, help="Racine du dépôt (surcharge)")
     comparaison = parser.add_mutually_exclusive_group()
     comparaison.add_argument(
