@@ -169,6 +169,85 @@ réponse dirait si l'adresse a un compte chez ourouler, comme
 reste donc un geste de l'exploitant, en ligne de commande — comme
 `inviter`.
 
+## L'administration (sprint 12) — jamais exposée sur Internet
+
+Depuis le sprint 12, le site public sert un formulaire « Demander une
+invitation » (`POST /api/v1/demandes-invitation`, sans compte). Chaque
+demande est modérée dans une **seconde** application, `ourouler admin`
+(`src/ourouler/api/admin.py`) : file des demandes (Accepter/Refuser),
+invitations en cours (adresse masquée), comptes actifs (Supprimer, double
+confirmation), tâches de fond en cours, quotas du jour.
+
+**QP6 (25/09/2026, tranchée (c)) : cette application n'écoute que sur
+`127.0.0.1`, dans le conteneur — jamais dans `expose:`, jamais déclarée à
+Traefik/Coolify.** Aucune variable `SERVICE_FQDN_*` ne doit jamais la
+désigner. `tests/api/test_admin_absent_du_public.py` prouve qu'aucune de ses
+routes n'existe dans l'application publique ni dans son `openapi.json`.
+
+Authentification par un identifiant **dédié**, jamais un compte cycliste :
+section `[admin]` de `service.toml` (`identifiant`, `secret`, `port`
+facultatif, défaut 8001) — voir `service.example.toml`. Sans cette section,
+l'administration ne démarre pas, ni via l'entrypoint ni via `ourouler admin`
+lancé à la main.
+
+### Lancement en production : intégrée à l'entrypoint (recommandé)
+
+Quand `[admin]` est posée, `deploiement/api/entrypoint.py` démarre
+l'administration dans un **fil du même processus** que l'API — c'est ce qui
+lui laisse voir les tâches de fond et les quotas du jour réellement en
+cours, qui vivent en mémoire de ce processus (`api/taches_fond.py`,
+`api/quotas.py`). Rien à faire côté déploiement au-delà de poser `[admin]`
+dans `OUROULER_SERVICE_TOML_B64` : le conteneur ne change pas de commande de
+démarrage, et le port de l'administration n'a besoin d'aucune variable
+d'environnement de plus.
+
+### Y accéder depuis son poste : tunnel SSH puis port du conteneur
+
+L'administration n'écoute que sur la boucle locale **du conteneur**, pas de
+l'hôte : un tunnel SSH vers le serveur ne suffit pas seul, il faut ensuite
+joindre le conteneur. Deux façons, selon ce que l'exploitant préfère :
+
+1. **`docker exec`, sans rien exposer sur l'hôte** — la plus simple, aucun
+   port supplémentaire à ouvrir nulle part :
+   ```
+   ssh mainteneur@serveur
+   docker exec -it <conteneur_api> curl -s http://127.0.0.1:8001/admin/
+   ```
+   Pour un usage confortable au navigateur plutôt qu'en ligne de commande,
+   `docker exec` peut aussi lancer un second tunnel *depuis* le conteneur
+   (par exemple `socat` ou `ssh -R`), mais la façon la plus directe reste
+   la suivante.
+2. **Un port mappé sur la boucle locale de l'hôte, puis un tunnel SSH par-dessus** —
+   demande d'ajouter, dans `docker-compose.api.coolify.yml`, une ligne
+   `ports: - "127.0.0.1:8001:8001"` sur le service `api` (jamais
+   `0.0.0.0:8001:8001`, qui exposerait le port à toute la machine). Coolify
+   n'a pas besoin de le savoir : ce n'est ni un `expose`, ni une variable
+   `SERVICE_FQDN_*`, Traefik ne le voit jamais. Depuis son poste, ensuite :
+   ```
+   ssh -L 8001:127.0.0.1:8001 mainteneur@serveur
+   ```
+   puis ouvrir `http://127.0.0.1:8001/admin/` dans un navigateur local — le
+   trafic ne quitte jamais la boucle locale de la machine du mainteneur et
+   celle du serveur, à aucun moment.
+
+**Ce dépôt ne pose pas la ligne `ports:` ci-dessus dans
+`docker-compose.api.coolify.yml`** : c'est une proposition, à activer par
+l'exploitant s'il préfère cette voie à `docker exec` — aucune installation
+ni changement de service en production sans son accord explicite
+(`AGENTS.md`).
+
+### `ourouler admin`, lancé à la main (accès direct, hors entrypoint)
+
+Pour un accès ponctuel sans redémarrer le conteneur, `ourouler admin` (dans
+le conteneur, `docker exec`) démarre la même application, seule, avec les
+mêmes variables que les commandes de comptes
+(`OUROULER_DATABASE_URL`, `OUROULER_URL_PUBLIQUE`, `OUROULER_SERVICE`).
+**Limite à connaître** : lancée ainsi, dans un second processus, elle ne
+partage pas la mémoire de l'API déjà en cours — les écrans « tâches de
+fond » et « quotas du jour » y disent alors qu'ils ne sont pas disponibles
+dans ce mode, plutôt que d'afficher un chiffre qui ne serait pas le vrai.
+Pour les voir, préférer l'administration intégrée à l'entrypoint ci-dessus.
+
 ## Les variables d'environnement
 
 La table complète, vérifiée contre le code : chaque variable, qui la lit, et

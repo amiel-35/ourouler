@@ -21,7 +21,8 @@ carte de vérification.
   `config`, `inventaire`, `meteo`, `boucle`, `routes`, `calibrer`,
   `simuler`, `analyser`, `comparer`, `seance`, `sortie`, `geocoder`, `api`,
   et les commandes d'administration des comptes (`inviter`, `invitations`,
-  `reinitialiser`, `retirer`). Texte lisible par défaut, `--json` en option.
+  `reinitialiser`, `retirer`, `admin`). Texte lisible par défaut, `--json` en
+  option (`admin` sert du HTML, pas du JSON — voir `api/admin.py`).
 - **L'API HTTP** (FastAPI, `src/ourouler/api/`) lancée par `ourouler api`
   (ou, dans le conteneur, par la fabrique `api.application:application`),
   et le **front** React/TypeScript (`front/`) qu'elle sert une fois
