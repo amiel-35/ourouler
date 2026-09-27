@@ -410,11 +410,19 @@ class Rejeu:
             for cle, valeur in parse_qsl(requete.url.query.decode(), keep_blank_values=True)
             if cle not in PARAMETRES_TUS
         )
-        self.journal.append(
+        ligne = (
             f"{requete.method} {requete.url.host}{requete.url.path}"
             + ("?" + "&".join(f"{c}={v}" for c, v in params) if params else "")
             + suffixe
         )
+        self.journal.append(ZERO_SIGNE.sub(r"\1", ligne))
+
+
+#: Un zéro négatif écrit dans une requête (`-0.0000`). Le même point au départ
+#: sort `0.0` sous macOS et `-0.0` sous Linux selon le dernier bit d'un
+#: sinus : le signe n'est pas un comportement, mais il change l'ordre de tri
+#: du journal. Constaté par la CI le 27/09/2026.
+ZERO_SIGNE = re.compile(r"(?<![\d.])-(0\.0+)(?![\d])")
 
 
 def rejouer_reseau(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
