@@ -295,6 +295,92 @@ def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
     return ClientBrouter(params, http=client_brouter(reglages))
 
 
+def _gestionnaire_brouter_identique(azimut_fixe: float = 0.0):
+    """Toujours **le même** anneau, quel que soit l'azimut demandé.
+
+    Sert à fabriquer une recherche où trois boucles disjointes n'existent
+    jamais : chaque candidate, quel que soit le palier de relance qui l'a
+    demandée, recouvre les autres à 100 % — `contraste.choisir` ne peut
+    jamais en retenir plus d'une (sprint 11, relance d'office).
+    """
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=reponse_anneau(anneau(azimut_fixe)))
+
+    return gestionnaire
+
+
+def moteur_brouter_identique(azimut_fixe: float = 0.0) -> ClientBrouter:
+    """BRouter bouchonné qui rend toujours le même anneau, quel que soit l'azimut demandé."""
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    return ClientBrouter(
+        params, http=httpx.Client(transport=httpx.MockTransport(_gestionnaire_brouter_identique(azimut_fixe)))
+    )
+
+
+def moteur_brouter_qui_casse(apres_appels: int, reglages: dict[float, dict] | None = None) -> ClientBrouter:
+    """BRouter bouchonné qui répond normalement `apres_appels` fois, puis tombe en panne (HTTP 500).
+
+    Pour reproduire une panne réseau **pendant** une relance (sprint 11,
+    relecture du 27/09/2026) : les premiers appels suffisent à un palier pour
+    trouver une candidate valable, les suivants — ceux d'un palier plus
+    large — cassent, et la relance doit alors garder ce qu'elle avait plutôt
+    que de tout perdre.
+    """
+    reglages = reglages or {}
+    interne = _gestionnaire_brouter(reglages)
+    compteur = {"appels": 0}
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        compteur["appels"] += 1
+        if compteur["appels"] > apres_appels:
+            return httpx.Response(500, text="panne simulée")
+        return interne(requete)
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def brouter_identique_qui_compte(azimut_fixe: float = 0.0) -> tuple[ClientBrouter, dict[str, int]]:
+    """`moteur_brouter_identique`, plus un compteur d'appels HTTP réellement faits.
+
+    Pour prouver le plafond de tentatives (sprint 11, relecture du
+    27/09/2026) : aucun palier ne peut jamais produire une deuxième boucle
+    qui diffère de la première, et la relance doit malgré tout s'arrêter
+    après un nombre d'appels borné, pas continuer indéfiniment.
+    """
+    compteur = {"appels": 0}
+    interne = _gestionnaire_brouter_identique(azimut_fixe)
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        compteur["appels"] += 1
+        return interne(requete)
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    client = ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return client, compteur
+
+
+def brouter_qui_compte(reglages: dict[float, dict] | None = None) -> tuple[ClientBrouter, dict[str, int]]:
+    """`moteur_brouter`, plus un compteur d'appels HTTP réellement faits.
+
+    Pour prouver la relance d'office (sprint 11) : le nombre d'appels au
+    moteur de tracé doit croître avec les paliers essayés, et rester borné —
+    pas la lire dans un journal qui n'existe pas encore, la compter
+    directement sur le transport bouchonné.
+    """
+    compteur = {"appels": 0}
+    interne = _gestionnaire_brouter(reglages)
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        compteur["appels"] += 1
+        return interne(requete)
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    client = ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return client, compteur
+
+
 # --- Open-Meteo bouchonné -----------------------------------------------------
 
 

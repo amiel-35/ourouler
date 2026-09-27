@@ -30,8 +30,12 @@ L'enchaînement :
    classement (`sortie.contraste`), chacune avec la phrase qui la
    distingue des autres en langage de cycliste. La première reste celle du
    tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
-   comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
-   rend deux et on dit pourquoi ;
+   comparer. **Si moins de trois sont retenues, les étapes 2 à 8 sont
+   rejouées avec plus de candidates** (paliers de `PALIERS_RELANCE_CANDIDATES`),
+   jusqu'à trois retenues ou un plafond de tentatives — sans action du
+   cycliste, et dans le même appel (une génération demandée reste une seule
+   entrée de quota). Quand trois vraies boucles disjointes n'existent
+   toujours pas après ce plafond, on en rend deux et on dit pourquoi ;
 9. et ces mêmes propositions deviennent **la page du jour**
    (`rendu.sortie.page_jour`) : une carte, les tracés superposés,
    seule la sélectionnée en couleurs — et un GPX par proposition,
@@ -71,12 +75,12 @@ import functools
 import math
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
-from ourouler.boucle.candidates import appels_pour, generer
+from ourouler.boucle.candidates import Candidate, appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.gpx import description as description_gpx
@@ -128,6 +132,30 @@ NOTE_BLOC_BIEN_PLACE = 1.0
 #: Poids de la pluie dans le tri, **à note de placement égale** : c'est le
 #: même millimètre que dans `boucle`, mais il n'arrive qu'en second critère.
 POIDS_PLUIE_TRI = 2.0
+
+#: Paliers de candidates essayés **après** le nombre demandé, quand la
+#: recherche ne retient pas trois boucles contrastées (QP4, 25/09/2026 :
+#: « relancer "Chercher plus loin" d'office jusqu'à trois boucles
+#: retenues »). `8` est le nombre déjà utilisé par le bouton « Chercher plus
+#: loin » du front — la relance d'office rejoue exactement ce que le
+#: cycliste aurait demandé lui-même. `12` est un second filet, plus coûteux,
+#: pour les cas où huit candidates ne suffiraient pas.
+#:
+#: Mesuré le 27/09/2026 sur douze demandes réelles du mainteneur (durées
+#: 60/90/120 min, deux jours, plusieurs heures et directions) : dix sur
+#: douze retenaient déjà trois boucles au premier essai (5 candidates, la
+#: configuration du mainteneur) ; les deux qui n'en retenaient que deux s'en
+#: sortaient toutes les deux avec la seule relance à 8 candidates (13 appels
+#: BRouter contre 7 au premier essai) — le palier à 12 n'a jamais été
+#: nécessaire dans cette mesure. Il reste posé comme plafond, pas comme
+#: réglage courant : sans lui, un point de départ où trois boucles
+#: disjointes n'existent vraiment pas multiplierait les essais sans fin.
+PALIERS_RELANCE_CANDIDATES: tuple[int, ...] = (8, 12)
+
+#: Le nombre de boucles contrastées visé par la relance d'office. `3`, pas
+#: une constante réglable : c'est ce que `contraste.choisir` vise par défaut
+#: (`combien=3`), et la relance n'a de sens que si elle vise la même cible.
+COMBIEN_PROPOSITIONS_VISEES = 3
 
 
 @dataclass(frozen=True)
@@ -381,31 +409,32 @@ def executer(
         if client_brouter is not None
         else ClientBrouter(profil.brouter, evitements=profil.evitements)
     )
-    candidates, hors_bande = _candidates(client_brouter, profil, demande, distance_km, azimuts_vent)
 
-    retenues, ecartees = _placer_toutes(candidates, seance, profil, parametres)
-    # Les directions refusées sur la distance rejoignent celles que le
-    # placement a refusées : deux motifs différents, un seul endroit où le
-    # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
-    # passait en silence — c'est le défaut même que ce lot corrige, il n'a pas
-    # à revenir par la porte de derrière.
-    ecartees = hors_bande + ecartees
-    if not retenues:
-        raise ErreurUtilisateur(motif_aucune(seance, ecartees, distance_km))
-
-    retenues = _replacer_avec_vent(retenues, seance, profil, parametres, demande, client_meteo)
-    propositions, panne = _mesurer(
-        retenues, profil, demande, client_meteo, base_routes, dossier_cache=contexte.dossier_cache
+    # La relance d'office (QP4, 25/09/2026) : quand la recherche ne retient
+    # pas trois boucles contrastées, on la rejoue avec plus de candidates —
+    # exactement ce que le bouton « Chercher plus loin » ferait à la place du
+    # cycliste — jusqu'à trois retenues ou un palier borné
+    # (`PALIERS_RELANCE_CANDIDATES`). Tout se passe dans cet unique appel à
+    # `executer` : une génération demandée reste une seule entrée de quota,
+    # quel que soit le nombre d'essais internes (`api/quotas.py` compte
+    # l'appel HTTP, pas ces essais).
+    resultat_relance = _chercher_avec_relance(
+        client_brouter,
+        profil,
+        demande,
+        distance_km,
+        azimuts_vent,
+        seance=seance,
+        parametres=parametres,
+        client_meteo=client_meteo,
+        base_routes=base_routes,
+        dossier_cache=contexte.dossier_cache,
+        avertir=contexte.avertir,
     )
-    propositions.sort(key=functools.cmp_to_key(_comparer(profil.seance.tolerance_egalite)))
-    for numero, proposition in enumerate(propositions, start=1):
-        proposition.numero = numero
-
-    # Les trois propositions contrastées. La première reste celle
-    # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
-    # recommande, on ajoute ce à quoi le comparer.
-    selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
-
+    propositions = resultat_relance.propositions
+    ecartees = resultat_relance.ecartees
+    panne = resultat_relance.panne
+    selection = resultat_relance.selection
     meilleure = propositions[0]
     tenue = conseiller_tenue(meilleure.meteo, profil.tenue) if meilleure.meteo is not None else None
     gpx_propositions = _gpx_propositions(seance, demande, selection)
@@ -777,6 +806,9 @@ def _candidates(
     demande: Demande,
     distance_km: float,
     azimuts_vent: tuple[float, ...] = (),
+    *,
+    nb_candidates: int | None = None,
+    azimuts_deja_connus: frozenset[float] = frozenset(),
 ) -> tuple[list, list[Ecartee]]:
     """Les boucles candidates, et les directions refusées sur la distance.
 
@@ -796,20 +828,38 @@ def _candidates(
 
     `--direction` et `--vent` ne se contredisent pas ici : `_lire` refuse
     qu'on demande les deux. Quand `--direction` est là, elle est seule.
+
+    `nb_candidates` prend le pas sur `demande.nb_candidates` quand il est
+    fourni : c'est ce qui permet à `executer` de relancer cette recherche
+    avec plus de candidates (paliers de relance) sans changer ce que le
+    cycliste a demandé — `demande` elle-même n'est jamais modifiée.
+
+    `azimuts_deja_connus` (relance, recherche libre uniquement) : ces azimuts
+    ne sont pas redemandés à BRouter, `executer` les a déjà en main d'un
+    palier précédent. Sans direction ni vent demandés, chaque azimut est un
+    appel séparé (`repartition` ci-dessous) — c'est ce qui rend ce filtrage
+    possible sans toucher `generer`, qui explore toujours un seul secteur
+    autour d'un unique azimut et ne sait rien des autres appels.
     """
+    nb = demande.nb_candidates if nb_candidates is None else nb_candidates
     if demande.azimut_deg is not None:
-        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+        repartition = [(demande.azimut_deg, nb)]
     elif azimuts_vent:
-        parts = _parts(demande.nb_candidates, len(azimuts_vent))
+        parts = _parts(nb, len(azimuts_vent))
         # Une part nulle (une seule candidate pour deux azimuts) ne donne pas
         # lieu à un appel : `generer(nb=0)` ne rendrait rien en coûtant un
         # aller-retour.
         repartition = [(a, n) for a, n in zip(azimuts_vent, parts, strict=True) if n > 0]
     else:
         # Sans direction demandée, tout le tour de l'horizon, une candidate par
-        # azimut.
-        pas = 360.0 / demande.nb_candidates
-        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+        # azimut — sauf les azimuts qu'une relance précédente a déjà obtenus.
+        pas = 360.0 / nb
+        repartition = [(i * pas, 1) for i in range(nb) if (i * pas) not in azimuts_deja_connus]
+        if not repartition:
+            # Tous les azimuts de ce palier sont déjà connus : rien de
+            # nouveau à demander, et ce n'est pas un refus — l'appelant garde
+            # ce qu'il avait.
+            return [], []
 
     trouvees: list = []
     hors_bande: list[Ecartee] = []
@@ -864,6 +914,288 @@ def _candidates(
             "ou un autre profil"
         )
     return trouvees, hors_bande
+
+
+def _paliers_candidates(nb_initial: int) -> list[int]:
+    """Les nombres de candidates à essayer, dans l'ordre : `nb_initial` d'abord.
+
+    `PALIERS_RELANCE_CANDIDATES` n'ajoute que les paliers strictement
+    supérieurs au dernier déjà retenu : demander `--candidates 10` ne fait
+    pas redescendre à 8, et sauter directement à 12 évite un essai qui
+    n'aurait rien ajouté. Demander déjà `--candidates 20` épuise la liste
+    dès le premier essai — la relance n'a rien de plus à proposer au-delà de
+    ce que le cycliste a explicitement demandé.
+    """
+    paliers = [nb_initial]
+    for palier in PALIERS_RELANCE_CANDIDATES:
+        if palier > paliers[-1]:
+            paliers.append(palier)
+    return paliers
+
+
+@dataclass(frozen=True)
+class _ResultatRelance:
+    """Ce que `_chercher_avec_relance` rend : le meilleur palier vu, jamais le dernier."""
+
+    propositions: list[Proposition]
+    ecartees: list[Ecartee]
+    #: Le motif de la panne météo, s'il y en a eu une (accumulée sur tous les
+    #: essais : une fois vue, elle ne s'efface pas parce qu'un essai suivant
+    #: a réussi — Open-Meteo qui répond à nouveau ne rend pas caduque un trou
+    #: dans les candidates déjà mesurées).
+    panne: str | None
+    selection: contraste.Selection
+
+
+@dataclass
+class _EtatRelance:
+    """Ce qui s'accumule entre deux paliers de relance, par azimut.
+
+    Séparé de `_chercher_avec_relance` pour que celle-ci reste lisible :
+    chaque palier n'a plus qu'à enregistrer ce qu'il vient de trouver
+    (`enregistrer`) et lire l'état cumulé (`propositions`, `ecartees`), sans
+    porter lui-même la demi-douzaine de dictionnaires qui font la
+    réutilisation par azimut.
+    """
+
+    candidats_connus: dict[float, Candidate] = field(default_factory=dict)
+    hors_bande_connus: dict[float, Ecartee] = field(default_factory=dict)
+    resultat_connu: dict[float, Proposition | Ecartee] = field(default_factory=dict)
+    #: Un palier dont **tous les azimuts nouveaux** sont refusés sur la
+    #: distance jette son détail par azimut (`_candidates` ne garde alors
+    #: que le refus le moins sévère, exactement comme au premier essai) :
+    #: cette entrée agrégée le préserve tout de même, plutôt que de le
+    #: perdre parce qu'aucun azimut précis ne lui est plus rattachable.
+    hors_bande_sans_azimut: list[Ecartee] = field(default_factory=list)
+
+    def azimuts_connus(self) -> frozenset[float]:
+        return frozenset(self.candidats_connus) | frozenset(self.hors_bande_connus)
+
+    def enregistrer(self, candidates: list[Candidate], hors_bande: list[Ecartee]) -> None:
+        for candidate in candidates:
+            self.candidats_connus.setdefault(candidate.azimut_deg, candidate)
+        for ecartee in hors_bande:
+            # Ces `Ecartee` viennent de `_candidates`, une par azimut
+            # explicitement demandé : `azimut_deg` y est toujours renseigné,
+            # jamais `None` (contrairement à `_ecartee_agregee`, qui va dans
+            # `hors_bande_sans_azimut` et pas ici).
+            assert ecartee.azimut_deg is not None
+            self.hors_bande_connus.setdefault(ecartee.azimut_deg, ecartee)
+
+    def propositions(self) -> list[Proposition]:
+        return [v for v in self.resultat_connu.values() if isinstance(v, Proposition)]
+
+    def ecartees(self) -> list[Ecartee]:
+        # Les directions refusées sur la distance rejoignent celles que le
+        # placement a refusées : deux motifs différents, un seul endroit où
+        # le cycliste les lit. Sans ça, demander cinq directions et en voir
+        # trois se passait en silence — c'est le défaut même que ce lot
+        # corrige, il n'a pas à revenir par la porte de derrière.
+        return (
+            list(self.hors_bande_connus.values())
+            + self.hors_bande_sans_azimut
+            + [v for v in self.resultat_connu.values() if isinstance(v, Ecartee)]
+        )
+
+
+def _ecartee_agregee(e: ErreurDistanceInatteignable) -> Ecartee:
+    """L'`Ecartee` la moins sévère qu'une `ErreurDistanceInatteignable` porte
+    encore, quand `_candidates` a dû en jeter le détail par azimut."""
+    return Ecartee(
+        azimut_deg=None,
+        distance_km=e.distance_obtenue_km,
+        motif=(
+            f"{e.ecart_relatif:+.0%} de la distance demandée — il aurait fallu élargir de "
+            f"{e.elargissement_requis:.0%}, on s'arrête à {e.elargissement_max:.0%}"
+        ),
+        etape=ETAPE_DISTANCE,
+    )
+
+
+def _traiter_nouvelles_candidates(
+    etat: _EtatRelance,
+    seance: Seance,
+    profil: Profil,
+    parametres: Parametres,
+    demande: Demande,
+    *,
+    client_meteo: ClientOpenMeteo | None,
+    base_routes: BaseRoutes | None,
+    dossier_cache: Path,
+) -> str | None:
+    """Place, revente et mesure les candidates que `etat` ne connaît pas encore.
+
+    Rend le motif de panne météo de **ce** lot, `None` sans rien de neuf à
+    mesurer. Seuls les azimuts qu'aucun palier précédent n'a menés à leur
+    terme sont traités : les autres gardent leur `Proposition` ou leur
+    `Ecartee` de placement d'un essai antérieur (`etat.resultat_connu`).
+    """
+    a_traiter = [c for c in etat.candidats_connus.values() if c.azimut_deg not in etat.resultat_connu]
+    retenues, ecartees_placement = _placer_toutes(a_traiter, seance, profil, parametres)
+    for ecartee in ecartees_placement:
+        # `_placer_toutes` construit `azimut_deg` depuis la `Candidate`
+        # placée, jamais `None` (voir `_EtatRelance.enregistrer`).
+        assert ecartee.azimut_deg is not None
+        etat.resultat_connu[ecartee.azimut_deg] = ecartee
+    if not retenues:
+        return None
+    retenues = _replacer_avec_vent(retenues, seance, profil, parametres, demande, client_meteo)
+    nouvelles_propositions, panne = _mesurer(
+        retenues, profil, demande, client_meteo, base_routes, dossier_cache=dossier_cache
+    )
+    for proposition in nouvelles_propositions:
+        assert proposition.azimut_deg is not None
+        etat.resultat_connu[proposition.azimut_deg] = proposition
+    return panne
+
+
+def _chercher_avec_relance(
+    client_brouter: ClientBrouter,
+    profil: Profil,
+    demande: Demande,
+    distance_km: float,
+    azimuts_vent: tuple[float, ...],
+    *,
+    seance: Seance,
+    parametres: Parametres,
+    client_meteo: ClientOpenMeteo | None,
+    base_routes: BaseRoutes | None,
+    dossier_cache: Path,
+    avertir: Callable[[str], None],
+) -> _ResultatRelance:
+    """La relance d'office (QP4, 25/09/2026), jusqu'à trois boucles retenues ou un palier borné.
+
+    Trois défauts corrigés en relecture le 27/09/2026, sur le même mécanisme :
+
+    1. **Une candidate est acquise pour de bon.** Une fois placée, reventée
+       et mesurée, elle ne l'est plus jamais deux fois (`_EtatRelance`,
+       `_traiter_nouvelles_candidates`) : un palier plus large ne retraite
+       que les azimuts qu'il ajoute. En recherche libre (sans `--direction`
+       ni `--vent`), ça évite aussi de redemander à BRouter un azimut déjà
+       exploré (`azimuts_deja_connus` de `_candidates`) — `--direction` et
+       `--vent` gardent un seul appel par palier (`generer` explore tout un
+       secteur d'un coup, sans état à réutiliser entre deux appels), mais en
+       profitent tout de même en aval : les azimuts qu'un palier plus large
+       explore de nouveau (le fan de `generer` est un préfixe croissant) ne
+       sont pas replacés, reventés ni remesurés une seconde fois.
+    2. **Le meilleur palier gagne, jamais le dernier.** Plus de candidates ne
+       garantit pas plus de boucles retenues : une candidate ajoutée peut
+       devenir la tête du tri et resserrer `contraste._meilleur_groupe`
+       autour d'elle, avec moins de compagnes assez disjointes qu'avant.
+       `meilleure_selection` ne se remplace que par un palier qui retient
+       **au moins** autant de boucles.
+    3. **Une panne réseau pendant une relance ne perd pas ce qui a déjà été
+       trouvé.** `_candidates` peut lever une `ErreurConnecteur` (BRouter en
+       panne, ou aucune boucle bornée du tout sur ce palier) : au premier
+       essai, rien de bon n'existe encore, elle se propage comme avant.
+       Ensuite, elle arrête la relance et garde le meilleur palier déjà vu,
+       avec un avertissement lisible plutôt qu'un résultat perdu pour une
+       panne passagère.
+
+    Ne touche ni `SEUIL_RECOUVREMENT` ni la logique de sélection
+    (`contraste._meilleur_groupe`, `contraste._assez_disjointes`) : la
+    sélection reste `contraste.choisir`, appelée sur l'ensemble cumulé des
+    candidates de tous les paliers essayés jusqu'ici.
+    """
+    etat = _EtatRelance()
+    meilleures_propositions: list[Proposition] | None = None
+    meilleure_selection: contraste.Selection | None = None
+    meilleures_ecartees: list[Ecartee] | None = None
+    panne_meteo: str | None = None
+
+    paliers = _paliers_candidates(demande.nb_candidates)
+    for essai_nb in paliers:
+        dernier_essai = essai_nb == paliers[-1]
+        try:
+            candidates, hors_bande = _candidates(
+                client_brouter,
+                profil,
+                demande,
+                distance_km,
+                azimuts_vent,
+                nb_candidates=essai_nb,
+                azimuts_deja_connus=etat.azimuts_connus(),
+            )
+        except ErreurDistanceInatteignable as e:
+            # Ni une panne, ni la fin de la recherche : seuls les azimuts
+            # nouveaux de **ce** palier ne tiennent sur aucune distance — les
+            # azimuts déjà en main restent valables, et le palier suivant
+            # (s'il en reste) explore d'autres directions. Mais si c'était le
+            # dernier palier et qu'aucun n'a jamais rien retenu, il n'y a
+            # rien de plus à essayer : c'est le même refus honnête que
+            # `motif_aucune` rend d'habitude.
+            etat.hors_bande_sans_azimut.append(_ecartee_agregee(e))
+            if dernier_essai and meilleure_selection is None:
+                raise ErreurUtilisateur(motif_aucune(seance, etat.ecartees(), distance_km)) from e
+            continue
+        except ErreurConnecteur as e:
+            if meilleure_selection is None:
+                # Rien de bon à quoi se rabattre — la panne se propage
+                # comme avant toute relance.
+                raise
+            avertir(
+                f"ourouler : la relance s'est arrêtée avant trois boucles ({e}) — "
+                f"{len(meilleure_selection.retenues)} proposition(s) retenue(s) au lieu de trois"
+            )
+            break
+
+        etat.enregistrer(candidates, hors_bande)
+        panne_de_cet_essai = _traiter_nouvelles_candidates(
+            etat,
+            seance,
+            profil,
+            parametres,
+            demande,
+            client_meteo=client_meteo,
+            base_routes=base_routes,
+            dossier_cache=dossier_cache,
+        )
+        panne_meteo = panne_meteo or panne_de_cet_essai
+
+        propositions_cumulees = etat.propositions()
+        ecartees_cumulees = etat.ecartees()
+        if not propositions_cumulees:
+            if dernier_essai:
+                raise ErreurUtilisateur(motif_aucune(seance, ecartees_cumulees, distance_km))
+            continue
+
+        propositions_triees = sorted(
+            propositions_cumulees, key=functools.cmp_to_key(_comparer(profil.seance.tolerance_egalite))
+        )
+        # Les trois propositions contrastées. La première reste celle
+        # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
+        # recommande, on ajoute ce à quoi le comparer.
+        selection_ici = contraste.choisir(propositions_triees, duree_seance_s=seance.duree_s)
+
+        # `>=`, pas `>` : à retenues égales, le palier le plus large a quand
+        # même cherché plus loin — le garder montre plus de candidates dans
+        # le tableau (transparence) plutôt que de figer l'image du premier
+        # palier qui a atteint ce compte.
+        if meilleure_selection is None or len(selection_ici.retenues) >= len(meilleure_selection.retenues):
+            meilleure_selection = selection_ici
+            meilleures_propositions = propositions_triees
+            meilleures_ecartees = ecartees_cumulees
+
+        if len(selection_ici.retenues) >= COMBIEN_PROPOSITIONS_VISEES or dernier_essai:
+            break
+
+    # La boucle ci-dessus ne se termine jamais sans avoir renseigné les
+    # trois `meilleures_*` : soit un palier a retenu au moins une
+    # proposition (elles sont alors posées ensemble, toujours), soit aucun
+    # palier n'en a jamais retenu et le dernier lève `ErreurUtilisateur`
+    # avant d'en sortir. L'assertion ne fait que le dire au vérificateur de
+    # types.
+    assert meilleure_selection is not None
+    assert meilleures_propositions is not None
+    assert meilleures_ecartees is not None
+    for numero, proposition in enumerate(meilleures_propositions, start=1):
+        proposition.numero = numero
+    return _ResultatRelance(
+        propositions=meilleures_propositions,
+        ecartees=meilleures_ecartees,
+        panne=panne_meteo,
+        selection=meilleure_selection,
+    )
 
 
 def _placer_toutes(

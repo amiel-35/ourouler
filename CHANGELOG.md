@@ -29,6 +29,11 @@ partir des PR.
 
 ### Modifié
 
+- Quand une demande de parcours ne retient qu'une ou deux boucles, elle
+  relance elle-même la recherche avec plus de candidates avant de répondre,
+  jusqu'à trois boucles retenues ou une limite raisonnable de tentatives —
+  sans clic de plus sur « Chercher plus loin », qui reste disponible pour
+  aller plus loin quand la relance elle-même n'a pas suffi.
 - Les textes affichés (aide des réglages, écran d'entrée, légende du tri,
   catégorie de pneu, export et suppression du compte, erreurs de l'API) ne
   renvoient plus à des numéros de décision, de lot ou de sprint, ni au

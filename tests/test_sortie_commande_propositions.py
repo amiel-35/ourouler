@@ -24,6 +24,7 @@ from outils_sortie_commande import (
     config_de_test,
     cote,
     lancer,
+    moteur_brouter_identique,
     moteur_meteo,
 )
 
@@ -84,11 +85,36 @@ def test_chaque_proposition_porte_une_phrase_et_un_axe_distinct(tmp_path: Path, 
 
 
 def test_moins_de_trois_propositions_dit_pourquoi(tmp_path: Path, monkeypatch, capsys):
-    """Avec une seule candidate, il n'y a rien à contraster — et c'est écrit."""
-    lancer(tmp_path, monkeypatch, candidates=1, json=True)
+    """Quand trois boucles disjointes n'existent vraiment pas — même après la
+    relance d'office (sprint 11) —, il n'y a rien à contraster, et c'est écrit.
+
+    Le bouchon rend **le même anneau** quel que soit l'azimut demandé : aucun
+    palier de relance ne peut jamais produire une deuxième candidate qui
+    diffère de la première, donc `_meilleur_groupe` ne retient jamais qu'une
+    boucle, quel que soit le nombre de candidates essayées.
+    """
+    lancer(tmp_path, monkeypatch, candidates=1, json=True, brouter=moteur_brouter_identique())
     charge = json.loads(capsys.readouterr().out)
     assert len(charge["propositions"]) == 1
     assert charge["motif_deux_propositions"]
+
+
+def test_moins_de_trois_candidates_demandees_se_relance_d_office(tmp_path: Path, monkeypatch, capsys):
+    """Le défaut même que ce lot corrige : demander une seule candidate ne
+    doit plus rendre « un seul parcours » quand trois boucles disjointes
+    existent bel et bien autour du départ — la recherche se relance d'office
+    avec plus de candidates, sans que le cycliste ait à cliquer sur
+    « Chercher plus loin ».
+    """
+    lancer(tmp_path, monkeypatch, candidates=1, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    # Le bouchon par défaut place un anneau différent par azimut : au-delà
+    # d'une seule candidate, les boucles ne se recouvrent quasiment pas.
+    assert len(charge["propositions"]) == 3, charge
+    assert charge["motif_deux_propositions"] is None
+    # Ce que le cycliste a demandé ne change pas : c'est la recherche
+    # interne qui s'est relancée, pas la demande.
+    assert charge["demande"]["candidates"] == 1
 
 
 def test_les_propositions_sont_un_sous_ensemble_des_candidates(tmp_path: Path, monkeypatch, capsys):

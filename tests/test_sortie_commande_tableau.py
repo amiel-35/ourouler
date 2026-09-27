@@ -74,8 +74,13 @@ def test_le_tri_prend_la_note_de_placement_avant_la_pluie(tmp_path: Path, monkey
     )
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
-    premiere, seconde = charge["candidates"]
-    assert premiere["azimut_deg"] == 0.0, charge
+    # Depuis la relance d'office (sprint 11) : demander deux candidates ne
+    # retient jamais trois boucles à contraster, donc la recherche se
+    # relance avec plus de candidates, et le tableau en montre plus que deux.
+    # 0° et 180° y restent : c'est sur ces deux-là, et elles seules, que ce
+    # test porte, quel que soit le nombre total de candidates cherchées.
+    par_azimut = {c["azimut_deg"]: c for c in charge["candidates"]}
+    premiere, seconde = par_azimut[0.0], par_azimut[180.0]
     assert premiere["placement"]["note_totale"] < seconde["placement"]["note_totale"]
     assert premiere["meteo"]["pluie_cumulee_mm"] > seconde["meteo"]["pluie_cumulee_mm"]
 
@@ -111,7 +116,11 @@ def test_a_note_equivalente_la_pluie_departage(tmp_path: Path, monkeypatch, caps
     )
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
-    premiere, seconde = charge["candidates"]
+    # Même remarque que dans le test précédent : la relance d'office
+    # (sprint 11) ajoute d'autres candidates au tableau, mais 0° et 180°
+    # restent celles sur lesquelles ce test porte.
+    par_azimut = {c["azimut_deg"]: c for c in charge["candidates"]}
+    premiere, seconde = par_azimut[180.0], par_azimut[0.0]
     note_premiere = premiere["placement"]["note_totale"]
     note_seconde = seconde["placement"]["note_totale"]
     tolerance = ParametresSeance().tolerance_egalite
@@ -278,14 +287,19 @@ def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(tmp_path: Path, 
     direction écartée se dit**. Demander deux directions et n'en voir qu'une
     sans explication serait le défaut même que ce lot corrige.
     """
+    # `candidates=4` (et non 2, depuis la relance d'office du sprint 11) :
+    # avec les trois candidates qui restent (0°, 90°, 270°) déjà assez
+    # disjointes pour contraster trois boucles, le premier essai suffit —
+    # aucune relance ne vient ajouter d'autres lignes au tableau, et le
+    # nombre de candidates écartées reste déterministe.
     reglages = {180.0: {"rayon_deg": RAYON_DEG / 6}}
-    code = lancer(tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=2)
+    code = lancer(tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=4)
     sortie = capsys.readouterr().out
     assert code == 0
     assert "1 candidate(s) écartée(s)" in sortie
     assert "de la distance demandée" in sortie, "le motif du refus doit être lisible"
     assert "il aurait fallu élargir de" in sortie, "et dire de combien"
-    assert len(lignes_du_tableau(sortie)) == 1
+    assert len(lignes_du_tableau(sortie)) == 3
 
 
 def test_toutes_les_candidates_refusees_donne_un_message_clair(tmp_path: Path, monkeypatch):
@@ -345,13 +359,18 @@ def test_la_tenue_est_conseillee_quand_la_meteo_repond(tmp_path: Path, monkeypat
 
 
 def test_sans_meteo_le_tableau_reste_et_la_tenue_disparait(tmp_path: Path, monkeypatch, capsys):
-    code = lancer(tmp_path, monkeypatch, meteo=moteur_meteo(en_panne=True))
+    # `candidates=3` (et non le défaut de la configuration de test, 2) :
+    # trois candidates par défaut (0°, 120°, 240°) sont déjà assez disjointes
+    # pour contraster trois boucles au premier essai, ce qui évite toute
+    # relance d'office (sprint 11) et garde le tableau à un nombre de lignes
+    # déterministe.
+    code = lancer(tmp_path, monkeypatch, meteo=moteur_meteo(en_panne=True), candidates=3)
     lu = capsys.readouterr()
     assert code == 0
     assert "météo indisponible" in lu.err
     assert "aucun conseil de tenue" in lu.out
     assert "pluie" not in lignes_du_tableau(lu.out)[0]
-    assert len(lignes_du_tableau(lu.out)) == 2
+    assert len(lignes_du_tableau(lu.out)) == 3
 
 
 # --- Q19 : le modèle météo utilisé est nommé dans l'en-tête --------------------

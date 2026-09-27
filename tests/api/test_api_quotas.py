@@ -229,6 +229,27 @@ def test_un_succes_consomme_reellement_le_credit(tmp_path: Path):
     assert refus.json()["erreur"]["code"] == "quota_atteint"
 
 
+def test_la_relance_d_office_ne_consomme_qu_un_seul_credit(tmp_path: Path):
+    """Sprint 11 : « une seule recherche demandée = une seule entrée de
+    quota », même si la recherche se relance elle-même plusieurs fois en
+    coulisse pour atteindre trois boucles retenues.
+
+    `generer_sortie` demande **une seule** candidate — trop peu pour
+    contraster trois boucles d'entrée, donc `services.sortie.executer`
+    relance forcément la recherche avec plus de candidates. Le quota ne
+    compte que l'appel HTTP (`_verifier_quota`, avant tout travail) : avec
+    un plafond de 1, cette unique requête doit réussir malgré ses essais
+    internes, et une seconde doit être refusée.
+    """
+    client = client_hors_reseau(tmp_path, quotas=Quotas(plafond=1))
+    reponse = generer_sortie(client)
+    assert reponse.status_code == 200, reponse.text
+    assert len(reponse.json()["donnees"]["propositions"]) == 3, "la relance doit avoir eu lieu"
+    refus = generer_sortie(client)
+    assert refus.status_code == 429
+    assert refus.json()["erreur"]["code"] == "quota_atteint"
+
+
 # --- GET /meteo : un poste séparé, même code de refus -------------------------
 
 
