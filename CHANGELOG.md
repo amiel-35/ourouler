@@ -42,6 +42,7 @@ partir des PR.
 
 ### Corrigé
 
+- « Envoyer vers mon compteur » ouvre la feuille de partage sur iPhone.
 - Le bouton retour du navigateur, depuis les résultats d'une recherche
   (propositions, boucles, détail d'une proposition), l'assistant, un dépôt
   de séance ou un autre onglet, ramène désormais au bon écran — le
