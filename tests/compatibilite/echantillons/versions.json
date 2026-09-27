@@ -3,6 +3,7 @@
     "ourouler.activites.cache.VERSION_SCHEMA": 3,
     "ourouler.apprentissage.routes.VERSION_SCHEMA": 3,
     "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA": 2,
+    "ourouler.services.derive.VERSION_DERIVATION": 1,
     "ourouler.stockage.calibrations.VERSION_CALIBRATION": 1
   },
   "ecrites": {

@@ -81,6 +81,7 @@ CONSTANTES_DE_VERSION = (
     "ourouler.apprentissage.routes.VERSION_SCHEMA",
     "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA",
     "ourouler.stockage.calibrations.VERSION_CALIBRATION",
+    "ourouler.services.derive.VERSION_DERIVATION",
 )
 
 #: Migrations Postgres autorisées à contenir `DROP` ou `RENAME`, par nom de

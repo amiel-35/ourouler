@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 import shutil
 import sqlite3
 import uuid
@@ -153,6 +154,28 @@ def _fabriquer_cache_cli(racine: Path, cache: Path, config: Path) -> None:
         meta={"sport": "Ride", "appareil": "Compteur inventé"},
         equipement="Route",
     )
+    # Une sortie sans fichier d'origine (fiche « choix de garder ou d'effacer
+    # ses fichiers d'origine ») : la table `derives`, additive au schéma 3.
+    # `alea` fixé pour que la fabrication soit reproductible — voir le module.
+    activite_derivee = synth.tcx_synthetique(synth.ROUTE, date(2026, 3, 3))
+    identifiant_derive = compte.ajouter(
+        activite_derivee,
+        source="fichier",
+        id_externe="essai-sans-brut",
+        extension="tcx",
+        meta={"sport": "Ride", "puissance_moy_w": 180.0},
+    )
+    from ourouler.activites.lecture import lire_tcx
+    from ourouler.physique.validation import deriver_sortie
+    from ourouler.services import derive
+
+    derivee = deriver_sortie(lire_tcx(activite_derivee), [])
+    compte.ecrire_derive(
+        identifiant_derive,
+        version=derive.VERSION_DERIVATION,
+        contenu=derive.serialiser(derivee, random.Random(0)),
+    )
+    compte.chemin(identifiant_derive).unlink()  # ce compte ne garde pas ce fichier-là
 
 
 def _fabriquer_compte_heberge(cache: Path, config: Path) -> None:

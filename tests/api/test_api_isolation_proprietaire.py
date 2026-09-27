@@ -1352,6 +1352,14 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         # juste au-dessus : c'est le fil HTTP qui doit être éprouvé ici.
         ("GET", f"{PREFIXE_API}/moi/fichiers-origine"): {},
         ("PUT", f"{PREFIXE_API}/moi/fichiers-origine"): {"json": {"garder": False}},
+        # Sous `SessionDEssai` (pas de base de comptes), le `PUT` juste
+        # au-dessus répond `comptes_indisponibles` sans jamais lancer de
+        # tâche : cette route-ci n'a donc aucun identifiant réel à suivre, et
+        # répond `fichier_introuvable` — même parti pris que
+        # `GET /calibrations/{id_job}` pour le même genre de tâche de fond.
+        ("GET", f"{PREFIXE_API}/moi/fichiers-origine/{{id_job}}"): {
+            "chemin": f"{PREFIXE_API}/moi/fichiers-origine/exemple-id-tache"
+        },
         ("DELETE", f"{PREFIXE_API}/moi"): {},
     }
 

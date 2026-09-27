@@ -549,6 +549,24 @@
         "puissance_moy_w": 209.25,
         "source": "intervals",
         "sport": "Ride"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/comptes/compte-synthetique/822081d51d22cf834ad2b208c841b55dc6606503a8a99e534b345faeddf6aa6c.tcx",
+        "debut": "2026-03-03T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "essai-sans-brut",
+        "identifiant": "822081d51d22cf834ad2b208c841b55dc6606503a8a99e534b345faeddf6aa6c",
+        "meta": {
+          "puissance_moy_w": 180.0,
+          "sport": "Ride"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Ride"
       }
     ],
     "contient": true,

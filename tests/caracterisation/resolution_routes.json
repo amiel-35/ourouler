@@ -309,6 +309,13 @@
       "nom": "definir_conservation_fichiers"
     },
     {
+      "chemin": "/api/v1/moi/fichiers-origine/{id_job}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_job_conservation_fichiers"
+    },
+    {
       "chemin": "/api/v1/moi/mot-de-passe",
       "methodes": [
         "POST"
@@ -347,6 +354,7 @@
     "DELETE /api/v1/moi": "ourouler.api.routes:supprimer_mes_donnees",
     "DELETE /api/v1/moi/export": "405",
     "DELETE /api/v1/moi/fichiers-origine": "405",
+    "DELETE /api/v1/moi/fichiers-origine/exemple-id_job": "405",
     "DELETE /api/v1/moi/mot-de-passe": "405",
     "DELETE /api/v1/parcours/analyser": "405",
     "DELETE /api/v1/parcours/fichier": "405",
@@ -389,6 +397,7 @@
     "GET /api/v1/moi": "ourouler.api.routes:mon_compte",
     "GET /api/v1/moi/export": "ourouler.api.routes:exporter_mes_donnees",
     "GET /api/v1/moi/fichiers-origine": "ourouler.api.routes:etat_conservation_fichiers",
+    "GET /api/v1/moi/fichiers-origine/exemple-id_job": "ourouler.api.routes:etat_job_conservation_fichiers",
     "GET /api/v1/moi/mot-de-passe": "405",
     "GET /api/v1/parcours/analyser": "405",
     "GET /api/v1/parcours/fichier": "405",
@@ -431,6 +440,7 @@
     "PATCH /api/v1/moi": "405",
     "PATCH /api/v1/moi/export": "405",
     "PATCH /api/v1/moi/fichiers-origine": "405",
+    "PATCH /api/v1/moi/fichiers-origine/exemple-id_job": "405",
     "PATCH /api/v1/moi/mot-de-passe": "405",
     "PATCH /api/v1/parcours/analyser": "405",
     "PATCH /api/v1/parcours/fichier": "405",
@@ -473,6 +483,7 @@
     "POST /api/v1/moi": "405",
     "POST /api/v1/moi/export": "405",
     "POST /api/v1/moi/fichiers-origine": "405",
+    "POST /api/v1/moi/fichiers-origine/exemple-id_job": "405",
     "POST /api/v1/moi/mot-de-passe": "ourouler.api.routes:changer_mon_mot_de_passe",
     "POST /api/v1/parcours/analyser": "ourouler.api.routes:analyser_parcours",
     "POST /api/v1/parcours/fichier": "ourouler.api.routes:deposer_parcours",
@@ -515,6 +526,7 @@
     "PUT /api/v1/moi": "405",
     "PUT /api/v1/moi/export": "405",
     "PUT /api/v1/moi/fichiers-origine": "ourouler.api.routes:definir_conservation_fichiers",
+    "PUT /api/v1/moi/fichiers-origine/exemple-id_job": "405",
     "PUT /api/v1/moi/mot-de-passe": "405",
     "PUT /api/v1/parcours/analyser": "405",
     "PUT /api/v1/parcours/fichier": "405",
