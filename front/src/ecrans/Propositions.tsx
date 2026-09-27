@@ -87,6 +87,12 @@ export function Propositions({
   }
 
   const seule = sortie.propositions.length === 1;
+  // Depuis la relance d'office côté serveur (sprint 11, QP4) : le serveur a
+  // déjà relancé lui-même la recherche avec plus de candidates avant de
+  // répondre. Le bouton ne reste un filet que si, malgré cette relance,
+  // moins de trois boucles ont été retenues — avant ce lot, il ne
+  // s'affichait que pour une seule proposition (`seule`).
+  const moinsDeTrois = sortie.propositions.length < 3;
   const manque = meteoManquante(reponse.avertissements);
   const dessinees = traces.filter((t) => t.sort === "ecartee").length;
 
@@ -208,7 +214,7 @@ export function Propositions({
       <button type="button" className="bouton" onClick={surOuvrir}>
         Ouvrir
       </button>
-      {seule && surElargir ? (
+      {moinsDeTrois && surElargir ? (
         <button type="button" className="bouton fantome" onClick={surElargir}>
           Chercher plus loin
         </button>

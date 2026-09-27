@@ -30,8 +30,12 @@ L'enchaînement :
    classement (`sortie.contraste`), chacune avec la phrase qui la
    distingue des autres en langage de cycliste. La première reste celle du
    tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
-   comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
-   rend deux et on dit pourquoi ;
+   comparer. **Si moins de trois sont retenues, les étapes 2 à 8 sont
+   rejouées avec plus de candidates** (paliers de `PALIERS_RELANCE_CANDIDATES`),
+   jusqu'à trois retenues ou un plafond de tentatives — sans action du
+   cycliste, et dans le même appel (une génération demandée reste une seule
+   entrée de quota). Quand trois vraies boucles disjointes n'existent
+   toujours pas après ce plafond, on en rend deux et on dit pourquoi ;
 9. et ces mêmes propositions deviennent **la page du jour**
    (`rendu.sortie.page_jour`) : une carte, les tracés superposés,
    seule la sélectionnée en couleurs — et un GPX par proposition,
@@ -128,6 +132,30 @@ NOTE_BLOC_BIEN_PLACE = 1.0
 #: Poids de la pluie dans le tri, **à note de placement égale** : c'est le
 #: même millimètre que dans `boucle`, mais il n'arrive qu'en second critère.
 POIDS_PLUIE_TRI = 2.0
+
+#: Paliers de candidates essayés **après** le nombre demandé, quand la
+#: recherche ne retient pas trois boucles contrastées (QP4, 25/09/2026 :
+#: « relancer "Chercher plus loin" d'office jusqu'à trois boucles
+#: retenues »). `8` est le nombre déjà utilisé par le bouton « Chercher plus
+#: loin » du front — la relance d'office rejoue exactement ce que le
+#: cycliste aurait demandé lui-même. `12` est un second filet, plus coûteux,
+#: pour les cas où huit candidates ne suffiraient pas.
+#:
+#: Mesuré le 27/09/2026 sur douze demandes réelles du mainteneur (durées
+#: 60/90/120 min, deux jours, plusieurs heures et directions) : dix sur
+#: douze retenaient déjà trois boucles au premier essai (5 candidates, la
+#: configuration du mainteneur) ; les deux qui n'en retenaient que deux s'en
+#: sortaient toutes les deux avec la seule relance à 8 candidates (13 appels
+#: BRouter contre 7 au premier essai) — le palier à 12 n'a jamais été
+#: nécessaire dans cette mesure. Il reste posé comme plafond, pas comme
+#: réglage courant : sans lui, un point de départ où trois boucles
+#: disjointes n'existent vraiment pas multiplierait les essais sans fin.
+PALIERS_RELANCE_CANDIDATES: tuple[int, ...] = (8, 12)
+
+#: Le nombre de boucles contrastées visé par la relance d'office. `3`, pas
+#: une constante réglable : c'est ce que `contraste.choisir` vise par défaut
+#: (`combien=3`), et la relance n'a de sens que si elle vise la même cible.
+COMBIEN_PROPOSITIONS_VISEES = 3
 
 
 @dataclass(frozen=True)
@@ -381,31 +409,58 @@ def executer(
         if client_brouter is not None
         else ClientBrouter(profil.brouter, evitements=profil.evitements)
     )
-    candidates, hors_bande = _candidates(client_brouter, profil, demande, distance_km, azimuts_vent)
 
-    retenues, ecartees = _placer_toutes(candidates, seance, profil, parametres)
-    # Les directions refusées sur la distance rejoignent celles que le
-    # placement a refusées : deux motifs différents, un seul endroit où le
-    # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
-    # passait en silence — c'est le défaut même que ce lot corrige, il n'a pas
-    # à revenir par la porte de derrière.
-    ecartees = hors_bande + ecartees
-    if not retenues:
-        raise ErreurUtilisateur(motif_aucune(seance, ecartees, distance_km))
+    # La relance d'office (QP4, 25/09/2026) : quand la recherche ne retient
+    # pas trois boucles contrastées, on la rejoue avec plus de candidates —
+    # exactement ce que le bouton « Chercher plus loin » ferait à la place du
+    # cycliste — jusqu'à trois retenues ou un palier borné
+    # (`PALIERS_RELANCE_CANDIDATES`). Tout se passe dans cet unique appel à
+    # `executer` : une génération demandée reste une seule entrée de quota,
+    # quel que soit le nombre d'essais internes (`api/quotas.py` compte
+    # l'appel HTTP, pas ces essais).
+    ecartees: list[Ecartee] = []
+    propositions: list[Proposition] = []
+    panne: str | None = None
+    selection: contraste.Selection | None = None
+    paliers = _paliers_candidates(demande.nb_candidates)
+    for essai_nb in paliers:
+        dernier_essai = essai_nb == paliers[-1]
+        candidates, hors_bande = _candidates(
+            client_brouter, profil, demande, distance_km, azimuts_vent, nb_candidates=essai_nb
+        )
+        retenues, ecartees_placement = _placer_toutes(candidates, seance, profil, parametres)
+        # Les directions refusées sur la distance rejoignent celles que le
+        # placement a refusées : deux motifs différents, un seul endroit où
+        # le cycliste les lit. Sans ça, demander cinq directions et en voir
+        # trois se passait en silence — c'est le défaut même que ce lot
+        # corrige, il n'a pas à revenir par la porte de derrière.
+        ecartees = hors_bande + ecartees_placement
+        if not retenues:
+            if dernier_essai:
+                raise ErreurUtilisateur(motif_aucune(seance, ecartees, distance_km))
+            continue
 
-    retenues = _replacer_avec_vent(retenues, seance, profil, parametres, demande, client_meteo)
-    propositions, panne = _mesurer(
-        retenues, profil, demande, client_meteo, base_routes, dossier_cache=contexte.dossier_cache
-    )
-    propositions.sort(key=functools.cmp_to_key(_comparer(profil.seance.tolerance_egalite)))
-    for numero, proposition in enumerate(propositions, start=1):
-        proposition.numero = numero
+        retenues = _replacer_avec_vent(retenues, seance, profil, parametres, demande, client_meteo)
+        propositions, panne = _mesurer(
+            retenues, profil, demande, client_meteo, base_routes, dossier_cache=contexte.dossier_cache
+        )
+        propositions.sort(key=functools.cmp_to_key(_comparer(profil.seance.tolerance_egalite)))
+        for numero, proposition in enumerate(propositions, start=1):
+            proposition.numero = numero
 
-    # Les trois propositions contrastées. La première reste celle
-    # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
-    # recommande, on ajoute ce à quoi le comparer.
-    selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
+        # Les trois propositions contrastées. La première reste celle
+        # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
+        # recommande, on ajoute ce à quoi le comparer.
+        selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
+        if len(selection.retenues) >= COMBIEN_PROPOSITIONS_VISEES or dernier_essai:
+            break
 
+    # La boucle ci-dessus ne se termine jamais sans `break` ni exception :
+    # le dernier palier lève `ErreurUtilisateur` s'il n'a rien retenu, et
+    # `break` s'exécute sinon (au moins au dernier palier). `selection` est
+    # donc toujours renseigné ici — l'assertion ne fait que le dire au
+    # vérificateur de types.
+    assert selection is not None
     meilleure = propositions[0]
     tenue = conseiller_tenue(meilleure.meteo, profil.tenue) if meilleure.meteo is not None else None
     gpx_propositions = _gpx_propositions(seance, demande, selection)
@@ -777,6 +832,8 @@ def _candidates(
     demande: Demande,
     distance_km: float,
     azimuts_vent: tuple[float, ...] = (),
+    *,
+    nb_candidates: int | None = None,
 ) -> tuple[list, list[Ecartee]]:
     """Les boucles candidates, et les directions refusées sur la distance.
 
@@ -796,11 +853,17 @@ def _candidates(
 
     `--direction` et `--vent` ne se contredisent pas ici : `_lire` refuse
     qu'on demande les deux. Quand `--direction` est là, elle est seule.
+
+    `nb_candidates` prend le pas sur `demande.nb_candidates` quand il est
+    fourni : c'est ce qui permet à `executer` de relancer cette recherche
+    avec plus de candidates (paliers de relance) sans changer ce que le
+    cycliste a demandé — `demande` elle-même n'est jamais modifiée.
     """
+    nb = demande.nb_candidates if nb_candidates is None else nb_candidates
     if demande.azimut_deg is not None:
-        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+        repartition = [(demande.azimut_deg, nb)]
     elif azimuts_vent:
-        parts = _parts(demande.nb_candidates, len(azimuts_vent))
+        parts = _parts(nb, len(azimuts_vent))
         # Une part nulle (une seule candidate pour deux azimuts) ne donne pas
         # lieu à un appel : `generer(nb=0)` ne rendrait rien en coûtant un
         # aller-retour.
@@ -808,8 +871,8 @@ def _candidates(
     else:
         # Sans direction demandée, tout le tour de l'horizon, une candidate par
         # azimut.
-        pas = 360.0 / demande.nb_candidates
-        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+        pas = 360.0 / nb
+        repartition = [(i * pas, 1) for i in range(nb)]
 
     trouvees: list = []
     hors_bande: list[Ecartee] = []
@@ -864,6 +927,23 @@ def _candidates(
             "ou un autre profil"
         )
     return trouvees, hors_bande
+
+
+def _paliers_candidates(nb_initial: int) -> list[int]:
+    """Les nombres de candidates à essayer, dans l'ordre : `nb_initial` d'abord.
+
+    `PALIERS_RELANCE_CANDIDATES` n'ajoute que les paliers strictement
+    supérieurs au dernier déjà retenu : demander `--candidates 10` ne fait
+    pas redescendre à 8, et sauter directement à 12 évite un essai qui
+    n'aurait rien ajouté. Demander déjà `--candidates 20` épuise la liste
+    dès le premier essai — la relance n'a rien de plus à proposer au-delà de
+    ce que le cycliste a explicitement demandé.
+    """
+    paliers = [nb_initial]
+    for palier in PALIERS_RELANCE_CANDIDATES:
+        if palier > paliers[-1]:
+            paliers.append(palier)
+    return paliers
 
 
 def _placer_toutes(
