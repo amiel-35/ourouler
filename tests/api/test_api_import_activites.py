@@ -81,6 +81,7 @@ def test_un_gpx_depose_est_importe(tmp_path: Path):
         "derivees": 0,
         "rafraichies": 0,
         "sans_vent": 0,
+        "restaurees": 0,
     }
     assert fini["traites"] == fini["total"] == 1
 

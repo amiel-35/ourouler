@@ -152,6 +152,63 @@ def test_calibration_par_sortie_mele_fichiers_gardes_et_derives(tmp_path: Path):
     assert resultat.n_calibrables == len(premieres) + len(secondes)
 
 
+def test_purger_avec_derivation_ne_redecouvre_pas_un_derive_deja_a_jour(tmp_path: Path):
+    """Un compte déjà passé par « ne pas garder » puis revenu à « garder » sans
+    réimporter a déjà un dérivé à jour pour ses sorties : `purger_avec_derivation`
+    ne doit ni le relire, ni rappeler l'archive météo pour lui — seul son
+    fichier doit encore partir."""
+    cache = Cache(tmp_path, proprietaire=COMPTE, conserver_brut=False)
+    jours = [date(2026, 1, j) for j in range(1, 5)]
+    deriver = derive.Derivateur(cache=cache, client_archive=_ArchiveConstante())
+    importer(cache, _depots(jours), deriver=deriver)  # dérive tout de suite, sans fichier
+
+    cache.conserver_brut = True
+    for jour in jours:  # « garder » de nouveau : réimporter restaure le fichier
+        importer(cache, [(f"sortie_{jour.isoformat()}.tcx", synth.tcx_synthetique(synth.ROUTE, jour))])
+    assert cache.brut.is_dir() and len(list(cache.brut.iterdir())) == len(jours)
+
+    class _ArchiveInterdite:
+        def horaires(self, lat: float, lon: float, jour: date) -> list:
+            raise AssertionError("l'archive météo n'aurait pas dû être appelée : dérivé déjà à jour")
+
+    rapport = derive.purger_avec_derivation(cache, _ArchiveInterdite())
+    assert rapport["candidates"] == len(jours)
+    assert rapport["derivees"] == 0
+    assert rapport["deja_a_jour"] == len(jours)
+    assert rapport["fichiers_effaces"] == len(jours)
+    assert not cache.brut.exists() or not any(cache.brut.iterdir())
+
+
+def test_garder_puis_ne_pas_garder_puis_garder_puis_redepot_restaure_les_fichiers(tmp_path: Path):
+    """Le critère de la fiche, au pied de la lettre : « revenir à garder puis
+    réimporter garde de nouveau les fichiers » — y compris pour un redépôt
+    du **même** export, où chaque sortie est déjà connue (`import_archive.py`,
+    relecture indépendante)."""
+    cache = Cache(tmp_path, proprietaire=COMPTE, conserver_brut=True)
+    jours = [date(2026, 1, j) for j in range(1, 17)]
+    depots = _depots(jours)
+
+    importer(cache, depots)  # « garder »
+    assert len(list(cache.brut.iterdir())) == len(jours)
+
+    # « ne pas garder » : le geste réel du bouton (`purger_avec_derivation`),
+    # pas un import — la dérivation se fait pendant que le fichier est
+    # encore là, puis il part.
+    rapport_purge = derive.purger_avec_derivation(cache, _ArchiveConstante())
+    cache.conserver_brut = False
+    assert not cache.brut.exists() or not any(cache.brut.iterdir())
+    assert rapport_purge["derivees"] == len(jours)
+
+    cache.conserver_brut = True  # « garder » de nouveau
+    rapport = importer(cache, depots)  # redépôt du même export
+
+    assert rapport.doublons == 0
+    assert rapport.importees == 0
+    assert rapport.restaurees == len(jours)
+    assert cache.brut.is_dir() and len(list(cache.brut.iterdir())) == len(jours)
+    assert len(cache.lister()) == len(jours)  # aucune ligne dupliquée
+
+
 def test_effacer_bruts_efface_tout_de_suite_sans_toucher_a_l_index(tmp_path: Path):
     """Le geste du bouton « ne plus garder » : `Cache.effacer_bruts` efface les
     fichiers déjà déposés, l'index et les entrées restent."""

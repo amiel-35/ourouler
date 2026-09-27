@@ -178,6 +178,10 @@ class RapportImport:
     #: Sorties dérivées sans vent : l'archive météo de leur jour n'a pas
     #: répondu (ou le jour est trop récent pour elle).
     sans_vent: int = 0
+    #: Sorties déjà connues dont le fichier d'origine manquait (compte
+    #: revenu à « garder » après un passage par « ne pas garder ») et que ce
+    #: dépôt vient de rendre — ni un doublon, ni un nouvel import.
+    restaurees: int = 0
 
     def resume_ignorees(self, max_exemples: int = 5) -> list[dict]:
         """Les motifs groupés, comptés, avec quelques noms d'exemple.
@@ -204,6 +208,7 @@ class RapportImport:
             "derivees": self.derivees,
             "rafraichies": self.rafraichies,
             "sans_vent": self.sans_vent,
+            "restaurees": self.restaurees,
         }
 
 
@@ -452,7 +457,14 @@ def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> 
     """
     identifiant = hashlib.sha256(contenu).hexdigest()
     deja = etat.cache.contient(source="fichier", id_externe=identifiant)
-    if deja and (etat.deriver is None or not etat.deriver.a_rafraichir(identifiant)):
+    a_deriver = deja and etat.deriver is not None and etat.deriver.a_rafraichir(identifiant)
+    # « Revenir à garder puis réimporter garde de nouveau les fichiers » (fiche
+    # « choix de garder ou d'effacer ses fichiers d'origine ») : une sortie
+    # déjà connue, mais dont le fichier a été effacé (compte qui était passé
+    # par « ne pas garder »), doit le retrouver si le compte garde à nouveau
+    # ses fichiers — sans dupliquer sa ligne d'index.
+    fichier_absent = deja and etat.cache.conserver_brut and not etat.cache.chemin(identifiant).is_file()
+    if deja and not a_deriver and not fichier_absent:
         etat.rapport.doublons += 1
         return
     # Le nom du fichier n'est gardé qu'avec le fichier : sans lui (compte qui
@@ -462,7 +474,7 @@ def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> 
     meta = {"fichier": nom} if etat.cache.conserver_brut else {}
     try:
         activite = lecteur_pour(extension)(contenu)
-        if not deja:
+        if not deja or fichier_absent:
             etat.cache.ajouter(
                 contenu,
                 source="fichier",
@@ -478,6 +490,8 @@ def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> 
         return
     if not deja:
         etat.rapport.importees += 1
+    elif fichier_absent:
+        etat.rapport.restaurees += 1
     if etat.deriver is None:
         return
     # Le dérivateur rattrape lui-même ce qu'une sortie hostile lui fait lever ;

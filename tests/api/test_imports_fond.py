@@ -138,6 +138,7 @@ def test_json_rend_une_forme_stable(tmp_path: Path):
         "derivees": 0,
         "rafraichies": 0,
         "sans_vent": 0,
+        "restaurees": 0,
     }
 
 

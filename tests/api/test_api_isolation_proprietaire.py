@@ -1884,4 +1884,5 @@ def test_un_historique_importe_par_a_n_est_ni_vu_ni_compte_chez_b(tmp_path):
         "derivees": 0,
         "rafraichies": 0,
         "sans_vent": 0,
+        "restaurees": 0,
     }
