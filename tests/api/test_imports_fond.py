@@ -10,7 +10,6 @@ un test raté bloquer les suivants.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 import pytest
@@ -37,11 +36,9 @@ def _gpx() -> bytes:
 
 
 def _attendre(job: imports_fond.Job, delai_max_s: float = 5.0) -> None:
-    debut = time.monotonic()
-    while job.statut == taches_fond.STATUT_EN_COURS:
-        if time.monotonic() - debut > delai_max_s:
-            raise AssertionError("job toujours en_cours")
-        time.sleep(0.01)
+    # `_termine` et non `statut` : le statut passe à « fini » avant que la
+    # tâche ait effacé ses fichiers et relâché le verrou serveur.
+    assert job._termine.wait(delai_max_s), "job pas rendu"
 
 
 @pytest.fixture(autouse=True)

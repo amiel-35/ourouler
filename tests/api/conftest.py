@@ -52,6 +52,11 @@ def taches_lourdes_rendues():
     **avant** d'en lire le corps, cette fenêtre suffisait à recevoir un
     `import_deja_en_cours` pour de mauvaises raisons. Importé ici et non en
     tête de module : garantie 3 ci-dessus, rien de l'API à la collecte.
+
+    Le registre des tâches est lui aussi global au module : sans remise à
+    zéro, le job d'un test précédent (même propriétaire d'essai, même vélo)
+    ressort par `taches_fond.dernier` dans le suivant — un test qui ne passe
+    que dans l'ordre du fichier.
     """
     import time
 
@@ -65,6 +70,10 @@ def taches_lourdes_rendues():
         assert time.monotonic() - debut < 30, "une tâche lourde ne rend pas le verrou serveur"
         time.sleep(0.01)
     taches_fond.VERROU.release()
+    with taches_fond._verrou_registre:
+        taches_fond._jobs.clear()
+        taches_fond._suspendus.clear()
+        taches_fond._effacements_en_cours.clear()
     yield
 
 
