@@ -138,6 +138,10 @@ def test_le_demarrage_applique_les_migrations_puis_survit_a_une_panne_de_l_admin
     import uvicorn
 
     ordre: list[str] = []
+    # `_configurer_journalisation` pose un gestionnaire sur le logger global `ourouler` —
+    # un effet de bord qui doit rester au conteneur, pas fuiter dans les autres tests de
+    # cette session pytest (voir `test_configurer_journalisation_rend_ourouler_admin_visible`).
+    monkeypatch.setattr(entrypoint, "_configurer_journalisation", lambda: None)
     monkeypatch.setattr(entrypoint, "_ecrire_config_depuis_environnement", lambda: None)
     monkeypatch.setattr(entrypoint, "_ecrire_service_depuis_environnement", lambda: None)
     monkeypatch.setattr("ourouler.api.application.application", lambda: _app_bouchon())
@@ -175,3 +179,60 @@ def test_sans_base_aucune_migration(entrypoint, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(base_de_donnees, "ouvrir", lambda url: pytest.fail("aucune base à ouvrir"))
 
     entrypoint._appliquer_migrations()
+
+
+def test_configurer_journalisation_rend_ourouler_admin_visible(entrypoint):
+    """Constaté en préproduction le 28/09/2026 : aucune ligne `ourouler.admin` (ni
+    `ourouler.demandes`, ni le reste de `ourouler.*`) n'apparaissait dans `docker logs` —
+    seules les lignes d'accès d'uvicorn y étaient. `_configurer_journalisation` pose un
+    gestionnaire sur le logger racine du projet ; ce test le vérifie en interceptant sa
+    sortie, sans jamais écrire sur le vrai stderr du process de test.
+
+    Restaure l'état du logger global `ourouler` après coup : c'est un singleton du
+    module `logging`, partagé par toute la session pytest — un test qui le laisserait
+    modifié changerait le comportement d'autres tests (caplog, entre autres) plus loin
+    dans la suite.
+    """
+    import io
+    import logging
+
+    cible = logging.getLogger("ourouler")
+    gestionnaires_avant = list(cible.handlers)
+    niveau_avant = cible.level
+    propage_avant = cible.propagate
+    try:
+        entrypoint._configurer_journalisation()
+        assert cible.level == logging.INFO
+        nouveau_gestionnaire = cible.handlers[-1]
+        tampon = io.StringIO()
+        nouveau_gestionnaire.stream = tampon  # intercepte, plutôt que d'écrire sur le vrai stderr
+
+        logging.getLogger("ourouler.admin").info("connexion admin réussie")
+        sortie = tampon.getvalue()
+    finally:
+        cible.handlers = gestionnaires_avant
+        cible.level = niveau_avant
+        cible.propagate = propage_avant
+
+    assert "ourouler.admin" in sortie
+    assert "INFO" in sortie
+    assert "connexion admin réussie" in sortie
+
+
+def test_configurer_journalisation_ne_touche_pas_a_la_configuration_d_uvicorn(entrypoint):
+    """La fonction ne doit rien poser sur les loggers `uvicorn*` — leur configuration
+    reste entièrement celle d'`uvicorn.Config`/`uvicorn.run`."""
+    import logging
+
+    cible = logging.getLogger("ourouler")
+    gestionnaires_avant = list(cible.handlers)
+    niveau_avant = cible.level
+    propage_avant = cible.propagate
+    uvicorn_avant = list(logging.getLogger("uvicorn").handlers)
+    try:
+        entrypoint._configurer_journalisation()
+        assert logging.getLogger("uvicorn").handlers == uvicorn_avant
+    finally:
+        cible.handlers = gestionnaires_avant
+        cible.level = niveau_avant
+        cible.propagate = propage_avant
