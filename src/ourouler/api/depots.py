@@ -29,7 +29,7 @@ import re
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -38,6 +38,7 @@ from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import CACHE_DEFAUT, PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.noyau.profil import DEPART_PAR_DEFAUT
 
 #: Le tiers 3 du découpage du profil (décision Q35,
 #: `docs/journal/questions/questions_mainteneur.md`) — **perso pur** : jamais
@@ -65,16 +66,38 @@ VARIABLES_PERSO_PUR = (
 #: **Jamais écrit sur disque, jamais présenté comme la valeur de quelqu'un** :
 #: seuls `depart.latitude`/`.longitude` et `cycliste.masse_kg` y figurent,
 #: parce que ce sont les trois seuls champs de tout `Config` sans aucun
-#: défaut ailleurs (`config.py:depuis_dict`) — `depart.nom` a déjà « Départ »,
-#: `cycliste.ftp_w` est déjà facultative, `velos` retombe déjà sur un vélo
-#: générique. Les valeurs choisies (0.0/0.0, 70.0) ne désignent personne :
-#: (0, 0) n'est le domicile de personne, 70 kg est un poids générique, au
-#: même titre que le filet de dernier recours de l'entonnoir d'estimation de
-#: FTP — un modèle générique, dit comme tel, pas une donnée devinée sur quelqu'un.
+#: défaut ailleurs (`config.py:depuis_dict`) — `cycliste.ftp_w` est déjà
+#: facultative, `velos` retombe déjà sur un vélo générique. Les valeurs
+#: choisies ne désignent personne : `depart` est le repli du produit
+#: (`DEPART_PAR_DEFAUT`, « Paris », `noyau.profil`) — **jamais (0, 0)**, qui
+#: n'est le domicile de personne mais n'est pas non plus un lieu où router
+#: une boucle (BRouter n'y a pas de carte ; fiche
+#: `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`) — et
+#: 70 kg est un poids générique, au même titre que le filet de dernier
+#: recours de l'entonnoir d'estimation de FTP — un modèle générique, dit
+#: comme tel, pas une donnée devinée sur quelqu'un.
 COMBLEMENT_EMBARQUEMENT: dict = {
-    "depart": {"latitude": 0.0, "longitude": 0.0},
+    "depart": {
+        "nom": DEPART_PAR_DEFAUT.nom,
+        "latitude": DEPART_PAR_DEFAUT.latitude,
+        "longitude": DEPART_PAR_DEFAUT.longitude,
+    },
     "cycliste": {"masse_kg": 70.0},
 }
+
+
+def _depart_incomplet(surcharge: dict) -> bool:
+    """Vrai si `surcharge["depart"]` (ce que **ce** propriétaire a lui-même
+    écrit, jamais le socle — voir `SocleTOML.config_ou_comblee`) ne porte pas
+    de quoi construire un départ : absente, ou sans `latitude` ni
+    `longitude`. C'est exactement ce que `config._depart_depuis` teste pour
+    la même raison côté commandes de comptes — même règle, deux appelants.
+    """
+    depart = surcharge.get("depart")
+    if not isinstance(depart, dict):
+        return True
+    return not {"latitude", "longitude"} <= depart.keys()
+
 
 #: Ce qu'un propriétaire a le droit de modifier dans son profil — section
 #: par section, et **champ par champ** à l'intérieur d'une section du tiers
@@ -304,13 +327,28 @@ class SocleTOML:
         refusé — le comblement ne porte que sur ce qui **manque**, jamais sur
         ce qui est **présent et invalide** ; `fusionner` fait gagner la
         surcharge de l'appelant sur le comblement, champ par champ.
+
+        **`config.depart.par_defaut` dit si *ce* comblement a servi pour le
+        départ** — fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md` :
+        avant d'appeler `COMBLEMENT_EMBARQUEMENT` (qui peut être sollicité
+        pour `cycliste` seul), on regarde `surcharge["depart"]`, la seule
+        source du départ d'un socle hébergé (`SocleTOML.config` en retire
+        déjà celui du socle) — jamais la `Config` reconstruite, qui ne
+        distingue plus une coordonnée réelle qui vaudrait par hasard celle du
+        repli. Absente, ou sans `latitude` ni `longitude` : ce propriétaire
+        n'a pas encore écrit son départ, le comblement l'a fourni, et l'API
+        (`api/routes/generations.py`) comme le front (bandeau « Départ par
+        défaut ») ont besoin de le savoir.
         """
         try:
             return self.config(surcharge)
         except ErreurConfig:
             if self.proprietaire is not None:
                 raise
-            return self.config(fusionner(COMBLEMENT_EMBARQUEMENT, surcharge))
+            config = self.config(fusionner(COMBLEMENT_EMBARQUEMENT, surcharge))
+            if _depart_incomplet(surcharge):
+                config = replace(config, depart=replace(config.depart, par_defaut=True))
+            return config
 
     def dossier_cache(self) -> Path:
         """Le dossier de cache du **serveur**, sans construire de `Config`.

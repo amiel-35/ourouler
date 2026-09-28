@@ -43,7 +43,7 @@ from ourouler.api.depots import (
 from ourouler.api.erreurs import CODES_PANNE
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.routes.commun import Clients
-from ourouler.config import depuis_dict
+from ourouler.config import DEPART_PAR_DEFAUT, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
@@ -1090,10 +1090,17 @@ def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_pa
     ce qu'`Assistant.tsx`/`App.tsx` supposent au démarrage. `AUTRE` reçoit
     donc le comblement neutre (`COMBLEMENT_EMBARQUEMENT`), le même pour tout
     le monde — jamais le départ ni le cycliste du mainteneur.
+
+    **Depuis le 28/09/2026** (fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`), ce
+    comblement n'est plus (0, 0) mais le repli du produit
+    (`DEPART_PAR_DEFAUT`, « Paris ») — comparé à sa constante, jamais à un
+    littéral — et `par_defaut` le dit explicitement.
     """
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
     config = depot.config(AUTRE)
-    assert (config.depart.latitude, config.depart.longitude) == (0.0, 0.0)
+    assert config.depart == DEPART_PAR_DEFAUT
+    assert config.depart.par_defaut
     assert config.cycliste.masse_kg == 70.0
     assert config.cycliste.ftp_w is None, "AUTRE hérite la FTP du mainteneur au lieu de rien avoir"
 
@@ -1150,10 +1157,12 @@ def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_prop
     # d'AUTRE ne lui parviennent — seulement le comblement neutre, le même
     # pour n'importe quel compte tout juste activé (`config_ou_comblee`,
     # Q66). C'est cette neutralité qui distingue le comblement de la fuite
-    # fermée par ce lot : (0, 0) n'est le domicile de personne, « Rennes »
-    # ou « Chez AUTRE » l'auraient été.
+    # fermée par ce lot : le repli du produit (« Paris »,
+    # `DEPART_PAR_DEFAUT`) n'est le domicile de personne, « Rennes » ou
+    # « Chez AUTRE » l'auraient été.
     depart_tiers = depot.config(tiers).depart
-    assert (depart_tiers.latitude, depart_tiers.longitude) == (0.0, 0.0)
+    assert depart_tiers == DEPART_PAR_DEFAUT
+    assert depart_tiers.par_defaut
     assert depart_tiers.nom not in {"Point zéro", "Commune générique", "Chez AUTRE"}
 
 
@@ -1316,7 +1325,9 @@ dossier = "{cache}"
     assert autre.historique_depuis.isoformat() == "2024-01-01"
     assert local.historique_depuis.isoformat() == "2023-12-01"
     assert autre.depart.nom == "Chez l'autre"
-    assert (local.depart.latitude, local.depart.longitude) == (0.0, 0.0)
+    assert not autre.depart.par_defaut
+    assert local.depart == DEPART_PAR_DEFAUT
+    assert local.depart.par_defaut
     assert local.depart.nom != "Point zéro"
     assert [e.nom for e in autre.evitements] == ["carrefour test"]
     assert local.evitements == ()

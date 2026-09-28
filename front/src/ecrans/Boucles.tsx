@@ -23,6 +23,7 @@ import {
   directionEnToutesLettres,
   visibleEnKm,
 } from "../api/formats";
+import { BandeauDepartParDefaut } from "../composants/BandeauDepartParDefaut";
 import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
@@ -50,6 +51,7 @@ export function Boucles({ reponse, surRetour }: Props) {
             <h1>Aucune boucle</h1>
           </div>
         </div>
+        <BandeauDepartParDefaut actif={boucle.depart_par_defaut === true} nom={boucle.depart.nom} />
         <div className="encart alerte">
           La recherche a abouti, mais aucune boucle ne tenait dans la distance demandée.
         </div>
@@ -79,6 +81,8 @@ export function Boucles({ reponse, surRetour }: Props) {
           Modifier la demande
         </button>
       </div>
+
+      <BandeauDepartParDefaut actif={boucle.depart_par_defaut === true} nom={boucle.depart.nom} />
 
       {manque ? <BandeauMeteoAbsente phrase={manque} /> : null}
 

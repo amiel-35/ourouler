@@ -7,6 +7,7 @@ import pytest
 
 from ourouler.config import (
     CACHE_DEFAUT,
+    DEPART_PAR_DEFAUT,
     Depart,
     ParametresCache,
     Periode,
@@ -27,6 +28,7 @@ BASE = {
 def test_config_minimale():
     c = depuis_dict(BASE)
     assert c.depart.latitude == 0.0
+    assert not c.depart.par_defaut, "un départ renseigné, même à (0, 0), n'est pas le repli"
     assert c.cycliste.ftp_w == 250
     assert [v.nom for v in c.velos] == ["Route"]
     assert c.meteo.directions == 8
@@ -149,10 +151,15 @@ def test_charger_absent_ou_invalide(tmp_path: Path):
 
 def test_depuis_dict_sans_profil_ni_depart_ni_cycliste():
     """Le cas réel : un TOML hébergé auquel Q66a a retiré [cycliste] et [[velos]],
-    et qui n'a jamais porté [depart] (docs/inviter.md, §1 « L'action Q66a »)."""
+    et qui n'a jamais porté [depart] (docs/inviter.md, §1 « L'action Q66a »).
+
+    Le départ n'est plus (0, 0) (fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`) : c'est
+    le repli du produit, comparé à sa constante — jamais un littéral.
+    """
     c = depuis_dict({"meteo": {"directions": 8}}, requiert_profil=False)
-    assert c.depart.latitude == 0.0
-    assert c.depart.longitude == 0.0
+    assert c.depart == DEPART_PAR_DEFAUT
+    assert c.depart.par_defaut
     assert c.cycliste.masse_kg == 0.0
     assert c.cycliste.ftp_w is None
     assert [v.nom for v in c.velos] == ["Route"]
@@ -162,7 +169,7 @@ def test_depuis_dict_sans_profil_mais_avec_des_sections_partielles():
     """`[depart]`/`[cycliste]` présentes mais vides restent acceptées aussi —
     pas seulement leur absence totale."""
     c = depuis_dict({"depart": {}, "cycliste": {}}, requiert_profil=False)
-    assert c.depart.latitude == 0.0
+    assert c.depart == DEPART_PAR_DEFAUT
     assert c.cycliste.masse_kg == 0.0
 
 
@@ -173,11 +180,19 @@ def test_depuis_dict_sans_profil_valide_quand_meme_les_champs_presents():
         depuis_dict({"cycliste": {"masse_kg": 1000}}, requiert_profil=False)
 
 
+def test_depuis_dict_sans_profil_mais_avec_un_depart_complet_ne_replie_pas():
+    """`requiert_profil=False` avec un départ complet le garde tel quel — le
+    repli ne s'applique qu'à ce qui manque, jamais à ce qui est renseigné."""
+    c = depuis_dict({"depart": BASE["depart"]}, requiert_profil=False)
+    assert c.depart == Depart(nom="Test", latitude=0.0, longitude=0.0)
+    assert not c.depart.par_defaut
+
+
 def test_charger_sans_profil_accepte_un_toml_hors_tiers_3(tmp_path: Path):
     f = tmp_path / "hebergement.toml"
     f.write_text('[meteo]\ndirections=8\n[cache]\ndossier="~/x"\n', encoding="utf-8")
     c = charger(f, requiert_profil=False)
-    assert c.depart.latitude == 0.0
+    assert c.depart == DEPART_PAR_DEFAUT
     assert c.cycliste.masse_kg == 0.0
 
 

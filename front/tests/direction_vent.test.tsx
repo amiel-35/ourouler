@@ -222,9 +222,11 @@ describe("le motif technique d'un connecteur externe ne s'affiche jamais tel que
 
   it("propose Réglages quand le départ n'est encore que le défaut du compte neuf", async () => {
     const motifBrut = "vent au départ indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/forecast)";
+    // Coordonnées fictives (règle absolue 1) : seule `noyau.profil.DEPART_PAR_DEFAUT`
+    // porte les vraies coordonnées du repli côté serveur.
     const profilSansDepart = {
       ...PROFIL.donnees,
-      depart: { nom: "Départ", latitude: 0, longitude: 0 },
+      depart: { nom: "Paris", latitude: 0, longitude: 0, par_defaut: true },
     };
     const serveur = new Serveur({
       "/api/v1/vent-depart": { charge: ventDepart({ posee: false, motif: motifBrut }) },

@@ -1,12 +1,12 @@
 /** L'accueil ne garde plus un départ vide (rejoué le 25/09/2026).
  *
- * Un compte neuf n'a pas de départ réel : le profil porte le comblement
- * embarqué par le serveur (`COMBLEMENT_EMBARQUEMENT`, `src/ourouler/api/
- * depots.py`), nom « Départ », coordonnées (0, 0). L'assistant proposait
- * quand même « Garder ce départ » sous la recherche d'adresse, et le
- * cliquer gardait ce défaut. Ce test protège : un compte neuf n'a pas ce
- * bouton ; un compte qui refait l'installation (départ déjà réel) l'a
- * toujours.
+ * Un compte neuf n'a pas de départ réel : le profil porte le repli du
+ * produit (« Paris », `DEPART_PAR_DEFAUT` côté serveur, fiche
+ * `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`), signalé
+ * par `depart.par_defaut`. L'assistant proposait quand même « Garder ce
+ * départ » sous la recherche d'adresse, et le cliquer gardait ce défaut. Ce
+ * test protège : un compte neuf n'a pas ce bouton ; un compte qui refait
+ * l'installation (départ déjà réel) l'a toujours.
  */
 
 import { describe, expect, it } from "vitest";
@@ -18,9 +18,12 @@ import { PROFIL, zones } from "./fixtures";
 
 const ZONES = zones().donnees;
 
-const DEPART_PAR_DEFAUT = { nom: "Départ", latitude: 0, longitude: 0 };
+// Coordonnées fictives (règle absolue 1) : seule `noyau.profil.DEPART_PAR_DEFAUT`
+// porte les vraies coordonnées du repli côté serveur. Ce qui compte ici est
+// `par_defaut`, pas le couple de degrés.
+const DEPART_PAR_DEFAUT = { nom: "Paris", latitude: 0, longitude: 0, par_defaut: true };
 
-function rendre(depart: { nom: string; latitude: number; longitude: number }) {
+function rendre(depart: { nom: string; latitude: number; longitude: number; par_defaut?: boolean }) {
   const profil = { ...PROFIL.donnees, depart };
   const serveur = new Serveur({
     "/api/v1/profil/zones": { charge: { proprietaire: "essai", donnees: ZONES } },

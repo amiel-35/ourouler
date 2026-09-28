@@ -176,6 +176,14 @@ export interface PointDepart {
   nom: string;
   latitude: number;
   longitude: number;
+  /**
+   * Vrai quand ces coordonnées ne sont pas celles renseignées par le
+   * cycliste, mais le repli du produit (« Paris », `DEPART_PAR_DEFAUT` côté
+   * serveur) — un compte hébergé sans départ encore écrit. Présent sur
+   * `Profil.depart` seulement ; absent ailleurs (`Sortie.demande.lieu_depart`,
+   * `Boucle.depart`), à lire comme faux.
+   */
+  par_defaut?: boolean;
 }
 
 export interface VeloProfil {
@@ -915,6 +923,13 @@ export interface Sortie {
   /** Le sort de toutes les candidates au contraste. Absent d'une réponse ancienne. */
   arbitrage?: Arbitrage | null;
   candidates: Candidate[];
+  /**
+   * Vrai quand ce calcul est parti du départ de repli du produit
+   * (« Paris »), faute de départ renseigné — jamais du départ demandé
+   * explicitement (« Partir d'ailleurs cette fois »). Le front en tire le
+   * bandeau de l'onglet Demander (`composants/BandeauDepartParDefaut.tsx`).
+   */
+  depart_par_defaut: boolean;
 }
 
 export interface Boucle {
@@ -926,6 +941,8 @@ export interface Boucle {
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];
+  /** Même signal que `Sortie.depart_par_defaut`. */
+  depart_par_defaut: boolean;
 }
 
 // --- un parcours déjà en main, à analyser -------------------------------------

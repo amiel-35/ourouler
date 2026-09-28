@@ -146,6 +146,11 @@ class DonneesSortie(_Ouvert):
     ecartees: list[Any]
     tenue: dict[str, Any] | None
     propositions: list[dict[str, Any]]
+    #: Vrai quand ce calcul est parti du départ de repli du produit
+    #: (« Paris ») faute de départ renseigné, jamais du départ demandé —
+    #: fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`.
+    #: Le front affiche alors un bandeau vers Réglages.
+    depart_par_defaut: bool
     #: Deux propositions au lieu de trois : l'explication, sinon `null`.
     motif_deux_propositions: str | None
     #: Trois propositions qui se valent : l'explication, sinon `null`.
@@ -164,6 +169,7 @@ class DonneesSortieSansSeance(_Ouvert):
     seance: None
     candidates: list[Any]
     carte: FichierServi | None
+    depart_par_defaut: bool
 
 
 class DonneesBoucle(_Ouvert):
@@ -181,6 +187,8 @@ class DonneesBoucle(_Ouvert):
     poids_routes: dict[str, Any] | None
     modele_physique: dict[str, Any]
     candidates: list[dict[str, Any]]
+    #: Même signal que `DonneesSortie.depart_par_defaut`.
+    depart_par_defaut: bool
 
 
 class DonneesInventaire(_Ouvert):

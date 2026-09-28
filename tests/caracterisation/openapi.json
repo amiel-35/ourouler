@@ -754,6 +754,10 @@
             "title": "Depart",
             "type": "object"
           },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
+          },
           "gpx": {
             "anyOf": [
               {
@@ -841,7 +845,8 @@
           "gpx",
           "poids_routes",
           "modele_physique",
-          "candidates"
+          "candidates",
+          "depart_par_defaut"
         ],
         "title": "DonneesBoucle",
         "type": "object"
@@ -1340,6 +1345,10 @@
             "title": "Demande",
             "type": "object"
           },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
+          },
           "ecartees": {
             "items": {},
             "title": "Ecartees",
@@ -1474,6 +1483,7 @@
           "ecartees",
           "tenue",
           "propositions",
+          "depart_par_defaut",
           "motif_deux_propositions",
           "motif_equivalence",
           "question_vent",
@@ -1502,6 +1512,10 @@
               }
             ]
           },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
+          },
           "jour": {
             "title": "Jour",
             "type": "string"
@@ -1515,7 +1529,8 @@
           "jour",
           "seance",
           "candidates",
-          "carte"
+          "carte",
+          "depart_par_defaut"
         ],
         "title": "DonneesSortieSansSeance",
         "type": "object"
