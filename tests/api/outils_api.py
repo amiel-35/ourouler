@@ -495,6 +495,24 @@ def config_d_essai(**remplacements: Any) -> Any:
     return depuis_dict(brut)
 
 
+def attendre_tache_rendue(id_job: str, delai_max_s: float = 5.0) -> None:
+    """Attend que la tâche de fond `id_job` ait **rendu la main**, pas seulement fini.
+
+    Son `statut` passe à `fini` (ou `echoue`) avant que la tâche ait appelé
+    son `au_echec` et son `enfin` puis relâché le verrou serveur
+    (`api/taches_fond.lancer`). Un test qui relance une tâche dès qu'il lit
+    « fini » tombe, sur une machine lente, dans cette fenêtre : 409
+    `import_deja_en_cours`. `Job._termine` est posé après la libération du
+    verrou. Importé ici et non en tête de module : rien de l'API à la
+    collecte (voir `conftest.py`).
+    """
+    taches_fond = import_module("ourouler.api.taches_fond")
+    with taches_fond._verrou_registre:
+        job = taches_fond._jobs.get(id_job)
+    assert job is not None, f"tâche {id_job} absente du registre"
+    assert job._termine.wait(delai_max_s), f"tâche {id_job} finie mais pas rendue après {delai_max_s} s"
+
+
 # --- transports bouchonnés ---------------------------------------------------
 
 

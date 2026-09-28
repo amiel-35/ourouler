@@ -40,7 +40,7 @@ from typing import Any
 
 import pytest
 from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique
-from outils_api import ClientApi
+from outils_api import ClientApi, attendre_tache_rendue
 from outils_caracterisation import (
     DOSSIER,
     JOUR,
@@ -408,6 +408,7 @@ def test_heberge_import_d_activites(serveur, regenerer_golden: bool):
     while True:
         etat = s.appel("GET", f"/api/v1/activites/import/{id_job}")
         if etat["corps"]["donnees"]["statut"] != "en_cours":
+            attendre_tache_rendue(id_job)
             break
         assert time.monotonic() - debut < DELAI_IMPORT_S, "import toujours en cours"
         time.sleep(0.02)

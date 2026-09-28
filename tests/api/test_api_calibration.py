@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from outils_api import attendre_tache_rendue
 from outils_sortie_commande import client_intervals, moteur_brouter, moteur_meteo
 from test_api import ecrire_config
 from test_physique_calibration import sortie_synthetique
@@ -118,6 +119,7 @@ def _attendre(client: TestClient, qui: str, id_job: str, delai_max_s: float = 30
         assert reponse.status_code == 200, reponse.text
         donnees = reponse.json()["donnees"]
         if donnees["statut"] != taches_fond.STATUT_EN_COURS:
+            attendre_tache_rendue(id_job, delai_max_s)
             return donnees
         if time.monotonic() - debut > delai_max_s:
             raise AssertionError(f"calibration {id_job} toujours en cours")
@@ -470,6 +472,7 @@ def test_en_mode_personnel_la_calibration_est_celle_de_la_ligne_de_commande(tmp_
     while True:
         donnees = client.get(f"{PREFIXE}/calibrations/{id_job}").json()["donnees"]
         if donnees["statut"] != "en_cours":
+            attendre_tache_rendue(id_job)
             break
         assert time.monotonic() - debut < 30
         time.sleep(0.05)

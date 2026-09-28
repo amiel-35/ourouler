@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from outils_api import config_d_essai
+from outils_api import attendre_tache_rendue, config_d_essai
 
 from ourouler.api import taches_fond
 from ourouler.api.application import creer_application
@@ -146,6 +146,7 @@ def _importer(client: TestClient, minute: int, compte: str = "essai-a"):
     while True:
         etat = client.get(f"{CHEMIN}/{id_job}", headers={"x-compte-essai": compte}).json()
         if etat["donnees"]["statut"] != "en_cours":
+            attendre_tache_rendue(id_job)
             return reponse, etat["donnees"]
         assert time.monotonic() - debut < 5
         time.sleep(0.01)

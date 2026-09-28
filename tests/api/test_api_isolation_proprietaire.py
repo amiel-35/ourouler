@@ -48,6 +48,7 @@ from outils_api import (
     PROPRIETAIRE_B,
     SOURCES,
     ClientApi,
+    attendre_tache_rendue,
     charger_application,
     client_api,
     client_bouchon,
@@ -1226,7 +1227,8 @@ def _attendre_import(client: ClientApi, qui: str, id_job: str, delai_max_s: floa
     « en_cours » à « fini » en quelques millisecondes, mais la tâche de fond
     est un vrai thread — sans cette attente, un second `POST` du même
     balayage pourrait arriver avant que le verrou serveur ne soit relâché et
-    recevoir `import_deja_en_cours` pour de mauvaises raisons.
+    recevoir `import_deja_en_cours` pour de mauvaises raisons. « fini » ne
+    suffit pas : le verrou se relâche un peu après (`attendre_tache_rendue`).
     """
     debut = time.monotonic()
     while True:
@@ -1238,6 +1240,7 @@ def _attendre_import(client: ClientApi, qui: str, id_job: str, delai_max_s: floa
         assert reponse.status_code == 200, reponse.text
         donnees = reponse.json()["donnees"]
         if donnees["statut"] != "en_cours":
+            attendre_tache_rendue(id_job, delai_max_s)
             return donnees
         if time.monotonic() - debut > delai_max_s:
             raise AssertionError(f"import {id_job} toujours en_cours après {delai_max_s} s")

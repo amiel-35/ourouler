@@ -15,7 +15,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from outils_api import client_api, config_d_essai
+from outils_api import attendre_tache_rendue, client_api, config_d_essai
 
 from ourouler.api import taches_fond
 
@@ -44,6 +44,7 @@ def _attendre(client, id_job: str, delai_max_s: float = 5.0) -> dict:
         assert reponse.status_code == 200, reponse.text
         donnees = reponse.json()["donnees"]
         if donnees["statut"] != "en_cours":
+            attendre_tache_rendue(id_job, delai_max_s)
             return donnees
         if time.monotonic() - debut > delai_max_s:
             raise AssertionError(f"import {id_job} toujours en_cours après {delai_max_s} s")
