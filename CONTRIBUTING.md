@@ -180,10 +180,15 @@ cycliste** (ce qui change pour lui), pas du point de vue du code. Une PR
 sans effet visible (documentation interne, outillage) peut s'en passer, en
 le disant.
 
-Les versions suivent SemVer en `0.x` :
+Les versions suivent SemVer en `0.x`, calées sur les sprints
+(`docs/backlog/sprints.toml`) :
 
-- **mineure** (`0.9.0` → `0.10.0`) : un ensemble de fonctionnalités livré ;
-- **correctif** (`0.9.5` → `0.9.6`) : une correction entre deux mineures.
+- **un sprint = une mineure** (`0.13.0`, `0.14.0`…), sortie à la clôture du
+  sprint ; c'est la règle à partir du sprint 13 ;
+- **correctif** (`0.13.0` → `0.13.1`) : une correction livrée entre deux
+  sprints, sans attendre la clôture du suivant ;
+- exception de rattrapage : les sprints 11 et 12 sortent ensemble en
+  `0.12.0`, pour que la numérotation rattrape celle des sprints.
 
 La version de référence est celle de `pyproject.toml` ; celle de
 `front/package.json` la suit. Au déploiement, « Non publié » devient la

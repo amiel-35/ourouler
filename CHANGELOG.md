@@ -13,8 +13,10 @@ Toutes les évolutions notables d'ourouler sont consignées ici.
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), et
 les numéros de version suivent [SemVer](https://semver.org/lang/fr/) en `0.x` :
-un sprint livré fait une version mineure, un correctif ou une petite livraison
-entre deux sprints fait un correctif. La `1.0.0` viendra avec l'ouverture
+un sprint fait une version mineure (`0.13.0` pour le sprint 13, et ainsi de
+suite), un correctif entre deux sprints fait un correctif (`0.13.1`). Les
+sprints 11 et 12 sortent ensemble en `0.12.0`, pour caler la numérotation sur
+celle des sprints. La `1.0.0` viendra avec l'ouverture
 publique. Les versions 0.1.0 à 0.9.3 ont été reconstruites après coup, à
 partir des PR.
 
