@@ -53,25 +53,29 @@ pr = 125
 
 [[sprint]]
 numero = 12
-statut = "en_cours"
+statut = "clos"
 titre = "Le cycliste décide de ses données, le mainteneur administre sans ssh"
 derogations = ["28/09/2026 : anomalie du départ fictif ajoutée à la demande du mainteneur, livrée avec la 0.12.0"]
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-choix-conservation-fichiers-bruts"
-statut = "en_cours"
+statut = "livre"
+pr = 136
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-demande-invitation-et-admin"
-statut = "en_cours"
+statut = "livre"
+pr = 135
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-calibration-provisoire"
-statut = "en_cours"
+statut = "livre"
+pr = 133
 
 [[sprint.element]]
 fiche = "2026-09-28-bug-depart-fictif-golfe-de-guinee"
-statut = "en_cours"
+statut = "livre"
+pr = 142
 
 [[sprint]]
 numero = 13
