@@ -66,7 +66,7 @@ export const SYSTEME: Systeme = {
 export const PROFIL: Simple<Profil> = {
   proprietaire: "essai",
   donnees: {
-    depart: DEPART,
+    depart: { ...DEPART, par_defaut: false },
     cycliste: { masse_kg: 63.4, ftp_w: 211, prenom: "Alix", nom: "Fictif" },
     velos: [
       {

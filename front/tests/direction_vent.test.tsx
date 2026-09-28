@@ -221,6 +221,15 @@ describe("le motif technique d'un connecteur externe ne s'affiche jamais tel que
   });
 
   it("propose Réglages quand le départ n'est encore que le défaut du compte neuf", async () => {
+    // Revu le 28/09/2026 (fiche docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md,
+    // relecture du commit 6754305) : `Demander.tsx` affiche désormais aussi
+    // son propre bandeau, inconditionnel, dès que `profil.depart.par_defaut`
+    // (`BandeauDepartParDefaut`, testé à part dans
+    // `bandeau_depart_par_defaut.test.tsx`). Ce test-ci garde un sens
+    // distinct : il vérifie le lien *contextuel* de `ChampsDirection.tsx`,
+    // qui explique spécifiquement pourquoi le vent est absent — les deux
+    // messages coexistent sur l'écran sans se contredire (accessible names
+    // différents), une redondance mineure plutôt qu'une régression.
     const motifBrut = "vent au départ indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/forecast)";
     // Coordonnées fictives (règle absolue 1) : seule `noyau.profil.DEPART_PAR_DEFAUT`
     // porte les vraies coordonnées du repli côté serveur.

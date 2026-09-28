@@ -26,6 +26,7 @@ import type { Budget, Profil, Zones } from "../api/types";
 import { phraseBudget } from "../composants/Attente";
 import { duree, heureDeRetour, nombre } from "../api/formats";
 import { aujourdhui } from "../etat/ressource";
+import { BandeauDepartParDefaut } from "../composants/BandeauDepartParDefaut";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 import { ChoixDirection, PointCardinal, PreferenceVent } from "./demander/ChampsDirection";
@@ -256,6 +257,16 @@ export function Demander({
           {ailleurs ? "· Annuler" : "· Partir d'ailleurs cette fois"}
         </button>
       </div>
+
+      {/* Avant même de chercher : le profil n'a pas encore de départ
+          renseigné, et c'est celui-là qui va servir, sauf « Partir
+          d'ailleurs cette fois » (`demande.depart`, ci-dessus). Après la
+          recherche, c'est `Sortie.depart_par_defaut`/`Boucle.depart_par_defaut`
+          qui porte le même signal, sur les écrans de résultats. */}
+      <BandeauDepartParDefaut
+        actif={demande.depart === null && profil.depart.par_defaut}
+        nom={profil.depart.nom}
+      />
 
       {ailleurs ? (
         <FormulaireAdresse

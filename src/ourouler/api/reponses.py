@@ -223,12 +223,27 @@ class DonneesProfilIntervals(_Ouvert):
     masse_kg: float | None
 
 
+class DepartProfil(_Ouvert):
+    """Le départ du profil — distinct de `Lieu` (qui décrit `Meteo.depart`,
+    un point de calcul, jamais le repli) : `par_defaut` n'a de sens qu'ici,
+    pour que le front sache afficher le bandeau « Départ par défaut »
+    (fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+    """
+
+    nom: str
+    latitude: float
+    longitude: float
+    #: Vrai quand ce n'est pas le départ du cycliste mais le repli du
+    #: produit (`noyau.profil.DEPART_PAR_DEFAUT`, « Paris »).
+    par_defaut: bool
+
+
 class DonneesProfil(_Ouvert):
     """Le profil **public** : les secrets y sont masqués (`rendu/profil.py`)."""
 
     historique_depuis: str | None
     assistant_recommande: bool
-    depart: dict[str, Any] | None
+    depart: DepartProfil | None
     cycliste: dict[str, Any] | None
     velos: list[dict[str, Any]]
     meteo: dict[str, Any]

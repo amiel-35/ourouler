@@ -5,7 +5,7 @@
  * `compteArrets`, et elle se refuse quand le compte ne retombe pas juste.
  */
 
-import type { CategoriePneu, PointDepart } from "./types";
+import type { CategoriePneu, DepartProfil } from "./types";
 
 const NBSP = " ";
 
@@ -324,11 +324,10 @@ export function sourceDAdresse(source: string): string {
  * `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md` rend
  * justement caduque : le repli porte maintenant un vrai nom et de vraies
  * coordonnées (« Paris »), qu'un cycliste pourrait légitimement saisir lui-
- * même. `PointDepart.par_defaut` est le champ dédié que cette docstring
- * annonçait déjà comme la suite ; absent, il vaut faux (réponse plus
- * ancienne, ou point qui n'est pas celui du profil).
+ * même. `DepartProfil.par_defaut` est le champ dédié que cette docstring
+ * annonçait déjà comme la suite.
  */
-export function departEstReel(depart: PointDepart): boolean {
+export function departEstReel(depart: DepartProfil): boolean {
   return !depart.par_defaut;
 }
 

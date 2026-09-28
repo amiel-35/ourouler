@@ -13,13 +13,16 @@ fictif (0, 0), la clé Intervals est celle, inventée, de
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from outils_sortie_commande import (
+    CONFIG_BRUTE,
     JOUR,
+    anneau,
     client_intervals,
     ecrire_calibration,
     moteur_brouter,
@@ -43,6 +46,7 @@ from ourouler.api.depots import (
 from ourouler.api.erreurs import CODES_PANNE
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.routes.commun import Clients
+from ourouler.api.session import MODE_HEBERGE
 from ourouler.config import DEPART_PAR_DEFAUT, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -1105,6 +1109,27 @@ def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_pa
     assert config.cycliste.ftp_w is None, "AUTRE hérite la FTP du mainteneur au lieu de rien avoir"
 
 
+def test_un_depart_partiel_en_heberge_ne_produit_pas_un_point_hybride(tmp_path: Path):
+    """Relu le 28/09/2026 : un `depart` incomplet se comble **en bloc**, pas champ par champ.
+
+    Avant ce correctif, `{"depart": {"nom": "Chez moi"}}` ressortait avec les
+    coordonnées de Paris sous ce nom-là, et `{"depart": {"latitude": 3.0}}`
+    avec « Paris » écrit sur un point qui n'était pas le sien — un mélange
+    que `fusionner(COMBLEMENT_EMBARQUEMENT, surcharge)` produisait sans le
+    dire (`api/depots.py::_surcharge_sans_depart_incomplet`). Les deux cas
+    doivent maintenant rendre exactement `DEPART_PAR_DEFAUT`.
+    """
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
+
+    seulement_un_nom = Proprietaire("depart-partiel-nom")
+    depot.enregistrer(seulement_un_nom, {"depart": {"nom": "Chez moi"}})
+    assert depot.config(seulement_un_nom).depart == DEPART_PAR_DEFAUT
+
+    seulement_une_latitude = Proprietaire("depart-partiel-latitude")
+    depot.enregistrer(seulement_une_latitude, {"depart": {"latitude": 3.0}})
+    assert depot.config(seulement_une_latitude).depart == DEPART_PAR_DEFAUT
+
+
 def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_proprietaires(
     tmp_path: Path,
 ):
@@ -1339,6 +1364,123 @@ dossier = "{cache}"
     # corriger d'un trait si elle ne convient pas.
     with pytest.raises(ErreurUtilisateur, match="tenue"):
         depot.enregistrer(AUTRE, {"tenue": {"vent_veste_kmh": 25.0}})
+
+
+# --- le bug du départ fictif (0, 0) en hébergé, bout en bout (28/09/2026) ----
+#
+# Les tests ci-dessus portent sur `DepotProfils.config`/`config_ou_comblee` :
+# la `Config` construite. Ceux-ci portent sur la route entière, jusqu'à la
+# requête que le connecteur BRouter envoie réellement — c'est ce point précis
+# (« (0, 0), BRouter n'y a pas de carte ») que la fiche
+# `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md` décrit.
+
+
+@dataclass(frozen=True)
+class _SessionCompteFixe:
+    """Un compte hébergé fixe, sans base Postgres — même esprit que
+    `SessionUnCompte` de `test_caracterisation_api.py`, redéfini ici pour ne
+    pas dépendre d'un autre module de tests."""
+
+    proprietaire: Proprietaire
+    mode = MODE_HEBERGE
+
+    def ouvrir(self, requete: object) -> Proprietaire:
+        del requete
+        return self.proprietaire
+
+
+def _brouter_qui_capture(lonlats_captes: list[str]) -> ClientBrouter:
+    """Un BRouter bouchonné qui retient le `lonlats` de chaque requête — pour
+    vérifier *depuis où* la boucle a vraiment été demandée, pas seulement ce
+    que la réponse en dit."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        lonlats_captes.append(requete.url.params.get("lonlats", ""))
+        azimut = float(requete.url.params.get("roundTripStartDirection", "0"))
+        return httpx.Response(200, json=reponse_anneau(anneau(azimut)))
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def _lonlat(latitude: float, longitude: float) -> str:
+    """Même format que `connecteurs.brouter._lonlat` (privée, non réimportée) : `lon,lat`."""
+    return f"{longitude:.6f},{latitude:.6f}"
+
+
+def _application_hebergee_sans_profil(tmp_path: Path, lonlats_captes: list[str]) -> TestClient:
+    """Un compte hébergé qui n'a **jamais écrit son profil** — le socle est
+    partagé (`proprietaire=None`), et personne n'a encore appelé `PATCH
+    /profil` : exactement le compte neuf de la fiche."""
+    application = creer_application(
+        socle=SocleTOML(ecrire_config(tmp_path), proprietaire=None),
+        dossier_donnees=tmp_path / "cache" / "api",
+        clients=Clients(brouter=_brouter_qui_capture(lonlats_captes), meteo=moteur_meteo()),
+        session=_SessionCompteFixe(AUTRE),
+        budgets=Budgets(),
+    )
+    return TestClient(application, raise_server_exceptions=False)
+
+
+def test_boucle_sans_profil_hebergee_part_du_depart_par_defaut(tmp_path: Path):
+    """Le cas réel de la fiche, sans aucun `PATCH /profil` : « Demander » →
+    « Chercher » doit rendre une boucle autour de Paris, avec le signal que
+    c'est le défaut — et sans jamais écrire de profil au passage."""
+    lonlats: list[str] = []
+    client = _application_hebergee_sans_profil(tmp_path, lonlats)
+    profil_json = tmp_path / "cache" / "api" / AUTRE.identifiant / "profil.json"
+
+    reponse = client.post("/api/v1/boucles", json={"distance_km": 34})
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["depart_par_defaut"] is True
+    assert donnees["depart"]["nom"] == DEPART_PAR_DEFAUT.nom
+    attendu = _lonlat(DEPART_PAR_DEFAUT.latitude, DEPART_PAR_DEFAUT.longitude)
+    assert lonlats, "BRouter n'a jamais été appelé : le test ne prouverait rien"
+    assert all(v == attendu for v in lonlats), lonlats
+    assert not profil_json.is_file(), "un calcul ne doit jamais écrire le profil de qui que ce soit"
+
+
+def test_boucle_avec_un_depart_choisi_pour_cette_requete_n_est_pas_le_defaut(tmp_path: Path):
+    """« Partir d'ailleurs cette fois » (`demande.depart`) l'emporte sur le
+    profil, même quand celui-ci n'a pas de départ — le bandeau ne doit pas
+    s'afficher pour un départ que le cycliste vient justement de choisir."""
+    lonlats: list[str] = []
+    client = _application_hebergee_sans_profil(tmp_path, lonlats)
+
+    reponse = client.post(
+        "/api/v1/boucles",
+        json={
+            "distance_km": 34,
+            "depart": {"nom": "Chez moi", "latitude": 3.0, "longitude": 4.0},
+        },
+    )
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["depart_par_defaut"] is False
+    assert donnees["depart"]["nom"] == "Chez moi"
+    assert lonlats and all(v == _lonlat(3.0, 4.0) for v in lonlats), lonlats
+
+
+def test_boucle_apres_avoir_renseigne_son_depart_n_est_plus_le_defaut(tmp_path: Path):
+    """Une fois `PATCH /profil` passé avec un départ complet, le compte n'est
+    plus sur le repli : ni le signal, ni les coordonnées envoyées à BRouter."""
+    lonlats: list[str] = []
+    client = _application_hebergee_sans_profil(tmp_path, lonlats)
+
+    patch = client.patch(
+        "/api/v1/profil",
+        json={"depart": {"nom": "Chez l'autre", "latitude": 3.0, "longitude": 4.0}},
+    )
+    assert patch.status_code == 200, patch.text
+    assert patch.json()["donnees"]["depart"]["par_defaut"] is False
+
+    reponse = client.post("/api/v1/boucles", json={"distance_km": 34})
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["depart_par_defaut"] is False
+    assert donnees["depart"]["nom"] == "Chez l'autre"
+    assert lonlats and lonlats[-1] == _lonlat(3.0, 4.0), lonlats
 
 
 # --- ce que la réconciliation des tests de contrat a ajouté (17/09/2026) -----

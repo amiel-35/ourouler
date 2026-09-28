@@ -721,6 +721,36 @@
         "title": "DemandeVitesseCompteur",
         "type": "object"
       },
+      "DepartProfil": {
+        "additionalProperties": true,
+        "description": "Le départ du profil — distinct de `Lieu` (qui décrit `Meteo.depart`,\nun point de calcul, jamais le repli) : `par_defaut` n'a de sens qu'ici,\npour que le front sache afficher le bandeau « Départ par défaut »\n(fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).",
+        "properties": {
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "nom": {
+            "title": "Nom",
+            "type": "string"
+          },
+          "par_defaut": {
+            "title": "Par Defaut",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nom",
+          "latitude",
+          "longitude",
+          "par_defaut"
+        ],
+        "title": "DepartProfil",
+        "type": "object"
+      },
       "DonneesBoucle": {
         "additionalProperties": true,
         "properties": {
@@ -1096,14 +1126,12 @@
           "depart": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/DepartProfil"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Depart"
+            ]
           },
           "evitements": {
             "items": {},

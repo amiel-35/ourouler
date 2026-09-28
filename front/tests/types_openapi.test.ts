@@ -612,13 +612,20 @@ const TABLE: Correspondance[] = [
     schema: "Lieu",
     genre: "type",
     sens: "reponse",
+    champs: ["nom", "latitude", "longitude"],
+    facultatifs: [],
+  },
+  {
+    // `Profil.depart` : un type dédié, distinct de `PointDepart` — c'est là,
+    // et seulement là, que `par_defaut` a un sens (fiche
+    // `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+    fichier: "api/types.ts",
+    ancre: "export interface DepartProfil {",
+    schema: "DepartProfil",
+    genre: "type",
+    sens: "reponse",
     champs: ["nom", "latitude", "longitude", "par_defaut"],
-    facultatifs: ["par_defaut"],
-    // `par_defaut` sert `Profil.depart` (fiche
-    // `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`) ; `Lieu`
-    // (`GET /meteo`) ne le décrit pas — `PointDepart` reste le seul type
-    // partagé, ce champ-là n'a de sens qu'au profil.
-    champsHorsSchema: ["par_defaut"],
+    facultatifs: [],
   },
 ];
 

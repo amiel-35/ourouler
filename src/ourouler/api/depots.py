@@ -92,11 +92,32 @@ def _depart_incomplet(surcharge: dict) -> bool:
     de quoi construire un départ : absente, ou sans `latitude` ni
     `longitude`. C'est exactement ce que `config._depart_depuis` teste pour
     la même raison côté commandes de comptes — même règle, deux appelants.
+
+    **Dit aussi comment `config_ou_comblee` doit traiter ce `depart`-là** :
+    incomplet, il se remplace **en bloc** par `DEPART_PAR_DEFAUT`
+    (`_surcharge_sans_depart_incomplet`) plutôt que de se compléter champ par
+    champ — un `{"nom": "Chez moi"}` sans coordonnées ne doit pas ressortir
+    avec les degrés de Paris dessous, ni un `{"latitude": 3.0}` seul avec
+    « Paris » écrit sur un point qui n'est pas le sien.
     """
     depart = surcharge.get("depart")
     if not isinstance(depart, dict):
         return True
     return not {"latitude", "longitude"} <= depart.keys()
+
+
+def _surcharge_sans_depart_incomplet(surcharge: dict) -> dict:
+    """`surcharge`, sans sa clé `depart` quand `_depart_incomplet` la juge incomplète.
+
+    Sert à `config_ou_comblee` : fusionner `COMBLEMENT_EMBARQUEMENT` avec la
+    `surcharge` telle quelle compléterait un `depart` partiel champ par champ
+    (`fusionner` fusionne les dicts imbriqués), et produirait un point
+    hybride — un nom réel sur les coordonnées du repli, ou l'inverse. Retirer
+    la clé fait gagner le `depart` du comblement **en entier** à la place.
+    """
+    if not _depart_incomplet(surcharge):
+        return surcharge
+    return {cle: valeur for cle, valeur in surcharge.items() if cle != "depart"}
 
 
 #: Ce qu'un propriétaire a le droit de modifier dans son profil — section
@@ -328,6 +349,15 @@ class SocleTOML:
         ce qui est **présent et invalide** ; `fusionner` fait gagner la
         surcharge de l'appelant sur le comblement, champ par champ.
 
+        **Sauf `depart`, qui se comble en bloc et non champ par champ**
+        (`_surcharge_sans_depart_incomplet`) : un `depart` incomplet
+        (`_depart_incomplet`) n'entre pas dans la fusion, pour que le repli
+        fournisse `nom`, `latitude` et `longitude` ensemble plutôt qu'un
+        mélange — sans quoi `{"depart": {"nom": "Chez moi"}}` ressortirait
+        avec les coordonnées de Paris sous ce nom-là, et
+        `{"depart": {"latitude": 3.0}}` avec « Paris » écrit sur un point qui
+        n'est pas le sien.
+
         **`config.depart.par_defaut` dit si *ce* comblement a servi pour le
         départ** — fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md` :
         avant d'appeler `COMBLEMENT_EMBARQUEMENT` (qui peut être sollicité
@@ -345,8 +375,11 @@ class SocleTOML:
         except ErreurConfig:
             if self.proprietaire is not None:
                 raise
-            config = self.config(fusionner(COMBLEMENT_EMBARQUEMENT, surcharge))
-            if _depart_incomplet(surcharge):
+            depart_incomplet = _depart_incomplet(surcharge)
+            config = self.config(
+                fusionner(COMBLEMENT_EMBARQUEMENT, _surcharge_sans_depart_incomplet(surcharge))
+            )
+            if depart_incomplet:
                 config = replace(config, depart=replace(config.depart, par_defaut=True))
             return config
 

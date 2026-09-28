@@ -176,14 +176,23 @@ export interface PointDepart {
   nom: string;
   latitude: number;
   longitude: number;
-  /**
-   * Vrai quand ces coordonnées ne sont pas celles renseignées par le
-   * cycliste, mais le repli du produit (« Paris », `DEPART_PAR_DEFAUT` côté
-   * serveur) — un compte hébergé sans départ encore écrit. Présent sur
-   * `Profil.depart` seulement ; absent ailleurs (`Sortie.demande.lieu_depart`,
-   * `Boucle.depart`), à lire comme faux.
-   */
-  par_defaut?: boolean;
+}
+
+/**
+ * Le départ du profil — distinct de `PointDepart` (`Sortie.demande.lieu_depart`,
+ * `Boucle.depart`, `Meteo.depart` : un point de calcul, jamais le repli) :
+ * `par_defaut` n'a de sens qu'ici.
+ *
+ * Vrai quand ces coordonnées ne sont pas celles renseignées par le
+ * cycliste, mais le repli du produit (« Paris », `DEPART_PAR_DEFAUT` côté
+ * serveur) — un compte hébergé sans départ encore écrit
+ * (`docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+ */
+export interface DepartProfil {
+  nom: string;
+  latitude: number;
+  longitude: number;
+  par_defaut: boolean;
 }
 
 export interface VeloProfil {
@@ -210,7 +219,7 @@ export type CategoriePneu =
   | "vtt";
 
 export interface Profil {
-  depart: PointDepart;
+  depart: DepartProfil;
   /** `prenom`/`nom` : identité du compte, obligatoire dans l'assistant
    * (décision Q36), mais peuvent revenir vides pour un profil plus ancien —
    * jamais absents. Aucun calcul ne s'en sert ; ils servent au compte (e-mail

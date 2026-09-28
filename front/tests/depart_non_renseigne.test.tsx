@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Assistant } from "../src/ecrans/Assistant";
+import type { DepartProfil } from "../src/api/types";
 import { Serveur } from "./serveur";
 import { PROFIL, zones } from "./fixtures";
 
@@ -23,7 +24,7 @@ const ZONES = zones().donnees;
 // `par_defaut`, pas le couple de degrés.
 const DEPART_PAR_DEFAUT = { nom: "Paris", latitude: 0, longitude: 0, par_defaut: true };
 
-function rendre(depart: { nom: string; latitude: number; longitude: number; par_defaut?: boolean }) {
+function rendre(depart: DepartProfil) {
   const profil = { ...PROFIL.donnees, depart };
   const serveur = new Serveur({
     "/api/v1/profil/zones": { charge: { proprietaire: "essai", donnees: ZONES } },
@@ -61,7 +62,12 @@ describe("compte neuf, départ jamais renseigné", () => {
 
 describe("réinstallation, départ déjà réel", () => {
   it("propose toujours « Garder ce départ »", async () => {
-    const { utilisateur } = rendre({ nom: "Sainte-Fictive", latitude: 47.0, longitude: -0.5 });
+    const { utilisateur } = rendre({
+      nom: "Sainte-Fictive",
+      latitude: 47.0,
+      longitude: -0.5,
+      par_defaut: false,
+    });
     await versDepart(utilisateur);
 
     expect(await screen.findByText("D'où partez-vous ?")).toBeTruthy();
