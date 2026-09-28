@@ -127,3 +127,51 @@ def test_api_publique_active_le_transfert_des_en_tetes_de_proxy(entrypoint):
     source = CHEMIN_ENTRYPOINT.read_text(encoding="utf-8")
     assert "proxy_headers=True" in source
     assert 'forwarded_allow_ips="*"' in source
+
+
+def test_le_demarrage_applique_les_migrations_puis_survit_a_une_panne_de_l_admin(
+    entrypoint, monkeypatch: pytest.MonkeyPatch
+):
+    """Les migrations passent avant tout, et une administration qui échoue
+    n'emporte pas l'API (constaté en préproduction le 28/09/2026 : une table
+    absente faisait redémarrer le conteneur en boucle)."""
+    import uvicorn
+
+    ordre: list[str] = []
+    monkeypatch.setattr(entrypoint, "_ecrire_config_depuis_environnement", lambda: None)
+    monkeypatch.setattr(entrypoint, "_ecrire_service_depuis_environnement", lambda: None)
+    monkeypatch.setattr("ourouler.api.application.application", lambda: _app_bouchon())
+    monkeypatch.setattr(entrypoint, "_appliquer_migrations", lambda: ordre.append("migrations"))
+
+    def admin_en_panne(app):
+        ordre.append("admin")
+        raise RuntimeError("table absente")
+
+    monkeypatch.setattr(entrypoint, "_lancer_administration_en_arriere_plan", admin_en_panne)
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: ordre.append("api"))
+
+    entrypoint.main()
+
+    assert ordre == ["migrations", "admin", "api"]
+
+
+def test_les_migrations_se_posent_sur_la_base_de_l_environnement(entrypoint, monkeypatch: pytest.MonkeyPatch):
+    from ourouler.api import base_de_donnees
+
+    vues: list[str] = []
+    monkeypatch.setenv("OUROULER_DATABASE_URL", "postgresql://base-de-test")
+    monkeypatch.setattr(base_de_donnees, "ouvrir", lambda url: vues.append(url) or _ConnexionBouchon())
+    monkeypatch.setattr(base_de_donnees, "appliquer_migrations", lambda cx: ["0003_demandes_invitation.sql"])
+
+    entrypoint._appliquer_migrations()
+
+    assert vues == ["postgresql://base-de-test"]
+
+
+def test_sans_base_aucune_migration(entrypoint, monkeypatch: pytest.MonkeyPatch):
+    from ourouler.api import base_de_donnees
+
+    monkeypatch.delenv("OUROULER_DATABASE_URL", raising=False)
+    monkeypatch.setattr(base_de_donnees, "ouvrir", lambda url: pytest.fail("aucune base à ouvrir"))
+
+    entrypoint._appliquer_migrations()

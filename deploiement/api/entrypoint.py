@@ -106,6 +106,30 @@ def _ecrire_service_depuis_environnement() -> None:
     print(f"secrets du service écrits depuis l'environnement : {CHEMIN_SERVICE}", flush=True)
 
 
+def _appliquer_migrations() -> None:
+    """Met la base des comptes au schéma de ce code, **avant** de servir quoi que ce soit.
+
+    Sans cela, une route qui arrive avec une migration (demandes
+    d'invitation, choix de conservation) répond 500 sur une table absente
+    tant que personne n'a lancé une commande de comptes (`ourouler inviter`,
+    `ourouler admin`) dans le conteneur — constaté en préproduction le
+    28/09/2026. `appliquer_migrations` se rejoue sans effet quand tout est
+    déjà posé. Sans `OUROULER_DATABASE_URL`, pas de base, rien à faire.
+    """
+    from ourouler.api import exploitation
+
+    url_db = exploitation.url_base_de_donnees()
+    if not url_db:
+        return
+    from ourouler.api.base_de_donnees import appliquer_migrations, ouvrir
+
+    with ouvrir(url_db) as connexion:
+        posees = appliquer_migrations(connexion)
+    if posees:
+        noms = ", ".join(posees)
+        print(f"base des comptes : {len(posees)} migration(s) appliquée(s) : {noms}", file=sys.stderr)
+
+
 def _lancer_administration_en_arriere_plan(app) -> None:
     """Démarre l'administration dans un **fil du même processus**, si `[admin]` est posée.
 
@@ -209,7 +233,14 @@ def main() -> None:
     # (TOML invalide, `OUROULER_MODE` inconnu) doit faire échouer le
     # démarrage, pas une requête au hasard.
     app = application()
-    _lancer_administration_en_arriere_plan(app)
+    _appliquer_migrations()
+    # L'administration est un accessoire : sa panne au démarrage ne doit
+    # jamais emporter l'API publique (constaté en préproduction le
+    # 28/09/2026 : une table absente faisait redémarrer le conteneur en boucle).
+    try:
+        _lancer_administration_en_arriere_plan(app)
+    except Exception as e:  # tout échec de l'admin est journalisé, l'API démarre
+        print(f"ourouler : administration non démarrée ({type(e).__name__}: {e})", file=sys.stderr)
     print(f"ourouler : API et front sur http://{HOTE}:{PORT} (sonde : /sante)", file=sys.stderr)
     # `proxy_headers=True, forwarded_allow_ips="*"` : sans ça, uvicorn n'honore
     # `X-Forwarded-For` que depuis 127.0.0.1, et `Request.client.host` (lu par
