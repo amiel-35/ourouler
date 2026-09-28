@@ -66,7 +66,7 @@ export const SYSTEME: Systeme = {
 export const PROFIL: Simple<Profil> = {
   proprietaire: "essai",
   donnees: {
-    depart: DEPART,
+    depart: { ...DEPART, par_defaut: false },
     cycliste: { masse_kg: 63.4, ftp_w: 211, prenom: "Alix", nom: "Fictif" },
     velos: [
       {
@@ -538,6 +538,11 @@ export function sortie(options?: {
   compteur?: "mesure" | "suppose" | null;
   /** D'où vient la fourchette du porte à porte (L9.1) : mesurée par défaut. */
   fourchette?: "mesure" | "defaut";
+  /** Ce calcul est-il parti du départ de repli du produit (« Paris »), faute
+   * de départ renseigné (fiche
+   * `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`) ? Faux
+   * par défaut — le cas normal, un départ réel. */
+  departParDefaut?: boolean;
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -745,6 +750,7 @@ export function sortie(options?: {
           ecart_max_m: 4.2,
         } },
       })),
+      depart_par_defaut: options?.departParDefaut ?? false,
     },
     avertissements: options?.avertissements ?? [],
     duree_ms: 2718,
@@ -759,11 +765,14 @@ export function boucle(options?: {
   compteur?: "mesure" | "suppose" | null;
   /** D'où vient la fourchette du porte à porte (L9.1) : mesurée par défaut. */
   fourchette?: "mesure" | "defaut";
+  /** Même signal que `sortie({ departParDefaut })`. */
+  departParDefaut?: boolean;
 }): Enveloppe<Boucle> {
   return {
     proprietaire: "essai",
     donnees: {
       depart: { ...DEPART, heure: "2026-09-16T08:15:00+02:00" },
+      depart_par_defaut: options?.departParDefaut ?? false,
       demande: { distance_km: 41.3, direction: "NE", candidates: 2 },
       compteur:
         options?.compteur === null

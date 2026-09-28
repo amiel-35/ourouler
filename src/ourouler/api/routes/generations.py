@@ -26,6 +26,7 @@ from ourouler.api.routes.commun import (
     _verifier_quota,
     nouveau_routeur,
 )
+from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
 routeur = nouveau_routeur()
@@ -111,6 +112,7 @@ def generer_sortie(
             ),
         )
         donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
+        donnees = vues.avec_depart_par_defaut(donnees, par_defaut=_depart_par_defaut(config, demande))
         if recueillis:
             donnees = vues.avec_gpx_par_proposition(
                 donnees,
@@ -204,11 +206,26 @@ def generer_boucle(
             budgets=ctx.budgets,
         )
         donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
+        donnees = vues.avec_depart_par_defaut(donnees, par_defaut=_depart_par_defaut(config, demande))
     except Exception:
         # Même remboursement que `POST /sorties` — voir sa docstring.
         _rembourser_quota(ctx, qui, ctx.quotas)
         raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
+
+
+def _depart_par_defaut(config: Config, demande: DemandeSortie | DemandeBoucle) -> bool:
+    """Ce calcul est-il parti du repli du produit (« Paris »), faute de départ renseigné ?
+
+    `config.depart.par_defaut` dit si le profil de ce compte n'a pas encore
+    de départ (`api.depots.SocleTOML.config_ou_comblee`) — mais un cycliste
+    peut « partir d'ailleurs cette fois » (`demande.depart`, l'onglet
+    Demander) : ce départ-là, choisi pour cette seule requête, l'emporte
+    toujours sur celui du profil (`commandes.commun.contexte`), et le bandeau
+    ne doit alors pas s'afficher — voir la fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`.
+    """
+    return config.depart.par_defaut and demande.depart is None
 
 
 def _note(ctx: Contexte, qui: Proprietaire, fichier: Fichier) -> Fichier | None:

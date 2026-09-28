@@ -721,6 +721,36 @@
         "title": "DemandeVitesseCompteur",
         "type": "object"
       },
+      "DepartProfil": {
+        "additionalProperties": true,
+        "description": "Le départ du profil — distinct de `Lieu` (qui décrit `Meteo.depart`,\nun point de calcul, jamais le repli) : `par_defaut` n'a de sens qu'ici,\npour que le front sache afficher le bandeau « Départ par défaut »\n(fiche `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).",
+        "properties": {
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "nom": {
+            "title": "Nom",
+            "type": "string"
+          },
+          "par_defaut": {
+            "title": "Par Defaut",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nom",
+          "latitude",
+          "longitude",
+          "par_defaut"
+        ],
+        "title": "DepartProfil",
+        "type": "object"
+      },
       "DonneesBoucle": {
         "additionalProperties": true,
         "properties": {
@@ -753,6 +783,10 @@
             "additionalProperties": true,
             "title": "Depart",
             "type": "object"
+          },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
           },
           "gpx": {
             "anyOf": [
@@ -841,7 +875,8 @@
           "gpx",
           "poids_routes",
           "modele_physique",
-          "candidates"
+          "candidates",
+          "depart_par_defaut"
         ],
         "title": "DonneesBoucle",
         "type": "object"
@@ -1091,14 +1126,12 @@
           "depart": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/DepartProfil"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Depart"
+            ]
           },
           "evitements": {
             "items": {},
@@ -1340,6 +1373,10 @@
             "title": "Demande",
             "type": "object"
           },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
+          },
           "ecartees": {
             "items": {},
             "title": "Ecartees",
@@ -1474,6 +1511,7 @@
           "ecartees",
           "tenue",
           "propositions",
+          "depart_par_defaut",
           "motif_deux_propositions",
           "motif_equivalence",
           "question_vent",
@@ -1502,6 +1540,10 @@
               }
             ]
           },
+          "depart_par_defaut": {
+            "title": "Depart Par Defaut",
+            "type": "boolean"
+          },
           "jour": {
             "title": "Jour",
             "type": "string"
@@ -1515,7 +1557,8 @@
           "jour",
           "seance",
           "candidates",
-          "carte"
+          "carte",
+          "depart_par_defaut"
         ],
         "title": "DonneesSortieSansSeance",
         "type": "object"

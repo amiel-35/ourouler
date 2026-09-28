@@ -46,6 +46,34 @@ class Depart:
     nom: str
     latitude: float
     longitude: float
+    #: Vrai quand ces coordonnées ne sont pas celles que le cycliste a
+    #: renseignées, mais le repli du produit (`DEPART_PAR_DEFAUT`) — posé par
+    #: `config._depart_depuis` (commandes de comptes) et
+    #: `api.depots.SocleTOML.config_ou_comblee` (compte hébergé sans profil
+    #: écrit). Jamais lu au calcul lui-même (le cœur trace depuis les
+    #: coordonnées, peu importe leur origine) : sert uniquement à ce que l'API
+    #: et le front sachent le dire (fiche
+    #: `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+    par_defaut: bool = False
+
+
+#: Le départ de repli du produit, quand aucun n'a été renseigné — jamais
+#: (0, 0) (« le golfe de Guinée », fiche
+#: `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`) : BRouter
+#: n'y a pas de carte, et un cycliste qui n'a pas encore renseigné son départ
+#: doit quand même pouvoir chercher une boucle qui *existe*. Paris est un
+#: point générique, jamais celui d'un cycliste réel — au même titre que
+#: `COMBLEMENT_EMBARQUEMENT.cycliste.masse_kg` (`api/depots.py`) ou le vélo
+#: générique de `config.depuis_dict`.
+#:
+#: **Coordonnées définies ici, et nulle part ailleurs** — règle absolue 1 de
+#: `AGENTS.md` : ni le Markdown, ni les fixtures, ni un fichier de
+#: configuration ne les portent. `tests/test_invariants.py` ne balaie pas
+#: `src/` (seuls le Markdown et les fichiers de configuration du dépôt le
+#: sont) ; cette constante est donc la seule source, et tout ce qui a besoin
+#: du départ par défaut — `config.py`, `api/depots.py`, les tests — la relit
+#: au lieu de recopier le couple de degrés.
+DEPART_PAR_DEFAUT = Depart(nom="Paris", latitude=48.8566, longitude=2.3522, par_defaut=True)
 
 
 @dataclass(frozen=True)

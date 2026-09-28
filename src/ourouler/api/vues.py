@@ -72,6 +72,19 @@ def avec_fichiers(donnees: dict, **fichiers: Fichier | None) -> dict:
     return sortie
 
 
+def avec_depart_par_defaut(donnees: dict, *, par_defaut: bool) -> dict:
+    """Ajoute `depart_par_defaut` : ce calcul est-il parti du repli du produit (« Paris ») ?
+
+    Posé par `api/routes/generations.py` sur `POST /sorties` et
+    `POST /boucles` — fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`. Le front
+    en tire le bandeau « Départ par défaut » de l'onglet Demander ; sans ce
+    champ, rien ne distinguait un calcul parti du vrai départ du cycliste
+    d'un calcul parti du repli faute de profil complété.
+    """
+    return {**donnees, "depart_par_defaut": par_defaut}
+
+
 def avec_gpx_par_proposition(donnees: dict, *, generation: str, noms: dict[int, str], prefixe: str) -> dict:
     """Donne à **chaque** proposition l'adresse de son propre GPX.
 
@@ -107,6 +120,7 @@ def avec_gpx_par_proposition(donnees: dict, *, generation: str, noms: dict[int, 
 
 __all__ = [
     "SECTIONS_EXPLOITATION",
+    "avec_depart_par_defaut",
     "avec_fichiers",
     "avec_gpx_par_proposition",
     "profil",

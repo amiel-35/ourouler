@@ -5212,6 +5212,7 @@
           "longitude": 0.0,
           "nom": "Point zéro"
         },
+        "depart_par_defaut": false,
         "gpx": {
           "id": "<HEX>",
           "nom": "boucle_N_30km.gpx",

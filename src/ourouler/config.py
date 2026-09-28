@@ -22,6 +22,7 @@ from ourouler.noyau.erreurs import ErreurConfig
 # (`config.Velo`, `config.Depart`…) — alias public délibéré, souvent importé
 # ainsi par les appelants (tests compris) plutôt que depuis `noyau.profil`.
 from ourouler.noyau.profil import (
+    DEPART_PAR_DEFAUT,
     DIRECTIONS_ACCEPTEES,
     HORIZON_JOURS_DEFAUT,
     HORIZON_MAX_H,
@@ -281,11 +282,15 @@ def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
 
     `requiert_profil=False` (commandes de comptes, voir `charger`) : `[depart]`
     et `[cycliste]` peuvent être absentes, ou présentes sans `latitude`,
-    `longitude` ni `masse_kg` — le `Depart`/`Cycliste` rendu porte alors des
-    zéros, jamais lus par ces commandes (`ourouler inviter` ne s'en sert que
-    pour composer « Prénom Nom vous invite », vide si absent). Toute autre
-    validation (bornes, types) reste inchangée : ce n'est pas un mode permissif
-    général, seulement ces deux sections, seulement leur absence.
+    `longitude` ni `masse_kg`, aucune n'étant jamais lue par ces commandes
+    (`ourouler inviter` ne s'en sert que pour composer « Prénom Nom vous
+    invite », vide si absent). Le `Cycliste` rendu porte alors des zéros ; le
+    `Depart` rendu porte le repli du produit (`DEPART_PAR_DEFAUT`, « Paris »,
+    `noyau.profil`) et non plus des zéros — jamais (0, 0), qui ne désigne
+    aucun lieu où router une boucle (fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`). Toute
+    autre validation (bornes, types) reste inchangée : ce n'est pas un mode
+    permissif général, seulement ces deux sections, seulement leur absence.
     """
     if not isinstance(d, dict):
         # Un TOML valide donne toujours un dict, mais `depuis_dict` est aussi
@@ -333,10 +338,26 @@ def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
 
 
 def _depart_depuis(depart: dict[str, Any], *, requiert_profil: bool) -> Depart:
+    """Le départ de cette configuration — ou le repli (`DEPART_PAR_DEFAUT`, « Paris »).
+
+    `requiert_profil=True` (l'usage ordinaire) : `latitude`/`longitude`
+    manquantes restent un refus, sans changement — voir `_nombre`.
+
+    `requiert_profil=False` (commandes de comptes, voir `depuis_dict`) : une
+    section absente, ou sans `latitude` ni `longitude`, rend le repli en
+    entier plutôt qu'un couple de zéros — c'est le correctif de la fiche
+    `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`, qui touchait
+    d'abord le chemin hébergé (`api.depots.COMBLEMENT_EMBARQUEMENT`) mais
+    vaut aussi ici, pour ne garder qu'un seul (0, 0) fictif dans tout le
+    dépôt : aucun. Un `nom` donné sans coordonnées ne suffit pas à éviter le
+    repli — un départ ne se réduit pas à son nom.
+    """
+    if not requiert_profil and not {"latitude", "longitude"} <= depart.keys():
+        return DEPART_PAR_DEFAUT
     return Depart(
         nom=str(depart.get("nom", "Départ")),
-        latitude=_nombre(depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0),
-        longitude=_nombre(depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0),
+        latitude=_nombre(depart, "latitude", "depart", -90, 90, requis=requiert_profil),
+        longitude=_nombre(depart, "longitude", "depart", -180, 180, requis=requiert_profil),
     )
 
 

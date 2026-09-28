@@ -58,6 +58,11 @@ partir des PR.
 
 ### Corrigé
 
+- Sans départ renseigné, en mode hébergé, « Demander » ne calcule plus
+  depuis (0, 0) — un point sans carte pour le traceur, qui échouait avec
+  « Le traceur ne répond pas ». Le calcul part désormais de Paris, avec un
+  bandeau « Départ par défaut : Paris — renseignez le vôtre dans Réglages »
+  qui disparaît une fois le départ renseigné.
 - Le bouton retour du navigateur, depuis les résultats d'une recherche
   (propositions, boucles, détail d'une proposition), l'assistant, un dépôt
   de séance ou un autre onglet, ramène désormais au bon écran — le

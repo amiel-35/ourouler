@@ -19,6 +19,7 @@ import type { Enveloppe, Sortie } from "../api/types";
 import { kmDepuisKm, nombre } from "../api/formats";
 import { Carte, type TraceDessinee } from "../composants/Carte";
 import { PanneauArbitrage } from "../composants/Arbitrage";
+import { BandeauDepartParDefaut } from "../composants/BandeauDepartParDefaut";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
 import { TempsEcoule } from "../composants/TempsEcoule";
@@ -115,6 +116,11 @@ export function Propositions({
           Modifier la demande
         </button>
       </div>
+
+      <BandeauDepartParDefaut
+        actif={sortie.depart_par_defaut === true}
+        nom={sortie.demande.lieu_depart.nom}
+      />
 
       {manque ? <BandeauMeteoAbsente phrase={manque} /> : null}
 

@@ -58,7 +58,8 @@
         "depart": {
           "latitude": 0.0,
           "longitude": 0.0,
-          "nom": "Point zéro"
+          "nom": "Point zéro",
+          "par_defaut": false
         },
         "evitements": [],
         "historique_depuis": "2023-12-01",
@@ -11418,6 +11419,7 @@
           "profil": "fastbike",
           "velo": null
         },
+        "depart_par_defaut": false,
         "ecartees": [],
         "generation": "<HEX>",
         "gpx": null,

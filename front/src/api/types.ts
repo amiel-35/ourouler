@@ -178,6 +178,23 @@ export interface PointDepart {
   longitude: number;
 }
 
+/**
+ * Le départ du profil — distinct de `PointDepart` (`Sortie.demande.lieu_depart`,
+ * `Boucle.depart`, `Meteo.depart` : un point de calcul, jamais le repli) :
+ * `par_defaut` n'a de sens qu'ici.
+ *
+ * Vrai quand ces coordonnées ne sont pas celles renseignées par le
+ * cycliste, mais le repli du produit (« Paris », `DEPART_PAR_DEFAUT` côté
+ * serveur) — un compte hébergé sans départ encore écrit
+ * (`docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+ */
+export interface DepartProfil {
+  nom: string;
+  latitude: number;
+  longitude: number;
+  par_defaut: boolean;
+}
+
 export interface VeloProfil {
   nom: string;
   usage: string;
@@ -202,7 +219,7 @@ export type CategoriePneu =
   | "vtt";
 
 export interface Profil {
-  depart: PointDepart;
+  depart: DepartProfil;
   /** `prenom`/`nom` : identité du compte, obligatoire dans l'assistant
    * (décision Q36), mais peuvent revenir vides pour un profil plus ancien —
    * jamais absents. Aucun calcul ne s'en sert ; ils servent au compte (e-mail
@@ -915,6 +932,13 @@ export interface Sortie {
   /** Le sort de toutes les candidates au contraste. Absent d'une réponse ancienne. */
   arbitrage?: Arbitrage | null;
   candidates: Candidate[];
+  /**
+   * Vrai quand ce calcul est parti du départ de repli du produit
+   * (« Paris »), faute de départ renseigné — jamais du départ demandé
+   * explicitement (« Partir d'ailleurs cette fois »). Le front en tire le
+   * bandeau de l'onglet Demander (`composants/BandeauDepartParDefaut.tsx`).
+   */
+  depart_par_defaut: boolean;
 }
 
 export interface Boucle {
@@ -926,6 +950,8 @@ export interface Boucle {
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];
+  /** Même signal que `Sortie.depart_par_defaut`. */
+  depart_par_defaut: boolean;
 }
 
 // --- un parcours déjà en main, à analyser -------------------------------------

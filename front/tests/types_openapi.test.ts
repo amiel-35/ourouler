@@ -399,7 +399,7 @@ const TABLE: Correspondance[] = [
     schema: "DonneesBoucle",
     genre: "type",
     sens: "reponse",
-    champs: ["depart", "demande", "compteur", "meteo_absente", "gpx", "candidates"],
+    champs: ["depart", "demande", "compteur", "meteo_absente", "gpx", "candidates", "depart_par_defaut"],
     facultatifs: ["compteur"],
     // Le schéma le dit requis (nullable) ; le front le garde facultatif pour
     // rester lisible sur une réponse d'avant le 18/09/2026 (commentaire du
@@ -531,6 +531,7 @@ const TABLE: Correspondance[] = [
       "ecartees",
       "arbitrage",
       "candidates",
+      "depart_par_defaut",
     ],
     facultatifs: ["compteur", "ecartees", "arbitrage", "generation"],
     // `compteur`, `ecartees`, `arbitrage` : le schéma les dit requis, le
@@ -612,6 +613,18 @@ const TABLE: Correspondance[] = [
     genre: "type",
     sens: "reponse",
     champs: ["nom", "latitude", "longitude"],
+    facultatifs: [],
+  },
+  {
+    // `Profil.depart` : un type dédié, distinct de `PointDepart` — c'est là,
+    // et seulement là, que `par_defaut` a un sens (fiche
+    // `docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md`).
+    fichier: "api/types.ts",
+    ancre: "export interface DepartProfil {",
+    schema: "DepartProfil",
+    genre: "type",
+    sens: "reponse",
+    champs: ["nom", "latitude", "longitude", "par_defaut"],
     facultatifs: [],
   },
 ];

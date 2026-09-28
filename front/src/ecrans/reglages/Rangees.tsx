@@ -29,6 +29,11 @@ export function RangeesDepartVelos({
           aria-expanded={volet === "depart"}
         >
           {profil.depart.nom}
+          {/* Le repli du produit (« Paris »), pas encore un départ renseigné
+              — fiche docs/backlog/2026-09-28-bug-depart-fictif-golfe-de-guinee.md.
+              On est déjà dans Réglages : pas de lien, le bouton ouvre déjà
+              le volet qui le corrige. */}
+          {profil.depart.par_defaut ? " (par défaut)" : ""}
         </button>
       </div>
       {profil.velos.map((velo) => (

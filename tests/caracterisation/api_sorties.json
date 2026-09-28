@@ -11313,6 +11313,7 @@
           "profil": "fastbike",
           "velo": null
         },
+        "depart_par_defaut": false,
         "ecartees": [],
         "generation": "<HEX>",
         "gpx": null,
