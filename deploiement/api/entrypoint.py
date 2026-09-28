@@ -21,6 +21,7 @@ personnelle dans le dépôt).
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import sys
 import threading
@@ -47,6 +48,33 @@ SERVICE_TOML_B64 = os.environ.get("OUROULER_SERVICE_TOML_B64", "")
 #: Adresse et port d'écoute du serveur, à l'intérieur du conteneur.
 HOTE = os.environ.get("OUROULER_HOTE", "0.0.0.0")  # le conteneur, pas la machine hôte
 PORT = int(os.environ.get("OUROULER_PORT", "8000"))
+
+
+def _configurer_journalisation() -> None:
+    """Rend visibles les journaux Python du projet (`ourouler.*`) dans `docker logs`.
+
+    Constaté en préproduction le 28/09/2026 : aucune ligne de `ourouler.admin`
+    (connexions, demandes acceptées/refusées, comptes supprimés) ni de
+    `ourouler.demandes`/`ourouler.api…` n'apparaissait dans les journaux du
+    conteneur — seules les lignes d'accès d'uvicorn y étaient. Uvicorn
+    configure ses propres journaux (`uvicorn`, `uvicorn.error`,
+    `uvicorn.access`) via `disable_existing_loggers=False` : il ne touche pas
+    aux loggers d'un autre nom, il suffit de poser un gestionnaire sur le
+    logger racine du projet avant que quoi que ce soit ne journalise —
+    l'administration tourne dans un fil du même processus (voir
+    `_lancer_administration_en_arriere_plan`), donc son logger
+    `ourouler.admin`, enfant de celui-ci, en hérite sans rien de plus.
+
+    Ne touche ni la configuration d'uvicorn (posée séparément, par
+    `uvicorn.Config`/`uvicorn.run`) ni `ourouler api` en local : ce script est
+    le point d'entrée du conteneur, jamais importé par `cli/api.py`.
+    """
+    journal = logging.getLogger("ourouler")
+    journal.setLevel(logging.INFO)
+    gestionnaire = logging.StreamHandler(sys.stderr)
+    gestionnaire.setFormatter(logging.Formatter("%(levelname)s %(name)s : %(message)s"))
+    journal.addHandler(gestionnaire)
+    journal.propagate = False
 
 
 def _ecrire_config_depuis_environnement() -> None:
@@ -213,6 +241,7 @@ def _lancer_administration_en_arriere_plan(app) -> None:
 
 
 def main() -> None:
+    _configurer_journalisation()
     _ecrire_config_depuis_environnement()
     _ecrire_service_depuis_environnement()
 

@@ -114,13 +114,18 @@ def demander_invitation(ctx: Ctx, corps: DemandeInvitationPublique, requete: Req
     try:
         with base_de_donnees.ouvrir(session.url) as cx:
             depot = DepotDemandes(cx)
-            deposer_demande(
+            deposee = deposer_demande(
                 corps.adresse,
                 corps.message,
                 depot=depot,
                 destinataire_alerte=exploitation.adresse_alerte_demandes(),
                 parametres_brevo=exploitation.parametres_brevo_service(),
             )
+        identifiant = deposee.demande.id
+        if deposee.alerte_envoyee:
+            journal.info("demande %s : alerte au mainteneur envoyée", identifiant)
+        else:
+            journal.warning("demande %s : alerte au mainteneur non envoyée (relais absent)", identifiant)
     except Exception as e:  # noqa: BLE001 — toute panne (adresse mal formée, alerte en échec,
         # base injoignable) reste **interne** : la réponse ne doit jamais varier
         # selon ce qui a raté, sans quoi elle redeviendrait un oracle.

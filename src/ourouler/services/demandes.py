@@ -22,12 +22,18 @@ partie.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from ourouler.api.comptes import DepotComptes
 from ourouler.api.courriel import FabriqueSMTP, ParametresBrevo, envoyer_invitation, message_alerte_demande
 from ourouler.api.demandes import DemandeInvitation, DepotDemandes, ErreurDemandeInvitation
 from ourouler.services.comptes import LienEmis, inviter
+
+#: **Jamais une adresse, jamais un secret** : seul `demande.id`, déjà une
+#: chaîne opaque, identifie une ligne — même règle que `ourouler.admin`
+#: (`api/admin.py`).
+journal = logging.getLogger("ourouler.services.demandes")
 
 
 @dataclass(frozen=True)
@@ -135,6 +141,10 @@ def accepter_demande(
         invite_par=invite_par,
         fabrique_smtp=fabrique_smtp,
     )
+    if lien.courriel_envoye:
+        journal.info("demande %s : courriel d'invitation envoyé", identifiant)
+    else:
+        journal.warning("demande %s : invitation émise sans courriel (relais absent)", identifiant)
     depot_demandes.effacer(identifiant)
     return lien
 

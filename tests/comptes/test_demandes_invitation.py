@@ -9,6 +9,7 @@ relisant le code qui l'accompagne. Adresses de test toutes en `.invalid`
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -219,6 +220,45 @@ def test_accepter_une_demande_disparue_leve_une_erreur_nommee(depot_demandes: De
         )
 
 
+def test_accepter_demande_journalise_le_courriel_parti(
+    depot_demandes: DepotDemandes, connexion, parametres_brevo: ParametresBrevo, caplog
+):
+    """Constaté en préproduction le 28/09/2026 : impossible de savoir, depuis les journaux
+    du conteneur, si le courriel d'invitation était parti après un « Accepter »."""
+    demande = depot_demandes.deposer("accepte-log@exemple.invalid", None)
+    with caplog.at_level(logging.INFO, logger="ourouler.services.demandes"):
+        accepter_demande(
+            demande.id,
+            depot_demandes=depot_demandes,
+            depot_comptes=DepotComptes(connexion),
+            url_publique="https://exemple.invalid",
+            parametres_brevo=parametres_brevo,
+            fabrique_smtp=_ClientSMTPDouble,
+        )
+    messages = [r.getMessage() for r in caplog.records if r.name == "ourouler.services.demandes"]
+    assert any(demande.id in m and "envoyé" in m for m in messages)
+    assert not any("accepte-log@exemple.invalid" in m for m in messages)
+
+
+def test_accepter_demande_journalise_le_courriel_non_parti_sans_relais(
+    depot_demandes: DepotDemandes, connexion, caplog
+):
+    """Relais SMTP absent (`parametres_brevo=None`) : l'invitation part quand même, sans
+    courriel — l'administration doit pouvoir le distinguer d'un courriel réellement parti."""
+    demande = depot_demandes.deposer("accepte-log-2@exemple.invalid", None)
+    with caplog.at_level(logging.WARNING, logger="ourouler.services.demandes"):
+        accepter_demande(
+            demande.id,
+            depot_demandes=depot_demandes,
+            depot_comptes=DepotComptes(connexion),
+            url_publique="https://exemple.invalid",
+            parametres_brevo=None,
+        )
+    messages = [r.getMessage() for r in caplog.records if r.name == "ourouler.services.demandes"]
+    assert any(demande.id in m and "sans courriel" in m for m in messages)
+    assert not any("accepte-log-2@exemple.invalid" in m for m in messages)
+
+
 def test_refuser_demande_efface_sans_rien_creer(depot_demandes: DepotDemandes, connexion):
     demande = depot_demandes.deposer("refuse-moi@exemple.invalid", None)
     assert refuser_demande(demande.id, depot=depot_demandes) is True
@@ -311,6 +351,23 @@ def test_la_route_publique_enregistre_bien_la_demande(url_base: str):
     with ouvrir(url_base) as cx:
         demandes = DepotDemandes(cx).en_attente()
     assert [d.email for d in demandes] == ["vraie-demande@exemple.invalid"]
+
+
+def test_la_route_publique_journalise_l_alerte_sans_jamais_l_adresse(url_base: str, caplog):
+    """Aucun relais Brevo configuré dans cet environnement de test : l'alerte au
+    mainteneur ne part pas — mais ça doit se voir dans les journaux (`ourouler.demandes`),
+    sans jamais y écrire l'adresse du formulaire public."""
+    app = _app(url_base)
+    with caplog.at_level(logging.WARNING, logger="ourouler.demandes"):
+        _requete(
+            app,
+            "POST",
+            f"{PREFIXE}/demandes-invitation",
+            json={"adresse": "silencieuse@exemple.invalid", "message": "un mot"},
+        )
+    messages = [r.getMessage() for r in caplog.records if r.name == "ourouler.demandes"]
+    assert any("alerte au mainteneur non envoyée" in m for m in messages)
+    assert not any("silencieuse@exemple.invalid" in m for m in messages)
 
 
 def test_le_honeypot_rempli_n_enregistre_rien(url_base: str):
