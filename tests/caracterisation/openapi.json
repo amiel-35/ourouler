@@ -415,6 +415,22 @@
         "title": "DemandeConnexion",
         "type": "object"
       },
+      "DemandeConservationFichiers": {
+        "additionalProperties": false,
+        "description": "Le choix de garder ou d'effacer ses fichiers d'origine — `PUT /moi/fichiers-origine`.",
+        "properties": {
+          "garder": {
+            "description": "vrai pour garder ses fichiers d'origine, faux pour ne pas les garder",
+            "title": "Garder",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "garder"
+        ],
+        "title": "DemandeConservationFichiers",
+        "type": "object"
+      },
       "DemandeEntree": {
         "additionalProperties": false,
         "description": "Le jeton d'une invitation et le secret choisi — active le compte, ouvre la session.\n\n`jeton` et `secret` restent des `TexteUtile` ordinaires : ce module ne\nconnaît pas la forme du jeton (elle vit en base et dans `comptes.py`), et\naucune politique de mot de passe n'a été tranchée — inventer une longueur\nminimale ici serait décider une règle produit en passant.",
@@ -4588,6 +4604,354 @@
           }
         },
         "summary": "Exporter Mes Donnees"
+      }
+    },
+    "/api/v1/moi/fichiers-origine": {
+      "get": {
+        "description": "Le choix de ce compte : garde-t-il ses fichiers d'origine, et combien en a-t-il ?\n\nPour Réglages → Mon compte : « Vous gardez vos fichiers d'origine\n(N fichiers) » ou « Vous ne gardez pas vos fichiers d'origine ». `garder`\nvaut `True` par défaut sur un déploiement sans base de comptes (mode\npersonnel) — il n'y a alors pas de choix à faire, les fichiers bruts du\ncache local ne sont jamais effacés d'office.",
+        "operationId": "etat_conservation_fichiers_api_v1_moi_fichiers_origine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Conservation Fichiers Api V1 Moi Fichiers Origine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Conservation Fichiers"
+      },
+      "put": {
+        "description": "Change le choix de ce compte.\n\n**Revenir à « garder »** (`corps.garder` vrai) ne vaut que pour les\nimports suivants — rien à faire de plus, la réponse est immédiate (200).\nRefusée (409) tant que la tâche d'effacement de ce compte tourne encore :\nsans ce refus, le choix repasserait à « garder » pendant que la purge\ndérive et efface encore ses fichiers, sous le nez de la personne.\n\n**Passer à « ne pas garder »** pose le choix tout de suite, puis lance\nune tâche de fond (202, comme un import) : chaque sortie qu'une\ncalibration pourrait retenir est dérivée — l'archive météo est encore\nappelable, le fichier est encore là — puis tous les fichiers d'origine\ndu compte disparaissent d'un coup (`services.derive.purger_avec_derivation`).\nDériver avant d'effacer est ce qui tient la promesse de l'écran : sans\nlui, toutes les sorties passeraient « à redéposer » — l'inverse de ce\nque ce choix promet. `GET /moi/fichiers-origine/{id_job}` suit son\navancement, et `GET /moi/fichiers-origine` la retrouve après un\nrechargement.\n\nSi la tâche ne peut pas être lancée (verrou serveur entier déjà tenu par\nun import, une calibration ou un autre effacement — 409\n`tache_lourde_en_cours` —, ou toute autre panne au lancement), le choix\nposé juste avant est **rétabli** : un refus est un refus complet, jamais\nà moitié appliqué.\n\nL'écran doit avoir fait confirmer le coût avant d'appeler cette route ;\nelle-même ne redemande rien.\n\n404 `comptes_indisponibles` sur un déploiement sans base de comptes : ce\nchoix n'a de sens que pour un compte du service.",
+        "operationId": "definir_conservation_fichiers_api_v1_moi_fichiers_origine_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeConservationFichiers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Definir Conservation Fichiers"
+      }
+    },
+    "/api/v1/moi/fichiers-origine/{id_job}": {
+      "get": {
+        "description": "Où en est l'effacement lancé par `PUT /moi/fichiers-origine` — à interroger périodiquement.\n\nMême cloisonnement que `GET /activites/import/{id}` : l'identifiant d'un\nautre propriétaire, ou d'une tâche d'une autre nature, rend\n`fichier_introuvable`.",
+        "operationId": "etat_job_conservation_fichiers_api_v1_moi_fichiers_origine__id_job__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id_job",
+            "required": true,
+            "schema": {
+              "title": "Id Job",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Job Conservation Fichiers Api V1 Moi Fichiers Origine  Id Job  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Job Conservation Fichiers"
       }
     },
     "/api/v1/moi/mot-de-passe": {

@@ -73,7 +73,16 @@ def test_un_gpx_depose_est_importe(tmp_path: Path):
     client = client_api(config=_config_avec_cache(tmp_path))
     fini = _deposer_et_attendre(client, ("sortie.gpx", _gpx(), "application/gpx+xml"))
     assert fini["statut"] == "fini"
-    assert fini["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}
+    assert fini["rapport"] == {
+        "importees": 1,
+        "doublons": 0,
+        "ignorees": [],
+        "fichiers_conserves": True,
+        "derivees": 0,
+        "rafraichies": 0,
+        "sans_vent": 0,
+        "restaurees": 0,
+    }
     assert fini["traites"] == fini["total"] == 1
 
 
@@ -159,7 +168,12 @@ def test_etat_avant_tout_depot_est_vide(tmp_path: Path):
     client = client_api(config=_config_avec_cache(tmp_path))
     reponse = client.get(f"{PREFIXE}/activites/import")
     assert reponse.status_code == 200
-    assert reponse.json()["donnees"] == {"nombre": 0, "premiere": None, "derniere": None}
+    assert reponse.json()["donnees"] == {
+        "nombre": 0,
+        "premiere": None,
+        "derniere": None,
+        "fichiers_conserves": True,
+    }
 
 
 def test_job_inconnu_rend_fichier_introuvable(tmp_path: Path):

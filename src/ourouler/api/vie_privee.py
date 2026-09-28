@@ -56,10 +56,12 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.api import taches_fond
-from ourouler.api.comptes import DepotComptes
+from ourouler.api.comptes import ChoixConservation, DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.services import derive
 from ourouler.services.apprentissage import NOM_BASE
 from ourouler.services.physique import NOM_CALIBRATION
 
@@ -75,6 +77,9 @@ Ce que contient cette archive :
   FTP, vélos, position dans la zone, identifiants Intervals.icu). Le socle du
   serveur (URL de BRouter, modèles météo) n'y figure pas : il n'appartient à
   personne en particulier.
+- conservation_fichiers_origine.json : votre choix de garder ou d'effacer vos
+  fichiers d'origine (FIT/GPX/TCX), et depuis quand — réglable dans Réglages
+  → Mon compte.
 - {nom_calibration} : la calibration de vos vélos, si vous en avez lancé une
   depuis l'écran — ce que le calcul a trouvé sur vos sorties (paramètres,
   erreur de validation, fourchette du porte à porte).
@@ -86,7 +91,11 @@ Ce que contient cette archive :
   d'origine et son type.
 - activites/index.json : l'index de votre cache d'activités (date, durée,
   distance, sport, vélo…), une ligne par activité. activites/bruts/ contient
-  les fichiers d'origine (.fit, .gpx, .tcx) tels qu'importés ou synchronisés.
+  les fichiers d'origine (.fit, .gpx, .tcx) tels qu'importés ou synchronisés,
+  pour ceux que vous avez choisi de garder. activites/derives/ contient,
+  pour chaque sortie, ce qu'on en a tiré pour la calibration (sans
+  coordonnées) — présent aussi pour les sorties dont vous avez choisi de ne
+  pas garder le fichier d'origine.
 - routes_apprises/ : un résumé de ce que vos sorties ont appris des routes —
   statistiques.json (kilomètres roulés par classe de route, de revêtement, de
   vitesse) et sorties.json (vos sorties apprises, avec leur jour). **Fourni
@@ -108,6 +117,7 @@ def construire_export(
     fichiers: DepotFichiers,
     journal: JournalServices,
     dossier_cache: Path,
+    choix_conservation: ChoixConservation | None = None,
 ) -> bytes:
     """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module.
 
@@ -117,6 +127,11 @@ def construire_export(
     fait échouer l'export d'un propriétaire qui n'a pas encore écrit son
     départ ou son cycliste — exactement le cas RGPD le plus élémentaire,
     « exporter les données de quelqu'un qui n'en a aucune ».
+
+    `choix_conservation` : le choix de garder ou d'effacer ses fichiers
+    d'origine (fiche du même nom), `None` sur un déploiement sans base de
+    comptes — l'archive porte alors le défaut (« garder »), qui est aussi le
+    comportement réel de ce déploiement.
     """
     tampon = io.BytesIO()
     with zipfile.ZipFile(tampon, mode="w", compression=zipfile.ZIP_STORED) as archive:
@@ -131,6 +146,19 @@ def construire_export(
         archive.writestr(
             "profil.json",
             json.dumps(profils.surcharge(qui), ensure_ascii=False, indent=2, sort_keys=True),
+        )
+        archive.writestr(
+            "conservation_fichiers_origine.json",
+            json.dumps(
+                {
+                    "garder": choix_conservation.garder if choix_conservation is not None else True,
+                    "depuis": choix_conservation.depuis.isoformat()
+                    if choix_conservation is not None and choix_conservation.depuis is not None
+                    else None,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
         )
         calibration = profils.dossier(qui) / NOM_CALIBRATION
         if calibration.is_file():
@@ -298,6 +326,20 @@ def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cach
     for entree in entrees:
         if entree.chemin.is_file():
             archive.write(entree.chemin, f"activites/bruts/{entree.chemin.name}")
+        # Un compte qui ne garde pas ses fichiers d'origine n'a plus que ceci
+        # à en montrer (fiche « choix de garder ou d'effacer ses fichiers
+        # d'origine ») : ce que l'import en a tiré pour la calibration, sans
+        # coordonnées (`services.derive.SortieDerivee`).
+        lu = cache.lire_derive(entree.identifiant)
+        if lu is not None and lu[2] is not None:
+            try:
+                contenu_derive = derive.en_json(lu[2])
+            except ErreurUtilisateur:
+                continue  # dérivé illisible : rien à montrer, l'index reste la seule trace
+            archive.writestr(
+                f"activites/derives/{entree.identifiant}.json",
+                json.dumps(contenu_derive, ensure_ascii=False, indent=2),
+            )
 
 
 def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cache: Path) -> None:

@@ -87,6 +87,7 @@ export function DepotHistorique({ intro, masquerTitre }: Props) {
                 nombre: (precedent?.nombre ?? 0) + reponse.donnees.rapport!.importees,
                 premiere: precedent?.premiere ?? null,
                 derniere: precedent?.derniere ?? null,
+                fichiers_conserves: reponse.donnees.rapport!.fichiers_conserves,
               }));
             }
           }
@@ -146,14 +147,29 @@ export function DepotHistorique({ intro, masquerTitre }: Props) {
       )}
 
       {etat && etat.nombre > 0 ? (
-        <p className="mention">
-          Déjà {nombre(etat.nombre)} sortie{etat.nombre > 1 ? "s" : ""} déposée
-          {etat.nombre > 1 ? "s" : ""}
-          {etat.premiere && etat.derniere
-            ? ` entre ${jourEnLettres(etat.premiere)} et ${jourEnLettres(etat.derniere)}`
-            : ""}
-          .
-        </p>
+        <>
+          <p className="mention">
+            Déjà {nombre(etat.nombre)} sortie{etat.nombre > 1 ? "s" : ""} déposée
+            {etat.nombre > 1 ? "s" : ""}
+            {etat.premiere && etat.derniere
+              ? ` entre ${jourEnLettres(etat.premiere)} et ${jourEnLettres(etat.derniere)}`
+              : ""}
+            .
+          </p>
+          {/* Ligne d'information, pas une question : le choix se change dans
+              Réglages → Mon compte (`MonCompteVolet.tsx`), jamais ici. */}
+          {etat.fichiers_conserves ? (
+            <p className="mention">
+              Vos fichiers d'origine sont gardés sur ce serveur, pour vous seul. Vous pouvez les
+              effacer dans Réglages.
+            </p>
+          ) : (
+            <p className="mention">
+              Vos fichiers d'origine ne sont pas gardés sur ce serveur — ce que la calibration en a
+              tiré l'est, lui.
+            </p>
+          )}
+        </>
       ) : null}
 
       <div
@@ -224,6 +240,12 @@ export function DepotHistorique({ intro, masquerTitre }: Props) {
               {nombre(groupe.nombre)} ignoré{groupe.nombre > 1 ? "s" : ""} — {groupe.motif}
             </p>
           ))}
+          {!job.rapport.fichiers_conserves && job.rapport.sans_vent > 0 ? (
+            <p className="mention">
+              {nombre(job.rapport.sans_vent)} sortie{job.rapport.sans_vent > 1 ? "s" : ""} sans vent
+              connu (archive météo indisponible) — un peu moins précises pour la calibration.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -259,6 +259,15 @@ const TABLE: Correspondance[] = [
   },
   {
     fichier: "api/client.ts",
+    ancre: '("/moi/fichiers-origine", {',
+    schema: "DemandeConservationFichiers",
+    genre: "litteral",
+    sens: "requete",
+    champs: ["garder"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/client.ts",
     ancre: '("/calibrations", {',
     schema: "DemandeCalibration",
     genre: "litteral",

@@ -112,6 +112,16 @@ class Echantillon:
     """Position du **milieu** du tronçon, quand elle est connue. Elle ne sert
     pas à la calibration mais à `services.comparer`, qui range les tronçons par
     maille du terrain pour comparer deux vélos sur les mêmes routes."""
+    au_depart: bool = False
+    """Dans les `DEBUT_IGNORE_M` premiers mètres de la sortie. Posé une fois,
+    à l'échantillonnage (`_poser_voisinage`), pour que la qualification ne
+    dépende plus de la distance cumulée : le dérivé stocké pour un compte qui
+    ne garde pas ses fichiers d'origine (`services/derive.py`) ne la porte
+    plus."""
+    accelere_voisin: bool = False
+    """La vitesse change de plus de `DELTA_V_MAX_MS` avec un tronçon voisin
+    (`_accelere`). Même raison que `au_depart` : le voisinage n'existe que
+    dans l'ordre d'origine, que le dérivé stocké ne garde pas forcément."""
 
     @property
     def duree_s(self) -> float:
@@ -161,6 +171,21 @@ def echantillonner(
     `vent` est l'archive du jour au point de départ ; vide, les échantillons
     portent un vent nul et `vent_connu = False`.
     """
+    echantillons = echantillons_non_qualifies(activite, vent)
+    _qualifier(echantillons, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
+    return echantillons
+
+
+def echantillons_non_qualifies(activite: Activite, vent: list[HeureArchive]) -> list[Echantillon]:
+    """Les tronçons de `echantillonner`, **avant** `_qualifier`.
+
+    Seuls « sans puissance » et « arrêt » sont posés ici, parce qu'ils ne se
+    lisent que sur les points de la trace ; `au_depart` et `accelere_voisin`
+    aussi, parce qu'ils dépendent de la place du tronçon dans la sortie ou de
+    ses voisins — une fois posés, l'ordre de la liste ne compte plus. Tout le
+    reste (FTP, vitesse minimale) se décide dans `_qualifier`, et peut donc se
+    redécider sur un dérivé stocké sans relire la trace
+    (`SortieDerivee.echantillons_qualifies`, `services/derive.py`)."""
     points = [p for p in activite.points if p.t is not None]
     if len(points) < 2:
         return []
@@ -209,8 +234,9 @@ def echantillonner(
             echantillons[-1].motif = "sans puissance"
         elif _contient_un_arret(points, i, j):
             echantillons[-1].motif = "arrêt"
-
-    _qualifier(echantillons, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
+    for indice, e in enumerate(echantillons):
+        e.au_depart = e.dist_m - e.longueur_m < DEBUT_IGNORE_M
+        e.accelere_voisin = _accelere(echantillons, indice)
     return echantillons
 
 
@@ -336,13 +362,18 @@ def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
 
 
 def _qualifier(echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float) -> None:
-    """Pose `retenu` et `motif` sur chaque échantillon, selon les filtres ci-dessus."""
+    """Pose `retenu` et `motif` sur chaque échantillon, selon les filtres ci-dessus.
+
+    Tronçon par tronçon, sans regarder ses voisins ni sa place dans la
+    sortie : ce qui en dépend (`au_depart`, `accelere_voisin`) a déjà été posé
+    par `echantillons_non_qualifies`. L'ordre de la liste est donc
+    indifférent — condition pour requalifier un dérivé mélangé."""
     vitesse_min_ms = vitesse_min_kmh / 3.6
     puissance_max = FACTEUR_FTP_MAX * ftp_w
-    for indice, e in enumerate(echantillons):
+    for e in echantillons:
         motif = e.motif  # « arrêt » a pu être posé plus tôt
         if not motif:
-            if e.dist_m - e.longueur_m < DEBUT_IGNORE_M:
+            if e.au_depart:
                 motif = "départ"
             elif not (PUISSANCE_MIN_W <= e.puissance_w <= puissance_max):
                 motif = "puissance"
@@ -350,7 +381,7 @@ def _qualifier(echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh
                 motif = "vitesse"
             elif not (PENTE_MIN <= e.pente <= PENTE_MAX):
                 motif = "pente"
-            elif _accelere(echantillons, indice):
+            elif e.accelere_voisin:
                 motif = "accélération"
         e.motif = motif
         e.retenu = not motif

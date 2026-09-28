@@ -1242,3 +1242,77 @@ def test_la_fourchette_n_est_mesuree_que_sur_la_validation():
     assert len(rapport.porte_a_porte.sorties) == rapport.n_validation == 3
     jours_validation = {s.jour for s in rapport.porte_a_porte.sorties}
     assert jours_validation == {"2026-04-10", "2026-04-11", "2026-04-12"}
+
+
+# --- fiche « choix de garder ou d'effacer ses fichiers d'origine » ------------
+#
+# La calibration d'un compte qui ne garde pas ses fichiers d'origine passe
+# par `services.derive` : chaque sortie est réduite à un dérivé
+# (`physique.validation.SortieDerivee`), rangé sérialisé (JSON compressé,
+# mélangé) puis relu, sans jamais repasser par le fichier d'origine. Ce
+# qui suit prouve, sur des sorties synthétiques, que ce chemin donne un
+# résultat **identique à 1e-9** à celui qui relit la trace — la garantie que
+# la fiche demande.
+
+
+def _sortie_derivee_par_le_stockage(sortie: SortieCalibration) -> SortieCalibration:
+    """La même sortie, mais lue comme le serait celle d'un compte sans fichiers
+    d'origine : dérivée, sérialisée (mélangée), puis désérialisée — jamais
+    l'activité d'origine."""
+    from ourouler.physique.validation import deriver_sortie
+    from ourouler.services import derive
+
+    derivee = derive.deserialiser(derive.serialiser(deriver_sortie(sortie.activite, sortie.vent)))
+    return SortieCalibration.depuis_derivee(derivee, identifiant=sortie.identifiant)
+
+
+def test_calibration_identique_a_1e_9_avec_ou_sans_fichier_d_origine():
+    """Même jeu de sorties, calibrées deux fois : depuis la trace, puis depuis
+    le seul dérivé stocké (sérialisé et relu). Le rapport doit être le même,
+    au dernier chiffre — c'est ce qui permet à un compte de changer d'avis
+    sans que sa calibration en dépende."""
+    avec_fichier = _sorties_variees()
+    sans_fichier = [_sortie_derivee_par_le_stockage(s) for s in avec_fichier]
+
+    rapport_avec = calibrer_en_deux_passes(
+        avec_fichier, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    rapport_sans = calibrer_en_deux_passes(
+        sans_fichier, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+
+    assert rapport_sans.ajustement.cda_m2 == pytest.approx(rapport_avec.ajustement.cda_m2, rel=1e-9)
+    assert rapport_sans.ajustement.crr == pytest.approx(rapport_avec.ajustement.crr, rel=1e-9)
+    assert rapport_sans.ajustement.rmse_w == pytest.approx(rapport_avec.ajustement.rmse_w, rel=1e-9)
+    assert rapport_sans.ajustement.mae_w == pytest.approx(rapport_avec.ajustement.mae_w, rel=1e-9)
+    assert rapport_sans.validation.mae == pytest.approx(rapport_avec.validation.mae, rel=1e-9)
+    assert rapport_sans.n_apprentissage == rapport_avec.n_apprentissage
+    assert rapport_sans.n_validation == rapport_avec.n_validation
+    assert rapport_sans.echantillons == rapport_avec.echantillons
+    assert rapport_sans.echantillons_retenus == rapport_avec.echantillons_retenus
+
+
+def test_le_derive_serialise_puis_deserialise_garde_ses_valeurs_a_1e_9():
+    """`derive.serialiser` mélange et compresse ; `deserialiser` doit rendre les
+    mêmes nombres, dans un ordre différent mais sur le même multi-ensemble."""
+    from ourouler.physique.validation import deriver_sortie
+    from ourouler.services import derive
+
+    sortie = _sortie(date(2026, 5, 1), duree_s=1500, pente=0.02, vent_face_ms=2.0)
+    activite = sortie.activite
+    derivee = deriver_sortie(activite, [])
+    relue = derive.deserialiser(derive.serialiser(derivee))
+
+    assert relue.duree_ecoulee_s == pytest.approx(derivee.duree_ecoulee_s, rel=1e-9)
+    assert relue.temps_mouvement_s == pytest.approx(derivee.temps_mouvement_s, rel=1e-9)
+    assert relue.puissance_mouvement_w == pytest.approx(derivee.puissance_mouvement_w, rel=1e-9)
+    assert sorted(e.puissance_w for e in relue.echantillons) == pytest.approx(
+        sorted(e.puissance_w for e in derivee.echantillons), rel=1e-9
+    )
+    assert sorted(e.pente for e in relue.echantillons) == pytest.approx(
+        sorted(e.pente for e in derivee.echantillons), rel=1e-9
+    )
+    assert relue.profil is not None and derivee.profil is not None
+    assert sorted(relue.profil.pentes) == pytest.approx(sorted(derivee.profil.pentes), rel=1e-9)
+    # Mélangé : aucune coordonnée, aucun instant, aucune longueur cumulée.
+    assert all(e.lat is None and e.lon is None and e.t is None for e in relue.echantillons)

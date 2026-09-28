@@ -64,10 +64,15 @@ STATUT_EN_COURS = "en_cours"
 STATUT_FINI = "fini"
 STATUT_ECHOUE = "echoue"
 
-#: Les deux natures de tâche. La nature entre dans `trouver` : l'identifiant
+#: Les natures de tâche. La nature entre dans `trouver` : l'identifiant
 #: d'une calibration ne se lit pas par la route des imports, et inversement.
 NATURE_IMPORT = "import"
 NATURE_CALIBRATION = "calibration"
+#: Le passage à « ne pas garder ses fichiers d'origine » (fiche du même nom) :
+#: dérive chaque sortie que la calibration pourrait retenir, puis efface les
+#: fichiers — une tâche lourde comme les deux autres (appelle l'archive
+#: météo, relit chaque fichier), même verrou serveur entier.
+NATURE_CONSERVATION = "conservation"
 
 _journal = logging.getLogger(__name__)
 
@@ -383,6 +388,7 @@ def _purger() -> None:
 __all__ = [
     "JOBS_GARDES",
     "NATURE_CALIBRATION",
+    "NATURE_CONSERVATION",
     "NATURE_IMPORT",
     "STATUT_ECHOUE",
     "STATUT_EN_COURS",

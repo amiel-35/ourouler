@@ -53,9 +53,14 @@
         "erreur": null,
         "id": "<HEX>",
         "rapport": {
+          "derivees": 0,
           "doublons": 0,
+          "fichiers_conserves": true,
           "ignorees": [],
-          "importees": 1
+          "importees": 1,
+          "rafraichies": 0,
+          "restaurees": 0,
+          "sans_vent": 0
         },
         "statut": "fini",
         "total": 1,

@@ -71,13 +71,17 @@ def _toml_minimal(tmp_path: Path) -> str:
     )
 
 
-def _app(url_base: str, tmp_path: Path):
+def _app(url_base: str, tmp_path: Path, *, client_archive: object | None = None):
     """L'application réelle, avec une vraie base de comptes (`SessionParCookie`).
 
-    Aucun client externe injecté : ce fichier ne seme ni boucle ni sortie
-    (déjà couvertes par `_planter` dans `tests/api/`), seulement un profil,
-    un fichier et une entrée de journal — de quoi prouver que `DELETE /moi`
-    les vide comme avant ce lot, en plus de fermer le compte.
+    Aucun client externe injecté par défaut : ce fichier ne seme ni boucle ni
+    sortie (déjà couvertes par `_planter` dans `tests/api/`), seulement un
+    profil, un fichier et une entrée de journal — de quoi prouver que
+    `DELETE /moi` les vide comme avant ce lot, en plus de fermer le compte.
+
+    `client_archive` : pour les tests qui appellent une tâche lourde
+    touchant l'archive météo (`test_conservation_fichiers.py`) — sans lui,
+    aucun réseau (règle absolue 3).
     """
     chemin = tmp_path / "config.toml"
     chemin.write_text(_toml_minimal(tmp_path), encoding="utf-8")
@@ -85,6 +89,7 @@ def _app(url_base: str, tmp_path: Path):
         socle=SocleTOML(chemin, proprietaire=None),
         dossier_donnees=tmp_path / "donnees",
         session=SessionParCookie(url_base),
+        client_archive=client_archive,
     )
 
 

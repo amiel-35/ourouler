@@ -316,11 +316,18 @@ class DemandeInvitationPublique(Modele):
     )
 
 
+class DemandeConservationFichiers(Modele):
+    """Le choix de garder ou d'effacer ses fichiers d'origine — `PUT /moi/fichiers-origine`."""
+
+    garder: bool = Field(description="vrai pour garder ses fichiers d'origine, faux pour ne pas les garder")
+
+
 __all__ = [
     "ApercuZones",
     "DemandeAnalyse",
     "DemandeBoucle",
     "DemandeChangementMotDePasse",
+    "DemandeConservationFichiers",
     "DemandeConnexion",
     "DemandeEntree",
     "DemandeInvitationPublique",

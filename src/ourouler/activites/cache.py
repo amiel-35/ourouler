@@ -5,6 +5,14 @@ source, on garde le FIT/GPX/TCX d'origine sous `<dossier>/brut/` et on le
 relit toujours avec le même lecteur. L'index n'existe que pour retrouver une
 activité par date, vélo ou source sans tout relire.
 
+**Sauf un compte qui a choisi de ne pas garder ses fichiers d'origine**
+(fiche « choix de garder ou d'effacer ses fichiers d'origine ») :
+`Cache(..., conserver_brut=False)` indexe sans jamais écrire le fichier ; ce
+qu'on en tire pour la calibration (sans coordonnées, `services/derive.py`)
+vit dans la table `derives`, à côté de l'index. `effacer_bruts` efface
+d'un coup ce qu'un compte avait déjà déposé, au moment où il choisit de ne
+plus garder ses fichiers.
+
 Ce module reçoit un `Path` déjà résolu : il ne lit ni la configuration, ni
 l'environnement, ni `~`.
 """
@@ -46,6 +54,11 @@ _SEGMENT_SUR = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 #: qu'une ligne. Schéma 2 : **une ligne par (source, id_externe)**, le
 #: fichier brut restant partagé. Schéma 3 : la table gagne une colonne
 #: `proprietaire`, qui entre aussi dans l'identité. Voir `_migrer`.
+#:
+#: **La table `derives` ne change pas ce numéro, exprès.** Elle s'ajoute à
+#: côté par un `CREATE TABLE IF NOT EXISTS`, sans toucher à `activites` : un
+#: code d'avant ce choix l'ignore sans rien casser. On n'incrémente que pour
+#: une incompatibilité réelle de `activites`.
 VERSION_SCHEMA = 3
 
 #: Nom de l'index qui porte l'identité d'une activité. Sa présence sert aussi
@@ -74,6 +87,16 @@ CREATE INDEX IF NOT EXISTS idx_activites_identifiant
     ON activites(proprietaire, identifiant);
 CREATE UNIQUE INDEX IF NOT EXISTS {INDEX_IDENTITE}
     ON activites(proprietaire, source, COALESCE(id_externe, identifiant));
+CREATE TABLE IF NOT EXISTS derives (
+    proprietaire      TEXT NOT NULL,
+    identifiant       TEXT NOT NULL,
+    version           INTEGER NOT NULL,
+    motif             TEXT NOT NULL DEFAULT '',
+    contenu           BLOB,
+    vent_manquant     INTEGER NOT NULL DEFAULT 0,
+    derive_le         TEXT NOT NULL,
+    PRIMARY KEY (proprietaire, identifiant)
+);
 """
 
 #: Cible du `ON CONFLICT` de `ajouter` : exactement les colonnes de
@@ -137,9 +160,20 @@ class Cache:
     Supprimer un compte n'y touche qu'à ses propres fichiers.
     """
 
-    def __init__(self, dossier: Path, proprietaire: str = PROPRIETAIRE_LOCAL):
+    def __init__(
+        self,
+        dossier: Path,
+        proprietaire: str = PROPRIETAIRE_LOCAL,
+        *,
+        conserver_brut: bool = True,
+    ):
         self.dossier = Path(dossier)
         self.proprietaire = _proprietaire_valide(proprietaire)
+        #: Faux pour un compte qui a choisi de ne pas garder ses fichiers
+        #: d'origine : `ajouter` indexe alors sans jamais écrire le fichier.
+        #: C'est l'appelant qui connaît ce choix (`api/routes/commun._cache`) ;
+        #: le cache, lui, ne le devine pas.
+        self.conserver_brut = conserver_brut
         #: Le `brut/` commun, celui du propriétaire local — et celui où un
         #: fichier déposé par un autre compte sous l'ancienne disposition (un
         #: `brut/` pour tous) se relit encore.
@@ -265,8 +299,15 @@ class Cache:
         id_externe: str | None,
         extension: str,
         meta: dict,
+        activite: Activite | None = None,
     ) -> str:
         """Relit le contenu, l'archive et l'indexe. Renvoie l'identifiant (sha256).
+
+        `activite` : le contenu déjà lu par l'appelant (l'import le lit pour
+        en tirer le dérivé, `services/derive.py`) — il n'est alors pas relu
+        une seconde fois. Sans `conserver_brut`, le fichier n'est **jamais**
+        écrit : seule la ligne d'index, dont l'identifiant est l'empreinte du
+        contenu, reste.
 
         **Une ligne par `(source, id_externe)`, un fichier brut par contenu.**
         Deux activités distinctes peuvent partager le même fichier d'origine —
@@ -282,10 +323,11 @@ class Cache:
         Lève `ErreurLecture` si le contenu est illisible — rien n'est écrit.
         """
         extension = extension.lower().lstrip(".")
-        activite = lecteur_pour(extension)(contenu)
+        if activite is None:
+            activite = lecteur_pour(extension)(contenu)
         identifiant = hashlib.sha256(contenu).hexdigest()
         chemin = self.brut / f"{identifiant}.{extension}"
-        if not chemin.exists():
+        if self.conserver_brut and not chemin.exists():
             try:
                 self.brut.mkdir(parents=True, exist_ok=True)
                 chemin.write_bytes(contenu)
@@ -412,6 +454,7 @@ class Cache:
                 (self.proprietaire,),
             ).fetchall()
             cx.execute("DELETE FROM activites WHERE proprietaire = ?", (self.proprietaire,))
+            cx.execute("DELETE FROM derives WHERE proprietaire = ?", (self.proprietaire,))
             # « Reste-t-il une ligne d'un **autre** propriétaire sur cet
             # identifiant ? » — posée après la suppression ci-dessus, dans la
             # même transaction : un identifiant que ce propriétaire partageait
@@ -440,6 +483,122 @@ class Cache:
             except OSError:
                 pass  # pas vide (un fichier que l'index ne cite pas) ou déjà absent
         return len(lignes)
+
+    def effacer_bruts(self) -> int:
+        """Efface les fichiers bruts de **ce** propriétaire, sans toucher à l'index. Rend le nombre effacé.
+
+        Appelée quand un compte passe à « ne pas garder ses fichiers
+        d'origine » : tout ce qu'il avait déjà déposé disparaît tout de
+        suite. Le `brut/` commun n'est touché que pour les fichiers
+        qu'aucun **autre** propriétaire ne cite (le propriétaire local garde
+        les siens). Sans effet sur le propriétaire local : son cache est un
+        cache, pas une archive.
+        """
+        if self.proprietaire == PROPRIETAIRE_LOCAL:
+            return 0
+        with self._connexion() as cx:
+            lignes = cx.execute(
+                "SELECT DISTINCT identifiant, extension FROM activites WHERE proprietaire = ?",
+                (self.proprietaire,),
+            ).fetchall()
+            partages = {
+                identifiant
+                for identifiant, _ in lignes
+                if cx.execute(
+                    "SELECT 1 FROM activites WHERE identifiant = ? AND proprietaire != ? LIMIT 1",
+                    (identifiant, self.proprietaire),
+                ).fetchone()
+                is not None
+            }
+        effaces = 0
+        for identifiant, extension in lignes:
+            if identifiant in partages:
+                continue
+            chemin = self.brut_commun / f"{identifiant}.{extension}"
+            if chemin.is_file():
+                chemin.unlink(missing_ok=True)
+                effaces += 1
+        if self.brut != self.brut_commun and self.brut.is_dir():
+            for chemin in self.brut.iterdir():
+                if chemin.is_file():
+                    chemin.unlink(missing_ok=True)
+                    effaces += 1
+            try:
+                self.brut.rmdir()
+            except OSError:
+                pass  # pas vide (un fichier que l'index ne cite pas) ou déjà absent
+        return effaces
+
+    # --- dérivés (fiche « choix de garder ou d'effacer ses fichiers d'origine ») ----
+
+    def ecrire_derive(
+        self,
+        identifiant: str,
+        *,
+        version: int,
+        contenu: bytes | None,
+        motif: str = "",
+        vent_manquant: bool = False,
+    ) -> None:
+        """Range le dérivé d'une activité de ce propriétaire (remplace l'ancien).
+
+        `contenu` est opaque ici (`services/derive.py` le fabrique et le
+        relit) ; `None` avec un `motif` dit qu'on a regardé la sortie et
+        qu'elle n'a rien à donner (multisport, sans trace) — pour ne pas la
+        prendre pour une sortie qu'il faudrait redéposer.
+        """
+        with self._connexion() as cx:
+            cx.execute(
+                "INSERT INTO derives (proprietaire, identifiant, version, motif, contenu, "
+                "vent_manquant, derive_le) "
+                "VALUES (?,?,?,?,?,?,?) ON CONFLICT(proprietaire, identifiant) DO UPDATE SET "
+                "version=excluded.version, motif=excluded.motif, contenu=excluded.contenu, "
+                "vent_manquant=excluded.vent_manquant, derive_le=excluded.derive_le",
+                (
+                    self.proprietaire,
+                    identifiant,
+                    int(version),
+                    motif,
+                    contenu,
+                    1 if vent_manquant else 0,
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                ),
+            )
+
+    def versions_derives(self) -> dict[str, tuple[int, str]]:
+        """`{identifiant: (version, motif)}` des dérivés de ce propriétaire — sans leur contenu."""
+        return {i: (version, motif) for i, (version, motif, _) in self.etats_derives().items()}
+
+    def etats_derives(self) -> dict[str, tuple[int, str, bool]]:
+        """`{identifiant: (version, motif, vent_manquant)}` — sans le contenu."""
+        with self._connexion() as cx:
+            lignes = cx.execute(
+                "SELECT identifiant, version, motif, vent_manquant FROM derives WHERE proprietaire = ?",
+                (self.proprietaire,),
+            ).fetchall()
+        return {i: (version, motif, bool(vent)) for i, version, motif, vent in lignes}
+
+    def lire_derive(self, identifiant: str) -> tuple[int, str, bytes | None] | None:
+        """(version, motif, contenu) du dérivé de cette activité, ou `None` s'il n'y en a pas."""
+        with self._connexion() as cx:
+            ligne = cx.execute(
+                "SELECT version, motif, contenu FROM derives WHERE proprietaire = ? AND identifiant = ?",
+                (self.proprietaire, identifiant),
+            ).fetchone()
+        return None if ligne is None else (ligne[0], ligne[1], ligne[2])
+
+    def nombre_bruts(self) -> int:
+        """Combien de fichiers d'origine ce propriétaire a sur disque, pour l'écran Réglages.
+
+        Compte les lignes d'index dont le fichier existe réellement — pas
+        toutes les lignes : une entrée sans fichier (jamais écrit, faute de
+        `conserver_brut`, ou déjà effacé) ne doit pas se compter."""
+        with self._connexion() as cx:
+            lignes = cx.execute(
+                "SELECT DISTINCT identifiant, extension FROM activites WHERE proprietaire = ?",
+                (self.proprietaire,),
+            ).fetchall()
+        return sum(1 for identifiant, extension in lignes if self._fichier(identifiant, extension).is_file())
 
     # --- lecture --------------------------------------------------------------
 

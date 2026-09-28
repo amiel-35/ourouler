@@ -3,6 +3,7 @@
     "ourouler.activites.cache.VERSION_SCHEMA": 3,
     "ourouler.apprentissage.routes.VERSION_SCHEMA": 3,
     "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA": 2,
+    "ourouler.services.derive.VERSION_DERIVATION": 1,
     "ourouler.stockage.calibrations.VERSION_CALIBRATION": 1
   },
   "ecrites": {
@@ -27,6 +28,11 @@
       "nom": "0003_demandes_invitation.sql",
       "numero": 3,
       "sha256": "04d57e22ca64a1368644bac75adecbc29b19edfaa523503459089b7f254e849c"
+    },
+    {
+      "nom": "0004_conservation_fichiers.sql",
+      "numero": 4,
+      "sha256": "fa6462789e4087d0a35ff75c866cae7eabaae6239fe180bbef90e104760f1250"
     }
   ]
 }

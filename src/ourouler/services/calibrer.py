@@ -37,6 +37,7 @@ from ourouler.noyau.profil import Profil, Velo
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.parametres_velo import CRR_DEFAUT, crr_du_velo
+from ourouler.services import derive
 from ourouler.stockage.calibrations import contenu_calibration
 
 #: Date de repli pour trier une entrée sans horodatage — avant tout le reste,
@@ -240,12 +241,39 @@ def calibrer_velo(
             "— vérifier le rattachement au vélo (`ourouler inventaire`)"
         )
 
-    sorties, pannes = _charger_sorties(
-        lecteur, entrees, client_archive, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
-    )
+    # **Le choix du chemin se fait par sortie, jamais par compte.** Un compte
+    # qui garde ses fichiers aujourd'hui a pu ne pas les garder hier (ou
+    # l'inverse) : certaines sorties ont encore leur fichier d'origine,
+    # d'autres n'ont plus que leur dérivé (`services/derive.py`). Chacune
+    # prend son chemin, sans qu'un drapeau global sur le cache ne tranche
+    # pour toutes — `Cache.chemin` répond avec ou sans `conserver_brut`, seul
+    # `.is_file()` dit la vérité du disque.
+    avec_fichier = [e for e in entrees if cache.chemin(e.identifiant).is_file()]
+    sans_fichier = [e for e in entrees if not cache.chemin(e.identifiant).is_file()]
+
+    sorties: list[calib.SortieCalibration] = []
+    pannes: list[str] = []
+    if avec_fichier:
+        s, p = _charger_sorties(
+            lecteur, avec_fichier, client_archive, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
+        )
+        sorties += s
+        pannes += p
+    if sans_fichier:
+        gardees, motifs_derive = derive.trier(cache, sans_fichier)
+        for motif, n in motifs_derive.items():
+            motifs[motif] = motifs.get(motif, 0) + n
+        s, p = derive.charger(
+            cache,
+            gardees,
+            lambda faits: annoncer(ETAPE_METEO, len(avec_fichier) + faits, len(entrees)),
+        )
+        sorties += s
+        pannes += p
     if not sorties:
         raise ErreurUtilisateur(
-            f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
+            f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible, "
+            "fichier d'origine ou dérivé"
         )
 
     annoncer(ETAPE_AJUSTEMENT, 0, 1)
@@ -304,10 +332,10 @@ class _Lecteur:
 
     def __init__(self, cache: Cache):
         self.cache = cache
-        self._lues: dict[str, object] = {}
+        self._lues: dict[str, Activite | None] = {}
         self.pannes: dict[str, str] = {}
 
-    def __call__(self, identifiant: str):
+    def __call__(self, identifiant: str) -> Activite | None:
         if identifiant not in self._lues:
             try:
                 self._lues[identifiant] = self.cache.relire(identifiant)

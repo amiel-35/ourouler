@@ -130,7 +130,16 @@ def test_json_rend_une_forme_stable(tmp_path: Path):
     assert set(charge) == {"id", "statut", "traites", "total", "rapport", "erreur", "code_erreur"}
     assert charge["erreur"] is None
     assert charge["code_erreur"] is None
-    assert charge["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}
+    assert charge["rapport"] == {
+        "importees": 1,
+        "doublons": 0,
+        "ignorees": [],
+        "fichiers_conserves": True,
+        "derivees": 0,
+        "rafraichies": 0,
+        "sans_vent": 0,
+        "restaurees": 0,
+    }
 
 
 # --- contre-lecture Fable du 25/09/2026 ---------------------------------------

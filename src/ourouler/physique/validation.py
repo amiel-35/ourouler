@@ -9,23 +9,29 @@ from __future__ import annotations
 import bisect
 import statistics
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from typing import NamedTuple
 
 from ourouler.noyau.activite import Activite
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.physique.echantillonnage import (
     SEUIL_ARRET_MS,
+    Echantillon,
     _distances_points,
     _interpoler_archive,
+    _qualifier,
     _vent_de_face,
+    echantillons_non_qualifies,
 )
 from ourouler.physique.modele import (
     Parametres,
+    ProfilSimulation,
     Simulation,
-    simuler,
+    profil_simulation,
+    simuler_profil,
 )
 
 # --- validation ---------------------------------------------------------------
@@ -108,16 +114,21 @@ def valider(sorties_test: Sequence[tuple[Activite, list[HeureArchive]]], p: Para
     Le temps de référence est le temps **en mouvement** (`temps_mouvement_s`),
     le seul que la simulation prétende prédire.
     """
+    return valider_derivees([deriver_sortie(activite, list(vent)) for activite, vent in sorties_test], p)
+
+
+def valider_derivees(derivees: Sequence[SortieDerivee], p: Parametres) -> Validation:
+    """`valider`, sur des sorties déjà dérivées (`SortieDerivee`) — le même calcul, sans la trace."""
     validation = Validation()
-    for activite, vent in sorties_test:
-        mesure = simuler_sortie(activite, vent, p)
+    for d in derivees:
+        mesure = simuler_derivee(d, p)
         if mesure is None:
             continue
         simulation, reel = mesure
         validation.sorties.append(
             ErreurSortie(
-                jour=activite.debut.date().isoformat() if activite.debut else "",
-                nom=str(activite.meta.get("nom") or activite.fichier or ""),
+                jour=d.jour.isoformat() if d.jour else "",
+                nom=d.nom,
                 distance_m=simulation.distance_m,
                 temps_reel_s=reel,
                 temps_simule_s=simulation.temps_s,
@@ -130,17 +141,121 @@ def simuler_sortie(
     activite: Activite, vent: Sequence[HeureArchive], p: Parametres
 ) -> tuple[Simulation, float] | None:
     """(simulation, temps en mouvement réel) d'une sortie, ou `None` si elle est inexploitable."""
-    trace = trace_depuis_activite(activite)
-    if trace is None:
+    return simuler_derivee(deriver_sortie(activite, list(vent)), p)
+
+
+def simuler_derivee(d: SortieDerivee, p: Parametres) -> tuple[Simulation, float] | None:
+    """`simuler_sortie` sur une sortie dérivée : même ordre des refus, même simulation.
+
+    Une trace absente (moins de deux points positionnés) rend `None`, comme
+    avant ; une trace présente que la simulation refuse (longueur nulle)
+    lève, comme avant — mais seulement une fois passés les deux autres refus,
+    dans l'ordre où `simuler_sortie` les posait.
+    """
+    if d.profil is None and not d.refus_profil:
         return None
-    reel = temps_mouvement_s(activite)
+    reel = d.temps_mouvement_s
     if reel is None or reel <= 0:
         return None
-    puissance = puissance_moyenne_en_mouvement(activite)
+    puissance = d.puissance_mouvement_w
     if puissance is None or puissance <= 0:
         return None
-    simulation = simuler(trace, puissance, p, vent=vent_le_long(activite, vent))
-    return (simulation, reel)
+    if d.profil is None:
+        raise ErreurUtilisateur(d.refus_profil)
+    return (simuler_profil(d.profil, puissance, p), reel)
+
+
+# --- la sortie dérivée, sans coordonnées ---------------------------------------
+
+
+@dataclass
+class SortieDerivee:
+    """Tout ce que la calibration lit d'une sortie, **sans une seule coordonnée**.
+
+    Introduit pour la fiche « choix de garder ou d'effacer ses fichiers
+    d'origine » : un compte qui choisit de ne pas garder ses fichiers n'a
+    plus, après l'import, que ceci — rangé par
+    `services/derive.py`. En mode personnel, ou pour un compte qui garde ses
+    fichiers, la calibration passe **par la même dérivation**, à la volée
+    (`SortieCalibration.derivee`) : les deux chemins font donc le même
+    calcul, par construction, ce qui garantit un résultat identique avec ou
+    sans le fichier d'origine.
+
+    Ce qu'il y a dedans, et pourquoi on ne peut pas en refaire la trace :
+
+    - `echantillons` : les tronçons d'environ 200 m de `echantillonner`,
+      **avant** qualification (vitesse moyenne et aux deux bouts, puissance,
+      pente, vent de face déjà résolu, température, masse volumique de
+      l'air, longueur, et les deux booléens `au_depart`/`accelere_voisin`).
+      Ni position (`lat`/`lon` à `None`), ni instant (`t` à `None`), ni cap ;
+    - `profil` : la longueur, la pente et le vent de face de chaque pas de
+      100 m de la simulation (`modele.ProfilSimulation`) ;
+    - quatre nombres : durée écoulée, temps en mouvement, puissance moyenne
+      en mouvement, et le jour.
+
+    `services.derive.serialiser` peut ranger tronçons et pas **dans le
+    désordre** (graine jamais stockée) et sans distance cumulée — la
+    calibration n'en dépend pas (sommes, moyennes et moindres carrés) — mais
+    ce module-ci ne mélange rien : c'est `derive.melanger` qui le fait, une
+    fois, avant de sérialiser.
+    """
+
+    jour: date | None
+    nom: str
+    duree_ecoulee_s: float | None
+    temps_mouvement_s: float | None
+    puissance_mouvement_w: float | None
+    echantillons: list[Echantillon] = field(default_factory=list)
+    profil: ProfilSimulation | None = None
+    #: Non vide quand la sortie avait bien une trace mais que la simulation
+    #: l'a refusée (longueur nulle) : `simuler_derivee` relève alors ce refus,
+    #: exactement comme `simuler_sortie` le faisait sur la trace.
+    refus_profil: str = ""
+    #: Vrai si l'archive météo manquait au moment de la dérivation : les
+    #: échantillons portent alors un vent nul (`vent_connu = False`), comme en
+    #: mode personnel sans archive.
+    vent_manquant: bool = False
+    _qualifies: dict = field(default_factory=dict, repr=False, compare=False)
+
+    def echantillons_qualifies(self, *, ftp_w: float, vitesse_min_kmh: float) -> list[Echantillon]:
+        """Les échantillons qualifiés pour cette FTP et cette vitesse minimale — calculés une fois.
+
+        Des copies : la liste stockée reste celle d'avant qualification, pour
+        qu'une autre FTP la requalifie à neuf.
+        """
+        cle = (float(ftp_w), float(vitesse_min_kmh))
+        if cle not in self._qualifies:
+            copies = [replace(e) for e in self.echantillons]
+            _qualifier(copies, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
+            self._qualifies[cle] = copies
+        return self._qualifies[cle]
+
+
+def deriver_sortie(activite: Activite, vent: list[HeureArchive]) -> SortieDerivee:
+    """La `SortieDerivee` d'une sortie enregistrée, l'archive météo de son jour à la main."""
+    echantillons = echantillons_non_qualifies(activite, vent)
+    for e in echantillons:
+        e.lat = e.lon = None
+        e.t = None
+    profil: ProfilSimulation | None = None
+    refus = ""
+    trace = trace_depuis_activite(activite)
+    if trace is not None:
+        try:
+            profil = profil_simulation(trace, vent_le_long(activite, vent))
+        except ErreurUtilisateur as e:
+            refus = str(e)
+    return SortieDerivee(
+        jour=activite.debut.date() if activite.debut else None,
+        nom=str(activite.meta.get("nom") or activite.fichier or ""),
+        duree_ecoulee_s=float(activite.duree_s) if activite.duree_s else None,
+        temps_mouvement_s=temps_mouvement_s(activite),
+        puissance_mouvement_w=puissance_moyenne_en_mouvement(activite),
+        echantillons=echantillons,
+        profil=profil,
+        refus_profil=refus,
+        vent_manquant=not vent,
+    )
 
 
 def puissance_moyenne_en_mouvement(activite: Activite) -> float | None:

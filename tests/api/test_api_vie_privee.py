@@ -32,6 +32,7 @@ tests, et rapportée dans le résumé du lot.
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from pathlib import Path
 
@@ -331,3 +332,36 @@ def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(
     apres = BaseRoutes(chemin_base, proprietaire=str(a))
     assert apres.troncons(), "les tronçons de A ont disparu à la suppression"
     assert apres.sorties(), "les sorties de A ont disparu à la suppression"
+
+
+def test_export_emporte_le_derive_d_une_sortie_sans_fichier_d_origine(tmp_path: Path, activites: Path):
+    """Relecture indépendante : un compte qui ne garde pas ses fichiers d'origine
+    n'a que son dérivé à montrer dans son export — `activites/derives/<id>.json`
+    (`services.derive.en_json`)."""
+    from ourouler.activites.lecture import lecteur_pour
+    from ourouler.physique.validation import deriver_sortie
+    from ourouler.services import derive
+
+    a = Proprietaire(PROPRIETAIRE_A)
+    dossier_cache = tmp_path / "cache"
+    cache = Cache(dossier_cache, proprietaire=str(a), conserver_brut=False)
+    contenu_gpx = (activites / "boucle.gpx").read_bytes()
+    identifiant = cache.ajouter(
+        contenu_gpx, source="fichier", id_externe="essai-derive", extension="gpx", meta={}
+    )
+    activite = lecteur_pour("gpx")(contenu_gpx)
+    derivee = deriver_sortie(activite, [])
+    cache.ecrire_derive(identifiant, version=derive.VERSION_DERIVATION, contenu=derive.serialiser(derivee))
+
+    dossier_donnees = tmp_path / "donnees"
+    profils = DepotProfils(SocleVide(), dossier_donnees)
+    fichiers = DepotFichiers(dossier_donnees)
+    journal = JournalServices(dossier_donnees)
+
+    archive_octets = vie_privee.construire_export(
+        a, profils=profils, fichiers=fichiers, journal=journal, dossier_cache=dossier_cache
+    )
+    archive = zipfile.ZipFile(io.BytesIO(archive_octets))
+    assert f"activites/derives/{identifiant}.json" in archive.namelist()
+    relu = json.loads(archive.read(f"activites/derives/{identifiant}.json"))
+    assert relu["version"] == derive.VERSION_DERIVATION

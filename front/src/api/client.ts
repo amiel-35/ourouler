@@ -14,6 +14,7 @@ import type {
   Analyse,
   ApercuParcours,
   Boucle,
+  ConservationFichiers,
   DonneesSeules,
   EffacementCompte,
   Enveloppe,
@@ -27,11 +28,13 @@ import type {
   MonCompte,
   Panne,
   Profil,
+  ReponseConservation,
   Seance,
   Semaine,
   Simple,
   Sortie,
   Systeme,
+  TacheConservation,
   VentDepart,
   Zones,
 } from "./types";
@@ -387,6 +390,25 @@ function poster<T>(
   );
 }
 
+/** Le pendant `poster` pour un `PUT` — un réglage remplacé d'un bloc, pas une action posée. */
+function mettre<T>(
+  chemin: string,
+  corps: unknown,
+  signal?: AbortSignal,
+  delai_ms: number = DELAI_MS,
+): Promise<T> {
+  return appeler<T>(
+    `${RACINE}${chemin}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(corps),
+      signal,
+    },
+    delai_ms,
+  );
+}
+
 export const api = {
   // --- comptes et sessions — précèdent tout propriétaire -------------------
 
@@ -439,6 +461,23 @@ export const api = {
       mot_de_passe_actuel: motDePasseActuel,
       nouveau_mot_de_passe: nouveauMotDePasse,
     }),
+
+  /** `GET /moi/fichiers-origine` : le choix en vigueur, et combien de fichiers il en reste. */
+  etatConservationFichiers: () => appeler<Simple<ConservationFichiers>>(url("/moi/fichiers-origine")),
+
+  /**
+   * `PUT /moi/fichiers-origine` : change le choix. Revenir à « garder » répond
+   * tout de suite (200, `tache: null`). Passer à « ne pas garder » lance une
+   * tâche de fond (202) qui dérive chaque sortie calibrable puis efface les
+   * fichiers d'origine du compte — `suivreConservation` la suit. L'écran qui
+   * appelle ceci porte la confirmation qui dit le coût, pas ce module.
+   */
+  definirConservationFichiers: (garder: boolean) =>
+    mettre<Simple<ReponseConservation>>("/moi/fichiers-origine", { garder }),
+
+  /** `GET /moi/fichiers-origine/{id}` : où en est l'effacement lancé par `definirConservationFichiers`. */
+  suivreConservation: (idTache: string) =>
+    appeler<Simple<TacheConservation>>(url(`/moi/fichiers-origine/${idTache}`)),
 
   /**
    * `DELETE /moi` : efface les données personnelles du compte de la session en cours,

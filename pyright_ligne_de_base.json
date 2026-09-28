@@ -705,21 +705,6 @@
     "message": "Argument of type \"object\" cannot be assigned to parameter \"p\" of type \"Parametres\" in function \"simuler\"\n  \"object\" is not assignable to \"Parametres\""
   },
   {
-    "fichier": "src/ourouler/services/calibrer.py",
-    "regle": "reportArgumentType",
-    "message": "Argument of type \"(identifiant: str) -> object\" cannot be assigned to parameter \"relire\" of type \"((str) -> (Activite | None)) | None\" in function \"sorties_calibrables_et_motifs\"\n  Type \"(identifiant: str) -> object\" is not assignable to type \"((str) -> (Activite | None)) | None\"\n    Type \"(identifiant: str) -> object\" is not assignable to type \"(str) -> (Activite | None)\"\n      Function return type \"object\" is incompatible with type \"Activite | None\"\n        Type \"object\" is not assignable to type \"Activite | None\"\n          \"object\" is not assignable to \"Activite\"\n          \"object\" is not assignable to \"None\"\n    \"FunctionType\" is not assignable to \"None\""
-  },
-  {
-    "fichier": "src/ourouler/services/calibrer.py",
-    "regle": "reportArgumentType",
-    "message": "Argument of type \"object\" cannot be assigned to parameter \"activite\" of type \"Activite\" in function \"__init__\"\n  \"object\" is not assignable to \"Activite\""
-  },
-  {
-    "fichier": "src/ourouler/services/calibrer.py",
-    "regle": "reportAttributeAccessIssue",
-    "message": "Cannot access attribute \"meta\" for class \"object\"\n  Attribute \"meta\" is unknown"
-  },
-  {
     "fichier": "src/ourouler/services/comparer.py",
     "regle": "reportArgumentType",
     "message": "Argument of type \"float | None\" cannot be assigned to parameter \"ftp_w\" of type \"float\" in function \"series_droites\"\n  Type \"float | None\" is not assignable to type \"float\"\n    \"None\" is not assignable to \"float\""

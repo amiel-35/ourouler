@@ -40,9 +40,15 @@ def detecter_groupe(
     distance **retenue** (les tronçons écartés — arrêts, accélérations — ne
     disent rien d'un équilibre).
     """
-    echantillons = [
-        e for e in echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh) if e.retenu
-    ]
+    return groupe_des_echantillons(
+        echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh), p
+    )
+
+
+def groupe_des_echantillons(qualifies: list, p: Parametres) -> tuple[bool, float]:
+    """`detecter_groupe` à partir d'échantillons déjà qualifiés — les siens, ou ceux d'un
+    dérivé stocké (`physique.calibration.SortieDerivee.echantillons_qualifies`)."""
+    echantillons = [e for e in qualifies if e.retenu]
     distance = sum(e.longueur_m for e in echantillons)
     if distance <= 0:
         return (False, 0.0)
