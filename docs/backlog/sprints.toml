@@ -58,7 +58,7 @@ titre = "Le cycliste décide de ses données, le mainteneur administre sans ssh"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-choix-conservation-fichiers-bruts"
-statut = "prevu"
+statut = "en_cours"
 
 [[sprint.element]]
 fiche = "2026-09-26-feature-demande-invitation-et-admin"
