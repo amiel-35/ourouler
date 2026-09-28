@@ -119,6 +119,14 @@ volontairement hors de `/api/v1` et hors du schéma publié
 question posée par l'infrastructure. Le `Dockerfile` la pose en
 `HEALTHCHECK` ; Coolify peut l'utiliser de la même façon.
 
+## Migrations de la base des comptes
+
+Le conteneur les applique **à chaque démarrage**, avant de servir quoi que ce
+soit, dès que `OUROULER_DATABASE_URL` est posée (`deploiement/api/entrypoint.py`,
+`_appliquer_migrations`) : une version qui arrive avec une nouvelle table
+fonctionne dès son premier démarrage. Rejouer ne fait rien. Les commandes de
+comptes ci-dessous les appliquent aussi, pour le cas où elles tournent ailleurs.
+
 ## Gérer les comptes depuis la ligne de commande (exploitant)
 
 En mode `heberge`, les comptes se gèrent **exclusivement** en ligne de
